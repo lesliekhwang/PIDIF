@@ -1,0 +1,17 @@
+
+Error [cortex] [time 2/27/26 1:40:32] No GUI functions are available.
+1000000: fluent(CX_Primitive_Error+0x225) [0x7f0545]
+1000000: fluent(gui_not_available+0xf) [0x8a28af]
+1000000: fluent(eval+0xc03) [0x9254b3]
+1000000: fluent() [0x926e6f]
+1000000: fluent(eval+0xfd0) [0x925880]
+1000000: fluent(eval+0xb7a) [0x92542a]
+1000000: fluent() [0x926e6f]
+1000000: fluent(eval+0xfd0) [0x925880]
+1000000: fluent(eval+0x1f25) [0x9267d5]
+1000000: fluent() [0x92714f]
+1000000: fluent(eval_errprotect+0x4e) [0x9279fe]
+1000000: fluent(eval+0x2b2) [0x924b62]
+1000000: fluent(eval+0xbe1) [0x925491]
+1000000: fluent(eval+0xe0e) [0x9256be]
+1000000: fluent(eval+0xec7) [0x925777]

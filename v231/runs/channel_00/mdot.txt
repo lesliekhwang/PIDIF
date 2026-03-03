@@ -1,0 +1,10 @@
+                          "Flux Report"
+
+                  Mass Flow Rate               [kg/s]
+-------------------------------- --------------------
+                           inlet            0.0001225
+interior-open_cascade_step_translator_7.9_1        0.00012405786
+                          outlet        -0.0001188348
+                           walls                   -0
+                ---------------- --------------------
+                             Net        3.6651982e-06

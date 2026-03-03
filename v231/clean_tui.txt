@@ -1,0 +1,402 @@
+Transcript Start Time:  02:11:37, 27 Feb 2026 
+Current Directory: "/home/nuoxu9"
+
+Build Time: May 29 2023 07:35:10 EDT  Build Id: 10212 
+Executable Path: /usr/local/tools/ansys_inc/v232/fluent/bin/fluent
+
+-------------------------------------------------------------------------------
+ID    Hostname     Core  O.S.      PID            Vendor                     
+-------------------------------------------------------------------------------
+n0-3  en4226642rl  4/72  Linux-64  467024-467027  Intel(R) Xeon(R) Gold 6354 
+host  en4226642rl        Linux-64  465922         Intel(R) Xeon(R) Gold 6354 
+
+MPI Option Selected: intel
+Selected system interconnect: shared-memory
+-------------------------------------------------------------------------------
+
+Cortex Process ID: 464552 
+License Server Path: 1055@enlicense2.eas.asu.edu 
+
+> /file/read-case "/home/nuoxu9/PIDIF/channel_00.msh"WARNING: Rank:0 Machine en4226642rl has 19 % of RAM filled with file buffer caches.
+This can cause potential performance issues. Please use -cflush flag to flush the cache. 
+
+
+Reading "/home/nuoxu9/PIDIF/channel_00.msh"...
+
+Buffering for file scan...
+
+      20 nodes, binary.
+      28 nodes, binary.
+      52 2D interior faces, zone  1, binary.
+      11 2D velocity-inlet faces, zone  5, binary.
+      11 2D pressure-outlet faces, zone  6, binary.
+       6 2D wall faces, zone  7, binary.
+      33 quadrilateral cells, zone  2, binary.
+
+Building...
+     mesh
+	auto partitioning mesh by Metis (fast),
+	distributing mesh
+		parts....,
+		faces....,
+		nodes....,
+		cells....,
+        bandwidth reduction using Reverse Cuthill-McKee: 7/4 = 1.75
+     materials,
+     interface,
+     domains,
+     zones,
+	walls
+	outlet
+	inlet
+	open_cascade_step_translator_7.9_1
+	interior-open_cascade_step_translator_7.9_1
+     parallel,
+Done.
+
+Preparing mesh for display...
+Done.
+
+
+> /define/models/viscous/laminar yes
+
+> /define/models/energy no
+
+> /define/boundary-conditions/velocity-inlet (inlet)
+inlet
+Velocity Specification Method: Magnitude and Direction [no] yes
+Reference Frame: Absolute [yes] 
+Use Profile for Velocity Magnitude? [no] 
+Velocity Magnitude (constant or expression) (in [m/s]) [0] 0.1
+Use Profile for Supersonic/Initial Gauge Pressure? [no] 
+Supersonic/Initial Gauge Pressure (constant or expression) (in [Pa]) [0] 
+Use Profile for X-Component of Flow Direction? [no] 
+X-Component of Flow Direction (constant or expression) [1] 
+Use Profile for Y-Component of Flow Direction? [no] 
+Y-Component of Flow Direction (constant or expression) [0] 
+
+> /define/boundary-conditions/pressure-outlet (outlet)
+outlet
+Backflow Reference Frame: Absolute [yes] 
+Use Profile for Gauge Pressure? [no] 
+Gauge Pressure (constant or expression) (in [Pa]) [0] 
+Backflow Direction Specification Method: Direction Vector [no] 
+Backflow Direction Specification Method: Normal to Boundary [yes] 
+Backflow Pressure Specification: Total Pressure [yes] 
+Average Pressure Specification? [no] 
+Specify targeted mass flow rate [no] 
+
+> /solve/initialize/hyb-initialization
+
+Initialize using the hybrid initialization method.
+
+Checking case topology... 
+-This case has both inlets & outlets 
+-Pressure information is not available at the boundaries.
+ Case will be initialized with constant pressure
+
+	iter		scalar-0
+
+	1		1.000000e+00
+	2		1.038035e+01
+	3		1.879840e-01
+	4		3.978358e-02
+	5		7.901496e-03
+	6		1.887360e-03
+	7		2.355211e-03
+	8		3.235292e-03
+	9		3.009182e-03
+	10		2.745415e-03
+
+Hybrid initialization is done.
+
+Warning: convergence tolerance of 1.000000e-06 not reached
+during Hybrid Initialization.
+
+> /solve/iterate 200
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+
+ Reversed flow on 4 faces (10.9% area) of pressure-outlet 6.
+     1  1.0000e+00  1.2278e-02  2.0728e-01  0:00:02  199
+
+ Reversed flow on 7 faces (90.9% area) of pressure-outlet 6.
+     2  4.3071e-01  1.8605e-02  2.6391e-01  0:00:05  198
+
+ Reversed flow on 7 faces (90.9% area) of pressure-outlet 6.
+     3  2.0394e-01  1.9921e-02  2.6477e-01  0:00:05  197
+
+ Reversed flow on 5 faces (84.3% area) of pressure-outlet 6.
+     4  1.0494e-01  1.9728e-02  2.4270e-01  0:00:04  196
+
+ Reversed flow on 6 faces (87.3% area) of pressure-outlet 6.
+     5  6.2876e-02  1.8609e-02  1.9706e-01  0:00:04  195
+
+ Reversed flow on 3 faces (77.9% area) of pressure-outlet 6.
+     6  3.7973e-02  1.6054e-02  1.4849e-01  0:00:04  194
+
+ Reversed flow on 3 faces (77.9% area) of pressure-outlet 6.
+     7  2.5948e-02  1.2858e-02  1.2072e-01  0:00:04  193
+     8  1.9772e-02  9.3411e-03  1.1309e-01  0:00:04  192
+     9  1.5920e-02  6.7015e-03  1.4527e-01  0:00:04  191
+    10  1.3167e-02  4.2550e-03  2.1170e-01  0:00:04  190
+    11  1.3701e-02  2.3960e-03  2.7790e-01  0:00:04  189
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    12  1.5284e-02  1.8638e-03  3.5217e-01  0:00:04  188
+    13  1.9778e-02  1.6332e-03  4.3679e-01  0:00:04  187
+    14  2.6960e-02  2.0067e-03  5.2879e-01  0:00:04  186
+    15  3.5808e-02  1.8927e-03  6.3917e-01  0:00:03  185
+    16  4.9385e-02  2.1272e-03  7.4067e-01  0:00:03  184
+    17  6.4816e-02  1.9656e-03  8.6804e-01  0:00:03  183
+    18  9.2276e-02  2.3043e-03  9.4310e-01  0:00:03  182
+    19  1.1233e-01  2.0732e-03  1.0325e+00  0:00:03  181
+    20  1.4572e-01  2.3044e-03  1.0231e+00  0:00:03  180
+    21  1.5643e-01  2.2122e-03  1.0444e+00  0:00:03  179
+    22  1.7842e-01  2.2055e-03  9.9474e-01  0:00:03  178
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    23  1.6975e-01  2.1630e-03  1.0054e+00  0:00:03  177
+    24  1.8407e-01  2.1371e-03  9.6455e-01  0:00:03  176
+    25  1.6842e-01  2.1333e-03  9.8820e-01  0:00:03  175
+    26  1.8158e-01  2.1057e-03  9.5532e-01  0:00:03  174
+    27  1.6781e-01  2.1276e-03  9.8421e-01  0:00:03  173
+    28  1.8095e-01  2.0835e-03  9.5306e-01  0:00:03  172
+    29  1.6977e-01  2.1458e-03  9.8217e-01  0:00:03  171
+    30  1.8286e-01  2.0625e-03  9.5247e-01  0:00:03  170
+    31  1.7330e-01  2.1426e-03  9.8020e-01  0:00:03  169
+    32  1.8627e-01  2.0405e-03  9.5273e-01  0:00:03  168
+    33  1.9471e-01  2.6407e-03  8.8038e-01  0:00:03  167
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    34  1.7583e-01  2.3639e-03  8.9495e-01  0:00:03  166
+    35  1.7606e-01  2.3094e-03  9.3099e-01  0:00:11  165
+    36  1.8072e-01  2.3514e-03  9.5155e-01  0:00:10  164
+    37  1.9042e-01  2.2033e-03  9.7423e-01  0:00:08  163
+    38  2.0045e-01  2.2892e-03  9.6081e-01  0:00:07  162
+    39  2.0450e-01  2.2400e-03  9.7005e-01  0:00:06  161
+    40  2.1031e-01  2.8383e-03  9.6443e-01  0:00:05  160
+    41  2.0815e-01  2.1673e-03  8.9714e-01  0:00:05  159
+    42  2.0106e-01  2.5037e-03  9.4967e-01  0:00:05  158
+    43  1.9869e-01  2.2436e-03  9.4309e-01  0:00:04  157
+    44  2.0880e-01  2.3596e-03  9.2538e-01  0:00:04  156
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    45  2.0345e-01  2.0654e-03  9.3174e-01  0:00:03  155
+    46  2.1167e-01  2.1283e-03  9.3151e-01  0:00:03  154
+    47  2.0711e-01  2.0457e-03  9.3263e-01  0:00:03  153
+    48  2.1542e-01  2.0809e-03  9.3039e-01  0:00:03  152
+    49  2.0931e-01  2.0380e-03  9.2931e-01  0:00:03  151
+    50  2.1709e-01  2.0619e-03  9.2821e-01  0:00:03  150
+    51  2.1011e-01  2.0243e-03  9.2645e-01  0:00:03  149
+    52  2.1796e-01  2.0450e-03  9.2554e-01  0:00:03  148
+    53  2.1044e-01  2.0126e-03  9.2383e-01  0:00:03  147
+    54  2.1852e-01  2.0263e-03  9.2267e-01  0:00:03  146
+    55  2.1064e-01  1.9989e-03  9.2126e-01  0:00:03  145
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    56  2.1895e-01  2.0019e-03  9.1975e-01  0:00:03  144
+    57  2.1700e-01  2.1287e-03  8.9292e-01  0:00:02  143
+    58  2.1121e-01  2.0412e-03  9.1045e-01  0:00:02  142
+    59  2.0957e-01  1.9715e-03  9.1146e-01  0:00:02  141
+    60  2.2262e-01  2.1177e-03  8.9899e-01  0:00:02  140
+    61  2.0765e-01  2.0353e-03  8.7735e-01  0:00:02  139
+    62  2.0885e-01  2.0035e-03  9.0853e-01  0:00:02  138
+    63  2.0986e-01  1.9482e-03  8.9508e-01  0:00:02  137
+    64  2.1603e-01  2.0824e-03  8.9068e-01  0:00:02  136
+    65  2.0374e-01  1.9392e-03  8.7457e-01  0:00:02  135
+    66  2.1259e-01  2.0093e-03  8.9270e-01  0:00:02  134
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    67  1.9970e-01  1.9434e-03  8.7328e-01  0:00:02  133
+    68  2.1168e-01  1.9905e-03  8.8935e-01  0:00:02  132
+    69  1.9786e-01  1.9340e-03  8.7230e-01  0:00:02  131
+    70  2.1157e-01  1.9817e-03  8.8596e-01  0:00:02  130
+    71  1.9647e-01  1.9257e-03  8.7052e-01  0:00:02  129
+    72  2.1148e-01  1.9729e-03  8.8287e-01  0:00:02  128
+    73  1.9522e-01  1.9202e-03  8.6859e-01  0:00:02  127
+    74  2.1136e-01  1.9639e-03  8.8001e-01  0:00:02  126
+    75  1.9407e-01  1.9165e-03  8.6669e-01  0:00:02  125
+    76  2.1120e-01  1.9550e-03  8.7731e-01  0:00:02  124
+    77  1.9303e-01  1.9137e-03  8.6487e-01  0:00:02  123
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    78  2.1105e-01  1.9464e-03  8.7475e-01  0:00:02  122
+    79  1.9211e-01  1.9113e-03  8.6310e-01  0:00:02  121
+    80  2.1091e-01  1.9383e-03  8.7231e-01  0:00:02  120
+    81  1.9130e-01  1.9091e-03  8.6139e-01  0:00:02  119
+    82  2.1076e-01  1.9307e-03  8.6999e-01  0:00:02  118
+    83  1.9058e-01  1.9069e-03  8.5972e-01  0:00:02  117
+    84  2.1061e-01  1.9238e-03  8.6776e-01  0:00:02  116
+    85  1.8994e-01  1.9048e-03  8.5809e-01  0:00:02  115
+    86  2.1046e-01  1.9173e-03  8.6562e-01  0:00:02  114
+    87  1.8936e-01  1.9026e-03  8.5648e-01  0:00:02  113
+    88  2.1030e-01  1.9112e-03  8.6356e-01  0:00:02  112
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+    89  1.8883e-01  1.9005e-03  8.5491e-01  0:00:02  111
+    90  2.1014e-01  1.9056e-03  8.6157e-01  0:00:02  110
+    91  1.8835e-01  1.8983e-03  8.5336e-01  0:00:02  109
+    92  2.0997e-01  1.9002e-03  8.5965e-01  0:00:02  108
+    93  1.8791e-01  1.8961e-03  8.5184e-01  0:00:02  107
+    94  2.0980e-01  1.8952e-03  8.5777e-01  0:00:02  106
+    95  1.8751e-01  1.8938e-03  8.5034e-01  0:00:02  105
+    96  2.0963e-01  1.8904e-03  8.5596e-01  0:00:02  104
+    97  1.8714e-01  1.8916e-03  8.4887e-01  0:00:02  103
+    98  2.0945e-01  1.8859e-03  8.5419e-01  0:00:02  102
+    99  1.8679e-01  1.8893e-03  8.4741e-01  0:00:02  101
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   100  2.0927e-01  1.8816e-03  8.5246e-01  0:00:02  100
+   101  1.8647e-01  1.8870e-03  8.4598e-01  0:00:02   99
+   102  2.0909e-01  1.8774e-03  8.5078e-01  0:00:02   98
+   103  1.8617e-01  1.8846e-03  8.4457e-01  0:00:02   97
+   104  2.0890e-01  1.8735e-03  8.4913e-01  0:00:02   96
+   105  1.8589e-01  1.8823e-03  8.4318e-01  0:00:02   95
+   106  2.0872e-01  1.8697e-03  8.4752e-01  0:00:02   94
+   107  1.8554e-01  1.8799e-03  8.4184e-01  0:00:02   93
+   108  2.0849e-01  1.8663e-03  8.4589e-01  0:00:02   92
+   109  1.8517e-01  1.8774e-03  8.4044e-01  0:00:02   91
+   110  2.0821e-01  1.8628e-03  8.4428e-01  0:00:02   90
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   111  1.8481e-01  1.8750e-03  8.3909e-01  0:00:01   89
+   112  2.0792e-01  1.8596e-03  8.4269e-01  0:00:01   88
+   113  1.8447e-01  1.8726e-03  8.3774e-01  0:00:01   87
+   114  2.0761e-01  1.8565e-03  8.4112e-01  0:00:01   86
+   115  1.8414e-01  1.8704e-03  8.3639e-01  0:00:01   85
+   116  2.0730e-01  1.8534e-03  8.3958e-01  0:00:01   84
+   117  1.8382e-01  1.8682e-03  8.3505e-01  0:00:03   83
+   118  2.0699e-01  1.8504e-03  8.3805e-01  0:00:03   82
+   119  1.8351e-01  1.8660e-03  8.3373e-01  0:00:03   81
+   120  2.0668e-01  1.8474e-03  8.3656e-01  0:00:02   80
+   121  1.8321e-01  1.8639e-03  8.3242e-01  0:00:02   79
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   122  2.0636e-01  1.8446e-03  8.3508e-01  0:00:02   78
+   123  1.8292e-01  1.8619e-03  8.3112e-01  0:00:02   77
+   124  2.0604e-01  1.8419e-03  8.3363e-01  0:00:02   76
+   125  1.8264e-01  1.8598e-03  8.2984e-01  0:00:02   75
+   126  2.0572e-01  1.8392e-03  8.3220e-01  0:00:01   74
+   127  1.8235e-01  1.8577e-03  8.2855e-01  0:00:01   73
+   128  2.0540e-01  1.8366e-03  8.3079e-01  0:00:01   72
+   129  1.8205e-01  1.8557e-03  8.2727e-01  0:00:01   71
+   130  2.0507e-01  1.8340e-03  8.2944e-01  0:00:01   70
+   131  1.8176e-01  1.8536e-03  8.2601e-01  0:00:01   69
+   132  2.0473e-01  1.8315e-03  8.2811e-01  0:00:01   68
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   133  1.8147e-01  1.8516e-03  8.2476e-01  0:00:01   67
+   134  2.0440e-01  1.8290e-03  8.2681e-01  0:00:01   66
+   135  1.8120e-01  1.8495e-03  8.2352e-01  0:00:01   65
+   136  2.0406e-01  1.8267e-03  8.2552e-01  0:00:01   64
+   137  1.8092e-01  1.8475e-03  8.2231e-01  0:00:01   63
+   138  2.0373e-01  1.8244e-03  8.2423e-01  0:00:01   62
+   139  1.8065e-01  1.8455e-03  8.2109e-01  0:00:01   61
+   140  2.0338e-01  1.8221e-03  8.2296e-01  0:00:01   60
+   141  1.8038e-01  1.8435e-03  8.1988e-01  0:00:01   59
+   142  2.0304e-01  1.8199e-03  8.2169e-01  0:00:01   58
+   143  1.8011e-01  1.8415e-03  8.1868e-01  0:00:01   57
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   144  2.0270e-01  1.8178e-03  8.2044e-01  0:00:01   56
+   145  1.7984e-01  1.8396e-03  8.1750e-01  0:00:01   55
+   146  2.0236e-01  1.8157e-03  8.1920e-01  0:00:01   54
+   147  1.7958e-01  1.8377e-03  8.1632e-01  0:00:01   53
+   148  2.0202e-01  1.8136e-03  8.1797e-01  0:00:01   52
+   149  1.7932e-01  1.8358e-03  8.1515e-01  0:00:01   51
+   150  2.0169e-01  1.8116e-03  8.1675e-01  0:00:01   50
+   151  1.7906e-01  1.8339e-03  8.1399e-01  0:00:01   49
+   152  2.0135e-01  1.8096e-03  8.1553e-01  0:00:01   48
+   153  1.7880e-01  1.8321e-03  8.1283e-01  0:00:01   47
+   154  2.0102e-01  1.8077e-03  8.1433e-01  0:00:01   46
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   155  1.7853e-01  1.8301e-03  8.1169e-01  0:00:01   45
+   156  2.0069e-01  1.8057e-03  8.1313e-01  0:00:01   44
+   157  1.7826e-01  1.8281e-03  8.1055e-01  0:00:01   43
+   158  2.0035e-01  1.8038e-03  8.1193e-01  0:00:01   42
+   159  1.7799e-01  1.8261e-03  8.0942e-01  0:00:01   41
+   160  2.0001e-01  1.8018e-03  8.1074e-01  0:00:01   40
+   161  1.7772e-01  1.8241e-03  8.0828e-01  0:00:01   39
+   162  1.9967e-01  1.7998e-03  8.0956e-01  0:00:01   38
+   163  1.7744e-01  1.8222e-03  8.0716e-01  0:00:01   37
+   164  1.9932e-01  1.7979e-03  8.0838e-01  0:00:01   36
+   165  1.7717e-01  1.8203e-03  8.0604e-01  0:00:01   35
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   166  1.9898e-01  1.7960e-03  8.0721e-01  0:00:01   34
+   167  1.7690e-01  1.8184e-03  8.0492e-01  0:00:01   33
+   168  1.9864e-01  1.7940e-03  8.0605e-01  0:00:01   32
+   169  1.7662e-01  1.8165e-03  8.0381e-01  0:00:01   31
+   170  1.9829e-01  1.7921e-03  8.0489e-01  0:00:01   30
+   171  1.7635e-01  1.8146e-03  8.0271e-01  0:00:00   29
+   172  1.9795e-01  1.7903e-03  8.0374e-01  0:00:00   28
+   173  1.7608e-01  1.8127e-03  8.0161e-01  0:00:00   27
+   174  1.9761e-01  1.7884e-03  8.0259e-01  0:00:00   26
+   175  1.7580e-01  1.8109e-03  8.0051e-01  0:00:00   25
+   176  1.9726e-01  1.7865e-03  8.0146e-01  0:00:00   24
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   177  1.7553e-01  1.8091e-03  7.9942e-01  0:00:00   23
+   178  1.9692e-01  1.7847e-03  8.0032e-01  0:00:00   22
+   179  1.7526e-01  1.8072e-03  7.9834e-01  0:00:00   21
+   180  1.9657e-01  1.7829e-03  7.9920e-01  0:00:00   20
+   181  1.7499e-01  1.8054e-03  7.9726e-01  0:00:00   19
+   182  1.9623e-01  1.7811e-03  7.9808e-01  0:00:00   18
+   183  1.7471e-01  1.8035e-03  7.9619e-01  0:00:00   17
+   184  1.9589e-01  1.7791e-03  7.9696e-01  0:00:00   16
+   185  1.7444e-01  1.8017e-03  7.9511e-01  0:00:00   15
+   186  1.9555e-01  1.7770e-03  7.9584e-01  0:00:00   14
+   187  1.7416e-01  1.7999e-03  7.9402e-01  0:00:00   13
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   188  1.9521e-01  1.7749e-03  7.9473e-01  0:00:00   12
+   189  1.7387e-01  1.7980e-03  7.9294e-01  0:00:00   11
+   190  1.9486e-01  1.7729e-03  7.9362e-01  0:00:00   10
+   191  1.7359e-01  1.7962e-03  7.9188e-01  0:00:00    9
+   192  1.9452e-01  1.7710e-03  7.9251e-01  0:00:00    8
+   193  1.7331e-01  1.7944e-03  7.9082e-01  0:00:00    7
+   194  1.9418e-01  1.7692e-03  7.9142e-01  0:00:00    6
+   195  1.7302e-01  1.7927e-03  7.8976e-01  0:00:00    5
+   196  1.9385e-01  1.7674e-03  7.9033e-01  0:00:00    4
+   197  1.7275e-01  1.7909e-03  7.8872e-01  0:00:00    3
+   198  1.9352e-01  1.7656e-03  7.8924e-01  0:00:00    2
+
+  iter  continuity  x-velocity  y-velocity     time/iter
+   199  1.7246e-01  1.7892e-03  7.8767e-01  0:00:00    1
+   200  1.9318e-01  1.7638e-03  7.8817e-01  0:00:00    0
+
+> /report/fluxes/mass-flow
+All boundary/interior zones [yes] 
+Write to file? [no] yes
+filename (*.flp) [""] "/home/nuoxu9/PIDIF/mdot.txt"
+File "/home/nuoxu9/PIDIF/mdot.txt" exists.
+Append data to it? [yes] yes
+
+> /report/surface-integrals/area-weighted-avg
+()
+Surface Id :(1) [()] (cx-gui-do cx-set-list-tree-selections "NavigationPane*Frame2*Table1*List_Tree2" (list "Results|Surfaces"))
+(cx-gui-do cx-set-list-tree-selections "NavigationPane*Frame2*Table1*List_Tree2" (list "Results|Surfaces"))
+(cx-gui-do cx-activate-item "NavigationPane*Frame2*Table1*List_Tree2")
+(cx-gui-do cx-set-list-tree-selections "NavigationPane*Frame2*Table1*List_Tree2" (list "Results|Surfaces"))
+(cx-gui-do cx-activate-item "Surfaces*PanelButtons*PushButton2(Cancel)")
+(cx-gui-do cx-set-list-tree-selections "NavigationPane*Frame2*Table1*List_Tree2" (list "Results|Reports|Surface Integrals"))
+(cx-gui-do cx-set-list-tree-selections "NavigationPane*Frame2*Table1*List_Tree2" (list "Results|Reports|Surface Integrals"))
+(cx-gui-do cx-activate-item "NavigationPane*Frame2*Table1*List_Tree2")
+(cx-gui-do cx-set-list-tree-selections "NavigationPane*Frame2*Table1*List_Tree2" (list "Results|Reports|Surface Integrals"))
+(cx-gui-do cx-activate-item "Surface Integrals*PanelButtons*PushButton2(Cancel)")
+3
+Surface Id :(2) [()] 
+Available options: ("pressure" "pressure-coefficient" "dynamic-pressure" "absolute-pressure" "total-pressure" "rel-total-pressure" "density" "density-all" "velocity-magnitude" "x-velocity" "y-velocity" "stream-function" "radial-velocity" "tangential-velocity" "rel-velocity-magnitude" "relative-x-velocity" "relative-y-velocity" "rel-tangential-velocity" "mesh-x-velocity" "mesh-y-velocity" "velocity-angle" "relative-velocity-angle" "vorticity-mag" "cell-reynolds-number" "cell-convective-courant-number" "q-criterion" "raw-q-criterion" "lambda2-criterion" "viscosity-lam" "wall-shear" "x-wall-shear" "y-wall-shear" "skin-friction-coef" "cell-partition-active" "cell-partition-stored" "cell-id" "cell-element-type" "cell-type" "cell-zone" "partition-neighbors" "cell-weight" "x-coordinate" "y-coordinate" "axial-coordinate" "radial-coordinate" "face-area-magnitude" "x-face-area" "y-face-area" "cell-volume" "orthogonal-quality" "cell-equiangle-skew" "cell-equivolume-skew" "face-handedness" "mark-poor-elements" "interface-overlap-fraction" "cell-wall-distance" "cell-refine-level" "smoothed-cell-refine-level" "boundary-layer-cells" "boundary-cell-dist" "boundary-normal-dist" "boundary-volume-dist" "cell-volume-change" "mass-imbalance" "strain-rate-mag" "dx-velocity-dx" "dy-velocity-dx" "dx-velocity-dy" "dy-velocity-dy" "dp-dx" "dp-dy" "pressure-hessian-indicator" "wall-temp-out-surf" "wall-temp-in-surf")
+area-weighted-avg of [] pressure
+Write to file? [no] yes
+filename (*.srp) [""] "/home/nuoxu9/PIDIF/pout.txt"
+File "/home/nuoxu9/PIDIF/pout.txt" exists.
+Append data to it? [yes] yes
+
+> exit
+The current case and data have not been saved.
+OK to discard? [cancel] yes
+Transcript Stop Time:  02:19:25, 27 Feb 2026 
+Total Transcript Time: 7 Minute 47 Second.
