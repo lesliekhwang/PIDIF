@@ -1,0 +1,93 @@
+{
+  "settings": {
+    "n_valid": 3000,
+    "seed": 0,
+    "Lx": 50.0,
+    "Ly": 20.0,
+    "margin": 0.5,
+    "g_min": 0.15,
+    "out_csv": "params.csv",
+    "out_meta": "meta.json",
+    "method": "sobol",
+    "oversample_factor": 8.0
+  },
+  "params": [
+    "Wc",
+    "Hc",
+    "tw",
+    "Rf",
+    "py",
+    "Neff",
+    "sx",
+    "A",
+    "lam",
+    "win",
+    "wout",
+    "lh"
+  ],
+  "bounds": {
+    "Wc": [
+      0.15,
+      1.2
+    ],
+    "Hc": [
+      0.1,
+      1.0
+    ],
+    "tw": [
+      0.15,
+      1.2
+    ],
+    "Rf": [
+      0.1,
+      1.5
+    ],
+    "py": [
+      0.4,
+      2.5
+    ],
+    "Neff": [
+      6.0,
+      24.0
+    ],
+    "sx": [
+      0.6,
+      0.95
+    ],
+    "A": [
+      0.0,
+      0.3
+    ],
+    "lam": [
+      0.5,
+      12.0
+    ],
+    "win": [
+      0.5,
+      5.0
+    ],
+    "wout": [
+      0.5,
+      5.0
+    ],
+    "lh": [
+      2.0,
+      15.0
+    ]
+  },
+  "notes": {
+    "Neff_to_N": "N = round(Neff) clipped to [6,24]",
+    "units": "mm (assumed)",
+    "sampler": "Sobol/LHS from SciPy if available; otherwise RNG fallback"
+  },
+  "constraints": [
+    "py >= Wc + tw + g_min",
+    "0.3 <= Hc/Wc <= 5.0",
+    "Rf <= 0.5 * min(Wc, tw, py - Wc)",
+    "A <= 0.3*Hc",
+    "lam >= 3A + 0.5",
+    "(N-1)*py + Wc + 2*margin <= Ly",
+    "span = sx*(Lx-2*margin - win - wout) >= 5",
+    "lh + 2*margin <= Ly"
+  ]
+}
