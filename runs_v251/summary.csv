@@ -1,0 +1,2 @@
+case,uin,n_iter,p_in_Pa,p_out_Pa,dp_Pa,mdot_in_kgps,mdot_out_kgps,mdot_in_abs_kgps,mdot_out_abs_kgps,inlet,outlet
+channel_01,0.2,200,101326.1079556665,101325.0,1.1079556665063137,0.00024500000000245,-0.0002440520504441723,0.00024500000000245,0.0002440520504441723,inlet,outlet
