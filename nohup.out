@@ -1,0 +1,1012 @@
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -py -t4 -gu -driver null -sifile=/tmp/serverinfo-b350jufi.txt -nm
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/cortex/lnamd64/cortex.25.1.0 -f fluent -py -gu -sifile=/tmp/serverinfo-b350jufi.txt -nm (fluent "2ddp -pdefault  -host -r25.1.0 -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh")
+
+Opening input/output transcript to file "/home/nuoxu9/PIDIF/fluent-20260303-094426-396239.trn".
+Auto-Transcript Start Time:  09:44:26, 03 Mar 2026 
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -pdefault -host -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh -cx en4226642rl.eng.asu.edu:41575:44127
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_host/fluent.25.1.0 host -cx en4226642rl.eng.asu.edu:41575:44127 "(list (rpsetvar (QUOTE parallel/function) "fluent 2ddp -flux -node -r25.1.0 -t4 -pdefault -mpi=intel -ssh") (rpsetvar (QUOTE parallel/rhost) "") (rpsetvar (QUOTE parallel/ruser) "") (rpsetvar (QUOTE parallel/nprocs_string) "4") (rpsetvar (QUOTE parallel/auto-spawn?) #t) (rpsetvar (QUOTE parallel/trace-level) 0) (rpsetvar (QUOTE parallel/remote-shell) 1) (rpsetvar (QUOTE parallel/path) "/usr/local/tools/ansys_inc/v251/fluent") (rpsetvar (QUOTE parallel/hostsfile) "") (rpsetvar (QUOTE gpuapp/devices) ""))"
+
+              Welcome to ANSYS Fluent 2025 R1
+
+              Copyright 1987-2025 ANSYS, Inc. All Rights Reserved.
+              Unauthorized use, distribution or duplication is prohibited.
+              This product is subject to U.S. laws governing export and re-export.
+              For full Legal Notice, see documentation.
+
+Build Time: Nov 26 2024 15:35:47 EST  Build Id: 10210  
+ 
+Connected License Server List:	1055@enlicense2.eas.asu.edu
+
+     --------------------------------------------------------------
+     This is an academic version of ANSYS FLUENT. Usage of this product
+     license is limited to the terms and conditions specified in your ANSYS
+     license form, additional terms section.
+     --------------------------------------------------------------
+Host spawning Node 0 on machine "en4226642rl" (unix).
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -flux -node -t4 -pdefault -mpi=intel -ssh -mport 149.169.30.61:149.169.30.61:37271:0
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/multiport/mpi/lnamd64/intel2021/bin/mpirun -f /tmp/fluent-appfile.nuoxu9.398013 -genv I_MPI_FABRICS shm -genv FLUENT_ARCH lnamd64 -genv I_MPI_DEBUG 0 -genv I_MPI_ADJUST_GATHERV 3 -genv I_MPI_ADJUST_ALLREDUCE 2 -genv I_MPI_PLATFORM auto -genv PYTHONHOME /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/../../commonfiles/CPython/3_10/linx64/Release/python -genv FLUENT_PROD_DIR /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0 -genv FLUENT_AFFINITY 0 -genv I_MPI_PIN enable -genv KMP_AFFINITY disabled -n 4 /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_node/fluent_mpi.25.1.0 node -mpiw intel -pic shmem -mport 149.169.30.61:149.169.30.61:37271:0
+
+-------------------------------------------------------------------------------
+ID    Hostname     Core  O.S.      PID            Vendor                     
+-------------------------------------------------------------------------------
+n0-3  en4226642rl  4/72  Linux-64  398202-398205  Intel(R) Xeon(R) Gold 6354 
+host  en4226642rl        Linux-64  396933         Intel(R) Xeon(R) Gold 6354 
+
+MPI Option Selected: intel
+Selected system interconnect: shared-memory
+-------------------------------------------------------------------------------
+
+Cleanup script file is /home/nuoxu9/PIDIF/cleanup-fluent-en4226642rl-396933.sh
+
+Graphics driver currently in use: null
+
+Posting ANSYS Product Improvement Program startup data
+Done.
+Running DatamodelService (regular, validated version).
+Information: The server has started and is running.
+>>> Fast-loading "/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/addons/afd/lib/hdfio.bin"
+Done.
+WARNING: Rank:0 Machine en4226642rl has 17 % of RAM filled with file buffer caches.
+This can cause potential performance issues. Please use -cflush flag to flush the cache. 
+
+
+Reading from en4226642rl:"/home/nuoxu9/PIDIF/runs_v251/channel_00/case.cas.h5" in NODE0 mode ...
+  Reading mesh ...
+          33 cells,     1 cell zone  ...
+             33 quadrilateral cells,  zone id: 2
+          80 faces,     4 face zones ...
+             52 2D interior faces,  zone id: 1
+             11 2D velocity-inlet faces,  zone id: 5
+             11 2D pressure-outlet faces,  zone id: 6
+              6 2D wall faces,  zone id: 7
+          48 nodes,     1 node zone  ...
+  Done.
+
+
+Building...
+     mesh
+	distributing mesh
+		parts....,
+		faces....,
+		nodes....,
+		cells....,
+        bandwidth reduction using Reverse Cuthill-McKee: 7/4 = 1.75
+     materials,
+     interface,
+     domains,
+	mixture
+     zones,
+	walls
+	outlet
+	inlet
+	interior-open_cascade_step_translator_7.9_1
+	open_cascade_step_translator_7.9_1
+     parallel,
+Done.
+
+Error: File "/home/nuoxu9/PIDIF/runs_v251/channel_00/case.dat.h5" not found!
+Error Object: #f
+
+Error: File "/home/nuoxu9/PIDIF/runs_v251/channel_00/case.dat.h5" not found!
+Error Object: #f
+
+Posting ANSYS Product Improvement Program performance data 
+Done.
+Shutting down Server...
+Services Shutdown...Done.
+Server Shutdown...Done.
+Queue Cleared...Done.
+Shutdown Complete.
+Auto-Transcript Stop Time:  09:44:41, 03 Mar 2026 
+Total Transcript Time: 0 Minute 15 Second.
+
+Automatic transcript closed.
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -py -t4 -gu -driver null -sifile=/tmp/serverinfo-k_8j36ml.txt -nm
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/cortex/lnamd64/cortex.25.1.0 -f fluent -py -gu -sifile=/tmp/serverinfo-k_8j36ml.txt -nm (fluent "2ddp -pdefault  -host -r25.1.0 -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh")
+
+Opening input/output transcript to file "/home/nuoxu9/PIDIF/fluent-20260303-094643-441181.trn".
+Auto-Transcript Start Time:  09:46:43, 03 Mar 2026 
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -pdefault -host -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh -cx en4226642rl.eng.asu.edu:41041:40023
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_host/fluent.25.1.0 host -cx en4226642rl.eng.asu.edu:41041:40023 "(list (rpsetvar (QUOTE parallel/function) "fluent 2ddp -flux -node -r25.1.0 -t4 -pdefault -mpi=intel -ssh") (rpsetvar (QUOTE parallel/rhost) "") (rpsetvar (QUOTE parallel/ruser) "") (rpsetvar (QUOTE parallel/nprocs_string) "4") (rpsetvar (QUOTE parallel/auto-spawn?) #t) (rpsetvar (QUOTE parallel/trace-level) 0) (rpsetvar (QUOTE parallel/remote-shell) 1) (rpsetvar (QUOTE parallel/path) "/usr/local/tools/ansys_inc/v251/fluent") (rpsetvar (QUOTE parallel/hostsfile) "") (rpsetvar (QUOTE gpuapp/devices) ""))"
+
+              Welcome to ANSYS Fluent 2025 R1
+
+              Copyright 1987-2025 ANSYS, Inc. All Rights Reserved.
+              Unauthorized use, distribution or duplication is prohibited.
+              This product is subject to U.S. laws governing export and re-export.
+              For full Legal Notice, see documentation.
+
+Build Time: Nov 26 2024 15:35:47 EST  Build Id: 10210  
+ 
+Connected License Server List:	1055@enlicense2.eas.asu.edu
+
+     --------------------------------------------------------------
+     This is an academic version of ANSYS FLUENT. Usage of this product
+     license is limited to the terms and conditions specified in your ANSYS
+     license form, additional terms section.
+     --------------------------------------------------------------
+Host spawning Node 0 on machine "en4226642rl" (unix).
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -flux -node -t4 -pdefault -mpi=intel -ssh -mport 149.169.30.61:149.169.30.61:35279:0
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/multiport/mpi/lnamd64/intel2021/bin/mpirun -f /tmp/fluent-appfile.nuoxu9.443073 -genv I_MPI_FABRICS shm -genv FLUENT_ARCH lnamd64 -genv I_MPI_DEBUG 0 -genv I_MPI_ADJUST_GATHERV 3 -genv I_MPI_ADJUST_ALLREDUCE 2 -genv I_MPI_PLATFORM auto -genv PYTHONHOME /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/../../commonfiles/CPython/3_10/linx64/Release/python -genv FLUENT_PROD_DIR /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0 -genv FLUENT_AFFINITY 0 -genv I_MPI_PIN enable -genv KMP_AFFINITY disabled -n 4 /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_node/fluent_mpi.25.1.0 node -mpiw intel -pic shmem -mport 149.169.30.61:149.169.30.61:35279:0
+
+-------------------------------------------------------------------------------
+ID    Hostname     Core  O.S.      PID     Vendor                     
+-------------------------------------------------------------------------------
+n3    en4226642rl  4/72  Linux-64  443260  Intel(R) Xeon(R) Gold 6354 
+n2    en4226642rl  3/72  Linux-64  443258  Intel(R) Xeon(R) Gold 6354 
+n1    en4226642rl  2/72  Linux-64  443257  Intel(R) Xeon(R) Gold 6354 
+n0*   en4226642rl  1/72  Linux-64  443256  Intel(R) Xeon(R) Gold 6354 
+host  en4226642rl        Linux-64  442029  Intel(R) Xeon(R) Gold 6354 
+
+MPI Option Selected: intel
+Selected system interconnect: shared-memory
+-------------------------------------------------------------------------------
+
+Cleanup script file is /home/nuoxu9/PIDIF/cleanup-fluent-en4226642rl-442029.sh
+
+Graphics driver currently in use: null
+
+Posting ANSYS Product Improvement Program startup data
+Done.
+Running DatamodelService (regular, validated version).
+Information: The server has started and is running.
+>>> Fast-loading "/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/addons/afd/lib/hdfio.bin"
+Done.
+WARNING: Rank:0 Machine en4226642rl has 17 % of RAM filled with file buffer caches.
+This can cause potential performance issues. Please use -cflush flag to flush the cache. 
+
+
+Reading from en4226642rl:"/home/nuoxu9/PIDIF/runs_v251/channel_00/case.cas.h5" in NODE0 mode ...
+  Reading mesh ...
+          33 cells,     1 cell zone  ...
+             33 quadrilateral cells,  zone id: 2
+          80 faces,     4 face zones ...
+             52 2D interior faces,  zone id: 1
+             11 2D velocity-inlet faces,  zone id: 5
+             11 2D pressure-outlet faces,  zone id: 6
+              6 2D wall faces,  zone id: 7
+          48 nodes,     1 node zone  ...
+  Done.
+
+
+Building...
+     mesh
+	distributing mesh
+		parts....,
+		faces....,
+		nodes....,
+		cells....,
+        bandwidth reduction using Reverse Cuthill-McKee: 7/4 = 1.75
+     materials,
+     interface,
+     domains,
+	mixture
+     zones,
+	walls
+	outlet
+	inlet
+	interior-open_cascade_step_translator_7.9_1
+	open_cascade_step_translator_7.9_1
+     parallel,
+Done.
+
+Reading from en4226642rl:"/home/nuoxu9/PIDIF/runs_v251/channel_00/data.dat.h5" in NODE0 mode ...
+
+
+  Reading results.
+Parallel variables...
+Done.
+
+Posting ANSYS Product Improvement Program performance data 
+Done.
+Shutting down Server...
+Services Shutdown...Done.
+Server Shutdown...Done.
+Queue Cleared...Done.
+Shutdown Complete.
+Auto-Transcript Stop Time:  09:47:02, 03 Mar 2026 
+Total Transcript Time: 0 Minute 18 Second.
+
+Automatic transcript closed.
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -py -t4 -gu -driver null -sifile=/tmp/serverinfo-dlg98s0t.txt -nm
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/cortex/lnamd64/cortex.25.1.0 -f fluent -py -gu -sifile=/tmp/serverinfo-dlg98s0t.txt -nm (fluent "2ddp -pdefault  -host -r25.1.0 -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh")
+
+Opening input/output transcript to file "/home/nuoxu9/PIDIF/fluent-20260303-101535-992599.trn".
+Auto-Transcript Start Time:  10:15:35, 03 Mar 2026 
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -pdefault -host -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh -cx en4226642rl.eng.asu.edu:37799:43835
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_host/fluent.25.1.0 host -cx en4226642rl.eng.asu.edu:37799:43835 "(list (rpsetvar (QUOTE parallel/function) "fluent 2ddp -flux -node -r25.1.0 -t4 -pdefault -mpi=intel -ssh") (rpsetvar (QUOTE parallel/rhost) "") (rpsetvar (QUOTE parallel/ruser) "") (rpsetvar (QUOTE parallel/nprocs_string) "4") (rpsetvar (QUOTE parallel/auto-spawn?) #t) (rpsetvar (QUOTE parallel/trace-level) 0) (rpsetvar (QUOTE parallel/remote-shell) 1) (rpsetvar (QUOTE parallel/path) "/usr/local/tools/ansys_inc/v251/fluent") (rpsetvar (QUOTE parallel/hostsfile) "") (rpsetvar (QUOTE gpuapp/devices) ""))"
+
+              Welcome to ANSYS Fluent 2025 R1
+
+              Copyright 1987-2025 ANSYS, Inc. All Rights Reserved.
+              Unauthorized use, distribution or duplication is prohibited.
+              This product is subject to U.S. laws governing export and re-export.
+              For full Legal Notice, see documentation.
+
+Build Time: Nov 26 2024 15:35:47 EST  Build Id: 10210  
+ 
+Connected License Server List:	1055@enlicense2.eas.asu.edu
+
+     --------------------------------------------------------------
+     This is an academic version of ANSYS FLUENT. Usage of this product
+     license is limited to the terms and conditions specified in your ANSYS
+     license form, additional terms section.
+     --------------------------------------------------------------
+Host spawning Node 0 on machine "en4226642rl" (unix).
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -flux -node -t4 -pdefault -mpi=intel -ssh -mport 149.169.30.61:149.169.30.61:46255:0
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/multiport/mpi/lnamd64/intel2021/bin/mpirun -f /tmp/fluent-appfile.nuoxu9.994309 -genv I_MPI_FABRICS shm -genv FLUENT_ARCH lnamd64 -genv I_MPI_DEBUG 0 -genv I_MPI_ADJUST_GATHERV 3 -genv I_MPI_ADJUST_ALLREDUCE 2 -genv I_MPI_PLATFORM auto -genv PYTHONHOME /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/../../commonfiles/CPython/3_10/linx64/Release/python -genv FLUENT_PROD_DIR /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0 -genv FLUENT_AFFINITY 0 -genv I_MPI_PIN enable -genv KMP_AFFINITY disabled -n 4 /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_node/fluent_mpi.25.1.0 node -mpiw intel -pic shmem -mport 149.169.30.61:149.169.30.61:46255:0
+
+-------------------------------------------------------------------------------
+ID    Hostname     Core  O.S.      PID            Vendor                     
+-------------------------------------------------------------------------------
+n0-3  en4226642rl  4/72  Linux-64  994494-994497  Intel(R) Xeon(R) Gold 6354 
+host  en4226642rl        Linux-64  993271         Intel(R) Xeon(R) Gold 6354 
+
+MPI Option Selected: intel
+Selected system interconnect: shared-memory
+-------------------------------------------------------------------------------
+
+Cleanup script file is /home/nuoxu9/PIDIF/cleanup-fluent-en4226642rl-993271.sh
+
+Graphics driver currently in use: null
+
+Posting ANSYS Product Improvement Program startup data
+Done.
+Running DatamodelService (regular, validated version).
+Information: The server has started and is running.
+>>> Fast-loading "/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/addons/afd/lib/hdfio.bin"
+Done.
+WARNING: Rank:0 Machine en4226642rl has 17 % of RAM filled with file buffer caches.
+This can cause potential performance issues. Please use -cflush flag to flush the cache. 
+
+
+Reading from en4226642rl:"/home/nuoxu9/PIDIF/base/base_case.cas.h5" in NODE0 mode ...
+  Reading mesh ...
+          33 cells,     1 cell zone  ...
+             33 quadrilateral cells,  zone id: 2
+          80 faces,     4 face zones ...
+             52 2D interior faces,  zone id: 1
+             11 2D velocity-inlet faces,  zone id: 5
+             11 2D pressure-outlet faces,  zone id: 6
+              6 2D wall faces,  zone id: 7
+          48 nodes,     1 node zone  ...
+  Done.
+
+
+Building...
+     mesh
+	distributing mesh
+		parts....,
+		faces....,
+		nodes....,
+		cells....,
+        bandwidth reduction using Reverse Cuthill-McKee: 7/4 = 1.75
+     materials,
+     interface,
+     domains,
+	mixture
+     zones,
+	walls
+	outlet
+	inlet
+	interior-open_cascade_step_translator_7.9_1
+	open_cascade_step_translator_7.9_1
+     parallel,
+Done.
+
+Initialize using the hybrid initialization method.
+
+Checking case topology... 
+-This case has both inlets & outlets 
+-Pressure information is not available at the boundaries.
+ Case will be initialized with constant pressure
+
+	iter		scalar-0
+
+	1		1.000000e+00
+	2		1.036879e+01
+	3		1.879621e-01
+	4		3.977961e-02
+	5		7.900786e-03
+	6		2.031211e-03
+	7		2.329077e-03
+	8		3.239617e-03
+	9		3.005786e-03
+	10		2.741460e-03
+
+Hybrid initialization is done.
+
+Warning: convergence tolerance of 1.000000e-06 not reached
+during Hybrid Initialization.
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+
+ Reversed flow on 4 faces (10.9% area) of pressure-outlet 6.
+     1  1.0000e+00  7.3841e-03  1.6839e-01  8.8163e+00  5.6552e+06  0:00:05  199
+
+ Reversed flow on 11 faces (100.0% area) of pressure-outlet 6.
+     2  6.5604e-01  2.3070e-02  5.3150e-01  9.4316e-01  4.9030e-01  0:00:06  198
+
+ Reversed flow on 11 faces (100.0% area) of pressure-outlet 6.
+     3  4.7938e-01  1.4877e-02  2.2882e-01  9.1914e-01  4.8022e-01  0:00:06  197
+
+ Reversed flow on 10 faces (99.1% area) of pressure-outlet 6.
+     4  3.8064e-01  1.0698e-02  1.7568e-01  8.8707e-01  4.5829e-01  0:00:06  196
+
+ Reversed flow on 9 faces (98.3% area) of pressure-outlet 6.
+     5  2.8179e-01  8.2734e-03  1.6261e-01  8.5170e-01  4.1256e-01  0:00:06  195
+
+ Reversed flow on 10 faces (99.1% area) of pressure-outlet 6.
+     6  2.1422e-01  6.5868e-03  1.1230e-01  8.1356e-01  3.2987e-01  0:00:06  194
+
+ Reversed flow on 9 faces (98.3% area) of pressure-outlet 6.
+     7  1.5672e-01  5.1719e-03  8.7806e-02  7.5981e-01  2.1779e-01  0:00:06  193
+
+ Reversed flow on 9 faces (98.3% area) of pressure-outlet 6.
+     8  1.1160e-01  4.0799e-03  7.0847e-02  6.5293e-01  1.1540e-01  0:00:06  192
+     9  7.6810e-02  3.0185e-03  5.2664e-02  4.7400e-01  5.1633e-02  0:00:06  191
+    10  5.4620e-02  2.2370e-03  4.9025e-02  3.2462e-01  2.1005e-02  0:00:06  190
+    11  3.9912e-02  1.9162e-03  3.8763e-02  2.7323e-01  8.1210e-03  0:00:06  189
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    12  3.0106e-02  1.6744e-03  3.6088e-02  2.5434e-01  3.0440e-03  0:00:06  188
+    13  2.3511e-02  1.8081e-03  3.2026e-02  2.4586e-01  1.1098e-03  0:00:06  187
+    14  1.7374e-02  1.4849e-03  2.8476e-02  2.4079e-01  3.7233e-04  0:00:06  186
+    15  1.3376e-02  1.3470e-03  2.6552e-02  2.3764e-01  2.0436e-04  0:00:06  185
+    16  1.0887e-02  1.2032e-03  2.3870e-02  2.3604e-01  6.0031e-05  0:00:06  184
+    17  9.7158e-03  1.3074e-03  2.4006e-02  2.3535e-01  1.8359e-05  0:00:06  183
+    18  9.2888e-03  1.2815e-03  2.2395e-02  2.3508e-01  6.7383e-06  0:00:06  182
+    19  8.3951e-03  1.2022e-03  2.3262e-02  2.3497e-01  3.2575e-06  0:00:06  181
+    20  7.9564e-03  1.1132e-03  2.3635e-02  2.3493e-01  2.5975e-06  0:00:18  180
+    21  7.0895e-03  1.0258e-03  2.5381e-02  2.3491e-01  2.0709e-06  0:00:15  179
+    22  6.8730e-03  9.4461e-04  2.6625e-02  2.3491e-01  2.1442e-06  0:00:13  178
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    23  6.1686e-03  8.5656e-04  2.8678e-02  2.3490e-01  1.8071e-06  0:00:12  177
+    24  6.3122e-03  7.9253e-04  3.0649e-02  2.3490e-01  1.9645e-06  0:00:10  176
+    25  5.8063e-03  7.1359e-04  3.3087e-02  2.3489e-01  1.7147e-06  0:00:09  175
+    26  6.0068e-03  6.7322e-04  3.5721e-02  2.3489e-01  1.8705e-06  0:00:09  174
+    27  5.7044e-03  6.0990e-04  3.8745e-02  2.3489e-01  1.7798e-06  0:00:08  173
+    28  6.0239e-03  5.8642e-04  4.2230e-02  2.3489e-01  1.8420e-06  0:00:07  172
+    29  5.8942e-03  5.2914e-04  4.6006e-02  2.3488e-01  1.9694e-06  0:00:07  171
+    30  6.3441e-03  5.1608e-04  5.0273e-02  2.3489e-01  1.8403e-06  0:00:07  170
+    31  6.3002e-03  4.7144e-04  5.4748e-02  2.3488e-01  2.6551e-06  0:00:06  169
+    32  6.9149e-03  4.6401e-04  5.9733e-02  2.3490e-01  7.9671e-06  0:00:06  168
+    33  6.6394e-03  3.8836e-04  6.5128e-02  2.3490e-01  1.2020e-05  0:00:06  167
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    34  7.4336e-03  3.8975e-04  7.0958e-02  2.3492e-01  1.2148e-05  0:00:06  166
+    35  7.3883e-03  3.5343e-04  7.7055e-02  2.3493e-01  8.0671e-06  0:00:05  165
+    36  8.5152e-03  3.8216e-04  8.3139e-02  2.3488e-01  9.9954e-06  0:00:05  164
+    37  8.5529e-03  3.5081e-04  9.0729e-02  2.3492e-01  1.0057e-05  0:00:05  163
+    38  9.9422e-03  3.9636e-04  9.8327e-02  2.3489e-01  1.1507e-05  0:00:05  162
+    39  9.8586e-03  3.6274e-04  1.0748e-01  2.3493e-01  2.0435e-05  0:00:05  161
+    40  1.1468e-02  4.1935e-04  1.1632e-01  2.3496e-01  2.0519e-05  0:00:05  160
+    41  1.1575e-02  3.8231e-04  1.2652e-01  2.3496e-01  2.2906e-05  0:00:05  159
+    42  1.3261e-02  4.4304e-04  1.3618e-01  2.3498e-01  2.4412e-05  0:00:05  158
+    43  1.3584e-02  3.9274e-04  1.4763e-01  2.3498e-01  2.6922e-05  0:00:05  157
+    44  1.5395e-02  4.7203e-04  1.5823e-01  2.3501e-01  2.8637e-05  0:00:05  156
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    45  1.5906e-02  4.4444e-04  1.7107e-01  2.3501e-01  3.1456e-05  0:00:05  155
+    46  1.8051e-02  5.2765e-04  1.8277e-01  2.3504e-01  3.3476e-05  0:00:05  154
+    47  1.8766e-02  5.0556e-04  1.9715e-01  2.3505e-01  3.6615e-05  0:00:05  153
+    48  2.1223e-02  5.7905e-04  2.0987e-01  2.3507e-01  3.9004e-05  0:00:05  152
+    49  2.2071e-02  5.7434e-04  2.2586e-01  2.3509e-01  4.2461e-05  0:00:05  151
+    50  2.4953e-02  6.2829e-04  2.3955e-01  2.3512e-01  4.5227e-05  0:00:05  150
+    51  2.5878e-02  6.3913e-04  2.5726e-01  2.3513e-01  4.9077e-05  0:00:05  149
+    52  2.9277e-02  6.7681e-04  2.7182e-01  2.3516e-01  5.2239e-05  0:00:05  148
+    53  3.0290e-02  7.0184e-04  2.9123e-01  2.3519e-01  5.6489e-05  0:00:05  147
+    54  3.4326e-02  7.2500e-04  3.0649e-01  2.3522e-01  6.0044e-05  0:00:05  146
+    55  3.5543e-02  7.6748e-04  3.2756e-01  2.3525e-01  6.4680e-05  0:00:05  145
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    56  4.0309e-02  7.7622e-04  3.4305e-01  2.3528e-01  6.8624e-05  0:00:05  144
+    57  4.1354e-02  8.3417e-04  3.6549e-01  2.3531e-01  7.3654e-05  0:00:05  143
+    58  4.6756e-02  8.2932e-04  3.8138e-01  2.3535e-01  7.7980e-05  0:00:05  142
+    59  4.8110e-02  8.9657e-04  4.0617e-01  2.3538e-01  8.3313e-05  0:00:05  141
+    60  5.4489e-02  8.8437e-04  4.2263e-01  2.3542e-01  8.7988e-05  0:00:05  140
+    61  5.5981e-02  9.6080e-04  4.4943e-01  2.3546e-01  9.3564e-05  0:00:05  139
+    62  6.3202e-02  9.4114e-04  4.6575e-01  2.3550e-01  9.8502e-05  0:00:05  138
+    63  6.4738e-02  1.0199e-03  4.9426e-01  2.3554e-01  1.0426e-04  0:00:05  137
+    64  7.2929e-02  9.9401e-04  5.1002e-01  2.3558e-01  1.0933e-04  0:00:05  136
+    65  7.4629e-02  1.0758e-03  5.3993e-01  2.3562e-01  1.1516e-04  0:00:04  135
+    66  8.3715e-02  1.0406e-03  5.5471e-01  2.3566e-01  1.2022e-04  0:00:04  134
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    67  8.5545e-02  1.1239e-03  5.8571e-01  2.3571e-01  1.2602e-04  0:00:04  133
+    68  9.5612e-02  1.0794e-03  5.9922e-01  2.3574e-01  1.3093e-04  0:00:04  132
+    69  9.7524e-02  1.1622e-03  6.3104e-01  2.3579e-01  1.3656e-04  0:00:04  131
+    70  1.0867e-01  1.1099e-03  6.4313e-01  2.3582e-01  1.4118e-04  0:00:04  130
+    71  1.1061e-01  1.1895e-03  6.7552e-01  2.3587e-01  1.4654e-04  0:00:04  129
+    72  1.2298e-01  1.1316e-03  6.8618e-01  2.3589e-01  1.5087e-04  0:00:04  128
+    73  1.2496e-01  1.2055e-03  7.1895e-01  2.3594e-01  1.5574e-04  0:00:04  127
+    74  1.3868e-01  1.1426e-03  7.2831e-01  2.3596e-01  1.5963e-04  0:00:04  126
+    75  1.4078e-01  1.2088e-03  7.6131e-01  2.3573e-01  2.2349e-04  0:00:04  125
+    76  1.6863e-01  1.7040e-03  7.2134e-01  2.3856e-01  5.0743e-04  0:00:04  124
+    77  1.5883e-01  1.6759e-03  7.3471e-01  2.3967e-01  2.7608e-04  0:00:04  123
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    78  1.5216e-01  1.4303e-03  7.2807e-01  2.3714e-01  1.2630e-04  0:00:04  122
+    79  1.4946e-01  1.3807e-03  7.6245e-01  2.3663e-01  1.3166e-04  0:00:04  121
+    80  1.6113e-01  1.4071e-03  7.7943e-01  2.3589e-01  1.2328e-04  0:00:04  120
+    81  1.6421e-01  1.4813e-03  8.0231e-01  2.3609e-01  1.1942e-04  0:00:04  119
+    82  1.7662e-01  1.4988e-03  8.0635e-01  2.3663e-01  1.6830e-04  0:00:04  118
+    83  1.7406e-01  1.5158e-03  8.2354e-01  2.3616e-01  1.8711e-04  0:00:04  117
+    84  1.8136e-01  1.4490e-03  8.2695e-01  2.3569e-01  2.9551e-04  0:00:04  116
+    85  1.8118e-01  2.3107e-03  8.3131e-01  2.3941e-01  4.5856e-04  0:00:04  115
+    86  1.8516e-01  1.9162e-03  8.0125e-01  2.3696e-01  3.0866e-04  0:00:04  114
+    87  1.7505e-01  2.2062e-03  8.0454e-01  2.3995e-01  1.4928e-04  0:00:04  113
+    88  1.8150e-01  1.6254e-03  7.8656e-01  2.3558e-01  1.3843e-04  0:00:04  112
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    89  1.8523e-01  1.9217e-03  8.0445e-01  2.3769e-01  1.2513e-04  0:00:03  111
+    90  1.8591e-01  1.6138e-03  7.9388e-01  2.3501e-01  8.4881e-05  0:00:03  110
+    91  1.9241e-01  1.7641e-03  8.0615e-01  2.3698e-01  1.0369e-04  0:00:03  109
+    92  1.8997e-01  1.6900e-03  8.0252e-01  2.3582e-01  5.5545e-05  0:00:03  108
+    93  1.9615e-01  1.6301e-03  8.1623e-01  2.3565e-01  3.3292e-05  0:00:03  107
+    94  1.9515e-01  1.7802e-03  8.1929e-01  2.3523e-01  2.8919e-05  0:00:03  106
+    95  2.0092e-01  1.6002e-03  8.1814e-01  2.3489e-01  4.3044e-05  0:00:03  105
+    96  1.9993e-01  1.7501e-03  8.2057e-01  2.3528e-01  1.5680e-04  0:00:03  104
+    97  2.0513e-01  1.8009e-03  8.1044e-01  2.3732e-01  1.2694e-04  0:00:03  103
+    98  2.0197e-01  1.7757e-03  8.1746e-01  2.3550e-01  4.5147e-05  0:00:03  102
+    99  2.0441e-01  1.6165e-03  8.1365e-01  2.3526e-01  1.5787e-05  0:00:03  101
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   100  2.0452e-01  1.7628e-03  8.1602e-01  2.3498e-01  7.7476e-05  0:00:03  100
+   101  2.0715e-01  1.7260e-03  8.0962e-01  2.3592e-01  5.8617e-05  0:00:03   99
+   102  2.0515e-01  1.7721e-03  8.1169e-01  2.3488e-01  3.7353e-05  0:00:03   98
+   103  2.0881e-01  1.6878e-03  8.0697e-01  2.3533e-01  4.1225e-05  0:00:03   97
+   104  2.0535e-01  1.7672e-03  8.0799e-01  2.3484e-01  2.2545e-05  0:00:03   96
+   105  2.0950e-01  1.6785e-03  8.0327e-01  2.3496e-01  2.5586e-05  0:00:03   95
+   106  2.0498e-01  1.7563e-03  8.0396e-01  2.3483e-01  1.4188e-05  0:00:03   94
+   107  2.0976e-01  1.6901e-03  8.0015e-01  2.3484e-01  2.3603e-05  0:00:03   93
+   108  2.0440e-01  1.7238e-03  8.0284e-01  2.3476e-01  2.9256e-05  0:00:03   92
+   109  2.0936e-01  1.7206e-03  8.0200e-01  2.3488e-01  4.1769e-05  0:00:03   91
+   110  2.0394e-01  1.7085e-03  8.0464e-01  2.3482e-01  5.1916e-05  0:00:03   90
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   111  2.0952e-01  1.7399e-03  8.0330e-01  2.3497e-01  6.0748e-05  0:00:03   89
+   112  2.0364e-01  1.7183e-03  8.0603e-01  2.3538e-01  2.8390e-05  0:00:03   88
+   113  2.0904e-01  1.7267e-03  8.0477e-01  2.3500e-01  1.5538e-05  0:00:03   87
+   114  2.0417e-01  1.7762e-03  8.0937e-01  2.3480e-01  5.2616e-05  0:00:03   86
+   115  2.1093e-01  1.7458e-03  8.0445e-01  2.3539e-01  4.2253e-05  0:00:03   85
+   116  2.0310e-01  1.7929e-03  8.0987e-01  2.3512e-01  1.7625e-05  0:00:03   84
+   117  2.1059e-01  1.7167e-03  8.0607e-01  2.3486e-01  1.0258e-05  0:00:02   83
+   118  2.0391e-01  1.7689e-03  8.1167e-01  2.3485e-01  1.0351e-05  0:00:02   82
+   119  2.1077e-01  1.7268e-03  8.0647e-01  2.3480e-01  1.0868e-05  0:00:02   81
+   120  2.0412e-01  1.7643e-03  8.1226e-01  2.3480e-01  1.0892e-05  0:00:08   80
+   121  2.1069e-01  1.7304e-03  8.0710e-01  2.3480e-01  1.1374e-05  0:00:07   79
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   122  2.0400e-01  1.7646e-03  8.1276e-01  2.3481e-01  1.1406e-05  0:00:06   78
+   123  2.1050e-01  1.7328e-03  8.0759e-01  2.3480e-01  1.1827e-05  0:00:05   77
+   124  2.0375e-01  1.7645e-03  8.1319e-01  2.3482e-01  1.1924e-05  0:00:05   76
+   125  2.1022e-01  1.7350e-03  8.0789e-01  2.3481e-01  1.2257e-05  0:00:04   75
+   126  2.0344e-01  1.7638e-03  8.1349e-01  2.3483e-01  1.2357e-05  0:00:04   74
+   127  2.0992e-01  1.7367e-03  8.0806e-01  2.3481e-01  1.2653e-05  0:00:03   73
+   128  2.0311e-01  1.7627e-03  8.1368e-01  2.3483e-01  1.2755e-05  0:00:03   72
+   129  2.0961e-01  1.7380e-03  8.0814e-01  2.3481e-01  1.3060e-05  0:00:03   71
+   130  2.0278e-01  1.7615e-03  8.1377e-01  2.3484e-01  1.3137e-05  0:00:03   70
+   131  2.0929e-01  1.7388e-03  8.0814e-01  2.3481e-01  1.3434e-05  0:00:03   69
+   132  2.0246e-01  1.7602e-03  8.1378e-01  2.3484e-01  1.3487e-05  0:00:02   68
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   133  2.0897e-01  1.7392e-03  8.0808e-01  2.3482e-01  1.3778e-05  0:00:02   67
+   134  2.0215e-01  1.7589e-03  8.1372e-01  2.3484e-01  1.3809e-05  0:00:02   66
+   135  2.0865e-01  1.7393e-03  8.0797e-01  2.3482e-01  1.4090e-05  0:00:02   65
+   136  2.0185e-01  1.7575e-03  8.1361e-01  2.3485e-01  1.4105e-05  0:00:02   64
+   137  2.0834e-01  1.7391e-03  8.0783e-01  2.3482e-01  1.4373e-05  0:00:02   63
+   138  2.0157e-01  1.7561e-03  8.1345e-01  2.3485e-01  1.4376e-05  0:00:02   62
+   139  2.0804e-01  1.7388e-03  8.0765e-01  2.3482e-01  1.4632e-05  0:00:02   61
+   140  2.0130e-01  1.7548e-03  8.1325e-01  2.3485e-01  1.4626e-05  0:00:02   60
+   141  2.0774e-01  1.7383e-03  8.0745e-01  2.3482e-01  1.4869e-05  0:00:02   59
+   142  2.0104e-01  1.7534e-03  8.1303e-01  2.3485e-01  1.4855e-05  0:00:02   58
+   143  2.0746e-01  1.7376e-03  8.0723e-01  2.3482e-01  1.5086e-05  0:00:02   57
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   144  2.0079e-01  1.7521e-03  8.1278e-01  2.3486e-01  1.5066e-05  0:00:02   56
+   145  2.0718e-01  1.7369e-03  8.0698e-01  2.3483e-01  1.5285e-05  0:00:02   55
+   146  2.0054e-01  1.7508e-03  8.1251e-01  2.3486e-01  1.5261e-05  0:00:02   54
+   147  2.0692e-01  1.7360e-03  8.0673e-01  2.3483e-01  1.5467e-05  0:00:02   53
+   148  2.0031e-01  1.7495e-03  8.1222e-01  2.3486e-01  1.5440e-05  0:00:02   52
+   149  2.0666e-01  1.7352e-03  8.0646e-01  2.3483e-01  1.5635e-05  0:00:02   51
+   150  2.0009e-01  1.7482e-03  8.1192e-01  2.3486e-01  1.5605e-05  0:00:02   50
+   151  2.0641e-01  1.7342e-03  8.0617e-01  2.3483e-01  1.5789e-05  0:00:02   49
+   152  1.9989e-01  1.7480e-03  8.1163e-01  2.3486e-01  1.5758e-05  0:00:02   48
+   153  2.0619e-01  1.7336e-03  8.0590e-01  2.3483e-01  1.5931e-05  0:00:01   47
+   154  1.9973e-01  1.7483e-03  8.1136e-01  2.3486e-01  1.5902e-05  0:00:01   46
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   155  2.0599e-01  1.7333e-03  8.0565e-01  2.3483e-01  1.6061e-05  0:00:01   45
+   156  1.9959e-01  1.7485e-03  8.1110e-01  2.3487e-01  1.6036e-05  0:00:01   44
+   157  2.0582e-01  1.7332e-03  8.0538e-01  2.3483e-01  1.6182e-05  0:00:01   43
+   158  1.9945e-01  1.7486e-03  8.1083e-01  2.3487e-01  1.6160e-05  0:00:01   42
+   159  2.0566e-01  1.7331e-03  8.0512e-01  2.3483e-01  1.6294e-05  0:00:01   41
+   160  1.9931e-01  1.7486e-03  8.1057e-01  2.3487e-01  1.6273e-05  0:00:01   40
+   161  2.0551e-01  1.7331e-03  8.0484e-01  2.3483e-01  1.6397e-05  0:00:01   39
+   162  1.9917e-01  1.7486e-03  8.1030e-01  2.3487e-01  1.6377e-05  0:00:01   38
+   163  2.0536e-01  1.7331e-03  8.0456e-01  2.3483e-01  1.6491e-05  0:00:01   37
+   164  1.9903e-01  1.7485e-03  8.1003e-01  2.3487e-01  1.6472e-05  0:00:01   36
+   165  2.0523e-01  1.7331e-03  8.0427e-01  2.3483e-01  1.6579e-05  0:00:01   35
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   166  1.9889e-01  1.7485e-03  8.0976e-01  2.3487e-01  1.6560e-05  0:00:01   34
+   167  2.0510e-01  1.7330e-03  8.0398e-01  2.3483e-01  1.6659e-05  0:00:01   33
+   168  1.9875e-01  1.7484e-03  8.0948e-01  2.3487e-01  1.6642e-05  0:00:01   32
+   169  2.0497e-01  1.7330e-03  8.0369e-01  2.3483e-01  1.6733e-05  0:00:01   31
+   170  1.9862e-01  1.7483e-03  8.0921e-01  2.3487e-01  1.6717e-05  0:00:01   30
+   171  2.0485e-01  1.7329e-03  8.0339e-01  2.3483e-01  1.6801e-05  0:00:01   29
+   172  1.9848e-01  1.7482e-03  8.0894e-01  2.3487e-01  1.6787e-05  0:00:01   28
+   173  2.0473e-01  1.7328e-03  8.0309e-01  2.3483e-01  1.6865e-05  0:00:01   27
+   174  1.9835e-01  1.7482e-03  8.0866e-01  2.3487e-01  1.6851e-05  0:00:01   26
+   175  2.0462e-01  1.7327e-03  8.0279e-01  2.3483e-01  1.6923e-05  0:00:01   25
+   176  1.9822e-01  1.7481e-03  8.0839e-01  2.3487e-01  1.6910e-05  0:00:02   24
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   177  2.0451e-01  1.7325e-03  8.0249e-01  2.3483e-01  1.6978e-05  0:00:01   23
+   178  1.9809e-01  1.7480e-03  8.0811e-01  2.3487e-01  1.6965e-05  0:00:01   22
+   179  2.0440e-01  1.7324e-03  8.0220e-01  2.3483e-01  1.7029e-05  0:00:01   21
+   180  1.9797e-01  1.7479e-03  8.0784e-01  2.3488e-01  1.7017e-05  0:00:01   20
+   181  2.0430e-01  1.7322e-03  8.0190e-01  2.3483e-01  1.7076e-05  0:00:01   19
+   182  1.9785e-01  1.7478e-03  8.0756e-01  2.3488e-01  1.7064e-05  0:00:01   18
+   183  2.0420e-01  1.7320e-03  8.0161e-01  2.3483e-01  1.7120e-05  0:00:01   17
+   184  1.9773e-01  1.7477e-03  8.0729e-01  2.3488e-01  1.7108e-05  0:00:01   16
+   185  2.0410e-01  1.7318e-03  8.0131e-01  2.3484e-01  1.7160e-05  0:00:01   15
+   186  1.9761e-01  1.7476e-03  8.0702e-01  2.3488e-01  1.7149e-05  0:00:00   14
+   187  2.0400e-01  1.7316e-03  8.0102e-01  2.3484e-01  1.7198e-05  0:00:00   13
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   188  1.9749e-01  1.7475e-03  8.0676e-01  2.3488e-01  1.7187e-05  0:00:00   12
+   189  2.0391e-01  1.7314e-03  8.0073e-01  2.3484e-01  1.7233e-05  0:00:00   11
+   190  1.9738e-01  1.7474e-03  8.0649e-01  2.3488e-01  1.7223e-05  0:00:00   10
+   191  2.0382e-01  1.7312e-03  8.0045e-01  2.3484e-01  1.7266e-05  0:00:00    9
+   192  1.9727e-01  1.7474e-03  8.0623e-01  2.3488e-01  1.7256e-05  0:00:00    8
+   193  2.0373e-01  1.7310e-03  8.0017e-01  2.3484e-01  1.7297e-05  0:00:00    7
+   194  1.9716e-01  1.7473e-03  8.0596e-01  2.3488e-01  1.7287e-05  0:00:00    6
+   195  2.0364e-01  1.7308e-03  7.9989e-01  2.3484e-01  1.7326e-05  0:00:00    5
+   196  1.9705e-01  1.7472e-03  8.0570e-01  2.3488e-01  1.7316e-05  0:00:00    4
+   197  2.0355e-01  1.7306e-03  7.9961e-01  2.3484e-01  1.7353e-05  0:00:00    3
+   198  1.9695e-01  1.7471e-03  8.0545e-01  2.3488e-01  1.7343e-05  0:00:00    2
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   199  2.0347e-01  1.7304e-03  7.9933e-01  2.3484e-01  1.7378e-05  0:00:00    1
+   200  1.9685e-01  1.7470e-03  8.0519e-01  2.3488e-01  1.7369e-05  0:00:00    0
+
+Writing to en4226642rl:"/home/nuoxu9/PIDIF/runs_v251/channel_00/case.cas.h5" in NODE0 mode and compression level 1 ...
+Grouping cells for Laplace smoothing ...
+          33 cells,     1 zone  ...
+          80 faces,     4 zones ...
+          48 nodes,     1 zone  ...
+  Done.
+Done.
+
+Writing to en4226642rl:"/home/nuoxu9/PIDIF/runs_v251/channel_00/data.dat.h5" in NODE0 mode and compression level 1 ...
+  Writing results.
+Done.
+
+Posting ANSYS Product Improvement Program performance data 
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -py -t4 -gu -driver null -sifile=/tmp/serverinfo-km6opajk.txt -nm
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/cortex/lnamd64/cortex.25.1.0 -f fluent -py -gu -sifile=/tmp/serverinfo-km6opajk.txt -nm (fluent "2ddp -pdefault  -host -r25.1.0 -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh")
+Done.
+Shutting down Server...
+Services Shutdown...Done.
+Server Shutdown...Done.
+Queue Cleared...Done.
+Shutdown Complete.
+Auto-Transcript Stop Time:  10:16:02, 03 Mar 2026 
+Total Transcript Time: 0 Minute 26 Second.
+
+Automatic transcript closed.
+
+Opening input/output transcript to file "/home/nuoxu9/PIDIF/fluent-20260303-101603-1001422.trn".
+Auto-Transcript Start Time:  10:16:03, 03 Mar 2026 
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -pdefault -host -t4 -mpi=intel -path/usr/local/tools/ansys_inc/v251/fluent -ssh -cx en4226642rl.eng.asu.edu:39817:45233
+Warning:  DISPLAY environment variable is not set.
+  Graphics and GUI will not operate correctly
+  without this being set properly.
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_host/fluent.25.1.0 host -cx en4226642rl.eng.asu.edu:39817:45233 "(list (rpsetvar (QUOTE parallel/function) "fluent 2ddp -flux -node -r25.1.0 -t4 -pdefault -mpi=intel -ssh") (rpsetvar (QUOTE parallel/rhost) "") (rpsetvar (QUOTE parallel/ruser) "") (rpsetvar (QUOTE parallel/nprocs_string) "4") (rpsetvar (QUOTE parallel/auto-spawn?) #t) (rpsetvar (QUOTE parallel/trace-level) 0) (rpsetvar (QUOTE parallel/remote-shell) 1) (rpsetvar (QUOTE parallel/path) "/usr/local/tools/ansys_inc/v251/fluent") (rpsetvar (QUOTE parallel/hostsfile) "") (rpsetvar (QUOTE gpuapp/devices) ""))"
+
+              Welcome to ANSYS Fluent 2025 R1
+
+              Copyright 1987-2025 ANSYS, Inc. All Rights Reserved.
+              Unauthorized use, distribution or duplication is prohibited.
+              This product is subject to U.S. laws governing export and re-export.
+              For full Legal Notice, see documentation.
+
+Build Time: Nov 26 2024 15:35:47 EST  Build Id: 10210  
+ 
+Connected License Server List:	1055@enlicense2.eas.asu.edu
+
+     --------------------------------------------------------------
+     This is an academic version of ANSYS FLUENT. Usage of this product
+     license is limited to the terms and conditions specified in your ANSYS
+     license form, additional terms section.
+     --------------------------------------------------------------
+Host spawning Node 0 on machine "en4226642rl" (unix).
+/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/bin/fluent -r25.1.0 2ddp -flux -node -t4 -pdefault -mpi=intel -ssh -mport 149.169.30.61:149.169.30.61:34477:0
+Starting /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/multiport/mpi/lnamd64/intel2021/bin/mpirun -f /tmp/fluent-appfile.nuoxu9.1003177 -genv I_MPI_FABRICS shm -genv FLUENT_ARCH lnamd64 -genv I_MPI_DEBUG 0 -genv I_MPI_ADJUST_GATHERV 3 -genv I_MPI_ADJUST_ALLREDUCE 2 -genv I_MPI_PLATFORM auto -genv PYTHONHOME /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/../../commonfiles/CPython/3_10/linx64/Release/python -genv FLUENT_PROD_DIR /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0 -genv FLUENT_AFFINITY 0 -genv I_MPI_PIN enable -genv KMP_AFFINITY disabled -n 4 /usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/lnamd64/2ddp_node/fluent_mpi.25.1.0 node -mpiw intel -pic shmem -mport 149.169.30.61:149.169.30.61:34477:0
+
+--------------------------------------------------------------------------------
+ID    Hostname     Core  O.S.      PID              Vendor                     
+--------------------------------------------------------------------------------
+n0-3  en4226642rl  4/72  Linux-64  1003366-1003369  Intel(R) Xeon(R) Gold 6354 
+host  en4226642rl        Linux-64  1002164          Intel(R) Xeon(R) Gold 6354 
+
+MPI Option Selected: intel
+Selected system interconnect: shared-memory
+--------------------------------------------------------------------------------
+
+Cleanup script file is /home/nuoxu9/PIDIF/cleanup-fluent-en4226642rl-1002164.sh
+
+Graphics driver currently in use: null
+
+Posting ANSYS Product Improvement Program startup data
+Done.
+Running DatamodelService (regular, validated version).
+Information: The server has started and is running.
+>>> Fast-loading "/usr/local/tools/ansys_inc/v251/fluent/fluent25.1.0/addons/afd/lib/hdfio.bin"
+Done.
+WARNING: Rank:0 Machine en4226642rl has 17 % of RAM filled with file buffer caches.
+This can cause potential performance issues. Please use -cflush flag to flush the cache. 
+
+
+Reading from en4226642rl:"/home/nuoxu9/PIDIF/base/base_case.cas.h5" in NODE0 mode ...
+  Reading mesh ...
+          33 cells,     1 cell zone  ...
+             33 quadrilateral cells,  zone id: 2
+          80 faces,     4 face zones ...
+             52 2D interior faces,  zone id: 1
+             11 2D velocity-inlet faces,  zone id: 5
+             11 2D pressure-outlet faces,  zone id: 6
+              6 2D wall faces,  zone id: 7
+          48 nodes,     1 node zone  ...
+  Done.
+
+
+Building...
+     mesh
+	distributing mesh
+		parts....,
+		faces....,
+		nodes....,
+		cells....,
+        bandwidth reduction using Reverse Cuthill-McKee: 7/4 = 1.75
+     materials,
+     interface,
+     domains,
+	mixture
+     zones,
+	walls
+	outlet
+	inlet
+	interior-open_cascade_step_translator_7.9_1
+	open_cascade_step_translator_7.9_1
+     parallel,
+Done.
+
+Initialize using the hybrid initialization method.
+
+Checking case topology... 
+-This case has both inlets & outlets 
+-Pressure information is not available at the boundaries.
+ Case will be initialized with constant pressure
+
+	iter		scalar-0
+
+	1		1.000000e+00
+	2		1.036879e+01
+	3		1.879621e-01
+	4		3.977961e-02
+	5		7.900786e-03
+	6		2.031211e-03
+	7		2.329077e-03
+	8		3.239617e-03
+	9		3.005786e-03
+	10		2.741460e-03
+
+Hybrid initialization is done.
+
+Warning: convergence tolerance of 1.000000e-06 not reached
+during Hybrid Initialization.
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+
+ Reversed flow on 4 faces (10.9% area) of pressure-outlet 6.
+     1  1.0000e+00  7.1290e-03  1.6234e-01  8.1297e+00  1.4160e+06  0:00:05  199
+
+ Reversed flow on 11 faces (100.0% area) of pressure-outlet 6.
+     2  6.6007e-01  2.2699e-02  4.8573e-01  9.3634e-01  4.8876e-01  0:00:06  198
+
+ Reversed flow on 11 faces (100.0% area) of pressure-outlet 6.
+     3  4.7020e-01  1.6534e-02  2.4875e-01  9.1157e-01  4.7717e-01  0:00:06  197
+
+ Reversed flow on 10 faces (99.1% area) of pressure-outlet 6.
+     4  3.5885e-01  1.2781e-02  2.0641e-01  8.7752e-01  4.5212e-01  0:00:06  196
+
+ Reversed flow on 9 faces (98.3% area) of pressure-outlet 6.
+     5  2.5191e-01  1.0561e-02  1.9519e-01  8.4197e-01  4.0094e-01  0:00:06  195
+
+ Reversed flow on 11 faces (100.0% area) of pressure-outlet 6.
+     6  1.9129e-01  8.4026e-03  1.3860e-01  8.0366e-01  3.1185e-01  0:00:06  194
+
+ Reversed flow on 9 faces (98.3% area) of pressure-outlet 6.
+     7  1.4234e-01  6.6121e-03  1.0008e-01  7.4910e-01  1.9836e-01  0:00:06  193
+
+ Reversed flow on 8 faces (94.8% area) of pressure-outlet 6.
+     8  1.0210e-01  5.1160e-03  7.4124e-02  6.3541e-01  1.0141e-01  0:00:06  192
+
+ Reversed flow on 1 face (76.2% area) of pressure-outlet 6.
+     9  6.9389e-02  3.5695e-03  4.7121e-02  4.5321e-01  4.4299e-02  0:00:06  191
+    10  4.8703e-02  2.3809e-03  3.8850e-02  3.1925e-01  1.7777e-02  0:00:06  190
+    11  3.3489e-02  2.0314e-03  3.2053e-02  2.7152e-01  6.8016e-03  0:00:06  189
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    12  2.5114e-02  1.7889e-03  2.2702e-02  2.5264e-01  2.5300e-03  0:00:06  188
+    13  1.9692e-02  1.7513e-03  2.2189e-02  2.4298e-01  9.1464e-04  0:00:06  187
+    14  1.4729e-02  1.5990e-03  1.5254e-02  2.3645e-01  3.7619e-04  0:00:06  186
+    15  1.1473e-02  1.4978e-03  1.3234e-02  2.3243e-01  1.2469e-04  0:00:06  185
+    16  1.0656e-02  1.6363e-03  9.2540e-03  2.3040e-01  4.1993e-05  0:00:06  184
+    17  9.2029e-03  1.5219e-03  8.2506e-03  2.2956e-01  1.4788e-05  0:00:06  183
+    18  8.3107e-03  1.3896e-03  6.1162e-03  2.2924e-01  1.0937e-05  0:00:06  182
+    19  7.5908e-03  1.2974e-03  5.6604e-03  2.2912e-01  7.1237e-06  0:00:06  181
+    20  6.8990e-03  1.1619e-03  4.5121e-03  2.2906e-01  4.8837e-06  0:00:19  180
+    21  6.1713e-03  1.0760e-03  4.2365e-03  2.2907e-01  7.0363e-06  0:00:17  179
+    22  5.6842e-03  1.0163e-03  3.5638e-03  2.2904e-01  5.4701e-06  0:00:14  178
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    23  5.1333e-03  9.0425e-04  3.5478e-03  2.2905e-01  5.5884e-06  0:00:13  177
+    24  4.6809e-03  8.4814e-04  3.1101e-03  2.2903e-01  5.2358e-06  0:00:11  176
+    25  4.2483e-03  7.6270e-04  3.1063e-03  2.2904e-01  5.1963e-06  0:00:10  175
+    26  3.8773e-03  7.1525e-04  2.7519e-03  2.2902e-01  4.9139e-06  0:00:09  174
+    27  3.5841e-03  6.4882e-04  2.7392e-03  2.2903e-01  4.9047e-06  0:00:08  173
+    28  3.3059e-03  6.0537e-04  2.4515e-03  2.2901e-01  4.7146e-06  0:00:08  172
+    29  3.0433e-03  5.4572e-04  2.4438e-03  2.2900e-01  3.2009e-06  0:00:07  171
+    30  2.7699e-03  5.0377e-04  2.1210e-03  2.2899e-01  2.8071e-06  0:00:07  170
+    31  2.5342e-03  4.5976e-04  2.1946e-03  2.2899e-01  2.6858e-06  0:00:06  169
+    32  2.3665e-03  4.2069e-04  1.8649e-03  2.2899e-01  2.5941e-06  0:00:06  168
+    33  2.2227e-03  3.8395e-04  1.9248e-03  2.2898e-01  2.5467e-06  0:00:06  167
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    34  2.0880e-03  3.5295e-04  1.6666e-03  2.2898e-01  2.4729e-06  0:00:06  166
+    35  2.0219e-03  3.2444e-04  1.6784e-03  2.2898e-01  2.4135e-06  0:00:06  165
+    36  1.9584e-03  3.0332e-04  1.4781e-03  2.2897e-01  3.8527e-06  0:00:06  164
+    37  1.9802e-03  2.9886e-04  1.2855e-03  2.2896e-01  2.8455e-06  0:00:05  163
+    38  1.9787e-03  2.7382e-04  1.1811e-03  2.2896e-01  2.8318e-06  0:00:05  162
+    39  1.9516e-03  2.6166e-04  1.0713e-03  2.2895e-01  2.6979e-06  0:00:05  161
+    40  1.9254e-03  2.5267e-04  1.0531e-03  2.2894e-01  2.7086e-06  0:00:05  160
+    41  1.8626e-03  2.4709e-04  9.5723e-04  2.2894e-01  2.5809e-06  0:00:05  159
+    42  1.8372e-03  2.4283e-04  9.2600e-04  2.2893e-01  2.5816e-06  0:00:05  158
+    43  1.7604e-03  2.3746e-04  8.5025e-04  2.2893e-01  2.4582e-06  0:00:05  157
+    44  1.7420e-03  2.3126e-04  8.1105e-04  2.2892e-01  2.4565e-06  0:00:05  156
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    45  1.6604e-03  2.2454e-04  7.5251e-04  2.2892e-01  2.3375e-06  0:00:05  155
+    46  1.6440e-03  2.1788e-04  7.0957e-04  2.2891e-01  2.3341e-06  0:00:05  154
+    47  1.5651e-03  2.1096e-04  6.8467e-04  2.2891e-01  2.2202e-06  0:00:05  153
+    48  1.5542e-03  2.0447e-04  6.2434e-04  2.2890e-01  2.2160e-06  0:00:05  152
+    49  1.4773e-03  1.9776e-04  6.2832e-04  2.2890e-01  2.1074e-06  0:00:05  151
+    50  1.4696e-03  1.9166e-04  5.4997e-04  2.2890e-01  2.1028e-06  0:00:05  150
+    51  1.3966e-03  1.8531e-04  5.7510e-04  2.2889e-01  1.9997e-06  0:00:05  149
+    52  1.3873e-03  1.7962e-04  4.8557e-04  2.2889e-01  1.9949e-06  0:00:05  148
+    53  1.3230e-03  1.7372e-04  5.1767e-04  2.2888e-01  1.8970e-06  0:00:05  147
+    54  1.3084e-03  1.6837e-04  4.3055e-04  2.2888e-01  1.8922e-06  0:00:05  146
+    55  1.2557e-03  1.6292e-04  4.6157e-04  2.2888e-01  1.7992e-06  0:00:05  145
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    56  1.2338e-03  1.5784e-04  3.8422e-04  2.2887e-01  1.7945e-06  0:00:05  144
+    57  1.1928e-03  1.5285e-04  4.1041e-04  2.2887e-01  1.7062e-06  0:00:05  143
+    58  1.1629e-03  1.4801e-04  3.4483e-04  2.2886e-01  1.7017e-06  0:00:04  142
+    59  1.1305e-03  1.4344e-04  3.7075e-04  2.2886e-01  1.6179e-06  0:00:04  141
+    60  1.0978e-03  1.3864e-04  3.1153e-04  2.2886e-01  1.6134e-06  0:00:04  140
+    61  1.0688e-03  1.3433e-04  3.4088e-04  2.2885e-01  1.5339e-06  0:00:04  139
+    62  1.0380e-03  1.2997e-04  2.9062e-04  2.2885e-01  1.4934e-06  0:00:04  138
+    63  1.0052e-03  1.2555e-04  3.1344e-04  2.2885e-01  1.4549e-06  0:00:04  137
+    64  9.7839e-04  1.2155e-04  2.7108e-04  2.2884e-01  1.4168e-06  0:00:04  136
+    65  9.4963e-04  1.1760e-04  2.8828e-04  2.2884e-01  1.3796e-06  0:00:04  135
+    66  9.2501e-04  1.1394e-04  2.5296e-04  2.2884e-01  1.3433e-06  0:00:04  134
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    67  8.9843e-04  1.1032e-04  2.6575e-04  2.2884e-01  1.3080e-06  0:00:04  133
+    68  8.7523e-04  1.0695e-04  2.3630e-04  2.2883e-01  1.2737e-06  0:00:04  132
+    69  8.5044e-04  1.0360e-04  2.4557e-04  2.2883e-01  1.2404e-06  0:00:04  131
+    70  8.2846e-04  1.0045e-04  2.2100e-04  2.2883e-01  1.2080e-06  0:00:04  130
+    71  8.0524e-04  9.7360e-05  2.2746e-04  2.2883e-01  1.1765e-06  0:00:04  129
+    72  7.8444e-04  9.4439e-05  2.0692e-04  2.2882e-01  1.1457e-06  0:00:04  128
+    73  7.6302e-04  9.1571e-05  2.1118e-04  2.2882e-01  1.1159e-06  0:00:04  127
+    74  7.4343e-04  8.8854e-05  1.9399e-04  2.2882e-01  1.0867e-06  0:00:04  126
+    75  7.2303e-04  8.6189e-05  1.9649e-04  2.2882e-01  1.0584e-06  0:00:04  125
+    76  7.0428e-04  8.3655e-05  1.8202e-04  2.2881e-01  1.0308e-06  0:00:04  124
+    77  6.8500e-04  8.1174e-05  1.8319e-04  2.2881e-01  1.0039e-06  0:00:04  123
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    78  6.6714e-04  7.8806e-05  1.7094e-04  2.2881e-01  9.7771e-07  0:00:04  122
+    79  6.4896e-04  7.6490e-05  1.7109e-04  2.2881e-01  9.5221e-07  0:00:04  121
+    80  6.3199e-04  7.4275e-05  1.6068e-04  2.2881e-01  9.2736e-07  0:00:04  120
+    81  6.1484e-04  7.2110e-05  1.6007e-04  2.2880e-01  9.0317e-07  0:00:04  119
+    82  5.9873e-04  7.0033e-05  1.5115e-04  2.2880e-01  8.7960e-07  0:00:04  118
+    83  5.8256e-04  6.8006e-05  1.4997e-04  2.2880e-01  8.5664e-07  0:00:04  117
+    84  5.6726e-04  6.6059e-05  1.4228e-04  2.2880e-01  8.3428e-07  0:00:04  116
+    85  5.5199e-04  6.4159e-05  1.4070e-04  2.2880e-01  8.1250e-07  0:00:04  115
+    86  5.3748e-04  6.2330e-05  1.3402e-04  2.2879e-01  7.9128e-07  0:00:04  114
+    87  5.2307e-04  6.0548e-05  1.3215e-04  2.2879e-01  7.7062e-07  0:00:04  113
+    88  5.0930e-04  5.8830e-05  1.2630e-04  2.2879e-01  7.5049e-07  0:00:04  112
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+    89  4.9568e-04  5.7157e-05  1.2425e-04  2.2879e-01  7.3088e-07  0:00:04  111
+    90  4.8263e-04  5.5541e-05  1.1909e-04  2.2879e-01  7.1179e-07  0:00:04  110
+    91  4.6974e-04  5.3969e-05  1.1692e-04  2.2879e-01  6.9319e-07  0:00:04  109
+    92  4.5737e-04  5.2449e-05  1.1234e-04  2.2879e-01  6.7508e-07  0:00:04  108
+    93  4.4519e-04  5.0971e-05  1.1012e-04  2.2878e-01  6.5743e-07  0:00:04  107
+    94  4.3345e-04  4.9541e-05  1.0601e-04  2.2878e-01  6.4025e-07  0:00:04  106
+    95  4.2193e-04  4.8150e-05  1.0378e-04  2.2878e-01  6.2351e-07  0:00:04  105
+    96  4.1081e-04  4.6804e-05  1.0008e-04  2.2878e-01  6.0721e-07  0:00:04  104
+    97  3.9990e-04  4.5495e-05  9.7864e-05  2.2878e-01  5.9134e-07  0:00:04  103
+    98  3.8935e-04  4.4228e-05  9.4505e-05  2.2878e-01  5.7588e-07  0:00:04  102
+    99  3.7903e-04  4.2995e-05  9.2334e-05  2.2878e-01  5.6082e-07  0:00:04  101
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   100  3.6903e-04  4.1801e-05  8.9268e-05  2.2878e-01  5.4615e-07  0:00:04  100
+   101  3.5926e-04  4.0639e-05  8.7156e-05  2.2877e-01  5.3187e-07  0:00:04   99
+   102  3.4978e-04  3.9514e-05  8.4344e-05  2.2877e-01  5.1796e-07  0:00:04   98
+   103  3.4052e-04  3.8420e-05  8.2302e-05  2.2877e-01  5.0441e-07  0:00:03   97
+   104  3.3155e-04  3.7359e-05  7.9710e-05  2.2877e-01  4.9122e-07  0:00:03   96
+   105  3.2278e-04  3.6327e-05  7.7745e-05  2.2877e-01  4.7837e-07  0:00:03   95
+   106  3.1427e-04  3.5326e-05  7.5347e-05  2.2877e-01  4.6585e-07  0:00:03   94
+   107  3.0596e-04  3.4354e-05  7.3464e-05  2.2877e-01  4.5366e-07  0:00:03   93
+   108  2.9790e-04  3.3410e-05  7.1237e-05  2.2877e-01  4.4179e-07  0:00:03   92
+   109  2.9003e-04  3.2492e-05  6.9437e-05  2.2877e-01  4.3023e-07  0:00:03   91
+   110  2.8239e-04  3.1602e-05  6.7364e-05  2.2877e-01  4.1898e-07  0:00:03   90
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   111  2.7493e-04  3.0736e-05  6.5648e-05  2.2877e-01  4.0801e-07  0:00:03   89
+   112  2.6769e-04  2.9896e-05  6.3712e-05  2.2876e-01  3.9734e-07  0:00:03   88
+   113  2.6062e-04  2.9079e-05  6.2078e-05  2.2876e-01  3.8694e-07  0:00:03   87
+   114  2.5376e-04  2.8285e-05  6.0267e-05  2.2876e-01  3.7681e-07  0:00:03   86
+   115  2.4707e-04  2.7514e-05  5.8715e-05  2.2876e-01  3.6695e-07  0:00:03   85
+   116  2.4056e-04  2.6765e-05  5.7017e-05  2.2876e-01  3.5734e-07  0:00:03   84
+   117  2.3422e-04  2.6036e-05  5.5544e-05  2.2876e-01  3.4799e-07  0:00:03   83
+   118  2.2805e-04  2.5329e-05  5.3949e-05  2.2876e-01  3.3888e-07  0:00:03   82
+   119  2.2204e-04  2.4641e-05  5.2552e-05  2.2876e-01  3.3001e-07  0:00:03   81
+   120  2.1619e-04  2.3973e-05  5.1055e-05  2.2876e-01  3.2137e-07  0:00:08   80
+   121  2.1050e-04  2.3323e-05  4.9729e-05  2.2876e-01  3.1296e-07  0:00:07   79
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   122  2.0496e-04  2.2691e-05  4.8327e-05  2.2876e-01  3.0477e-07  0:00:06   78
+   123  1.9956e-04  2.2078e-05  4.7063e-05  2.2876e-01  2.9679e-07  0:00:05   77
+   124  1.9431e-04  2.1481e-05  4.5750e-05  2.2876e-01  2.8902e-07  0:00:05   76
+   125  1.8919e-04  2.0901e-05  4.4546e-05  2.2876e-01  2.8145e-07  0:00:04   75
+   126  1.8421e-04  2.0337e-05  4.3312e-05  2.2875e-01  2.7408e-07  0:00:04   74
+   127  1.7937e-04  1.9788e-05  4.2169e-05  2.2875e-01  2.6691e-07  0:00:03   73
+   128  1.7465e-04  1.9255e-05  4.1008e-05  2.2875e-01  2.5992e-07  0:00:03   72
+   129  1.7005e-04  1.8736e-05  3.9922e-05  2.2875e-01  2.5312e-07  0:00:03   71
+   130  1.6558e-04  1.8232e-05  3.8829e-05  2.2875e-01  2.4649e-07  0:00:03   70
+   131  1.6122e-04  1.7742e-05  3.7799e-05  2.2875e-01  2.4003e-07  0:00:03   69
+   132  1.5698e-04  1.7265e-05  3.6769e-05  2.2875e-01  2.3375e-07  0:00:03   68
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   133  1.5285e-04  1.6802e-05  3.5791e-05  2.2875e-01  2.2763e-07  0:00:02   67
+   134  1.4884e-04  1.6351e-05  3.4820e-05  2.2875e-01  2.2167e-07  0:00:02   66
+   135  1.4492e-04  1.5912e-05  3.3894e-05  2.2875e-01  2.1586e-07  0:00:02   65
+   136  1.4111e-04  1.5486e-05  3.2977e-05  2.2875e-01  2.1021e-07  0:00:02   64
+   137  1.3740e-04  1.5071e-05  3.2099e-05  2.2875e-01  2.0471e-07  0:00:02   63
+   138  1.3379e-04  1.4668e-05  3.1233e-05  2.2875e-01  1.9934e-07  0:00:02   62
+   139  1.3027e-04  1.4275e-05  3.0402e-05  2.2875e-01  1.9412e-07  0:00:02   61
+   140  1.2685e-04  1.3894e-05  2.9584e-05  2.2875e-01  1.8904e-07  0:00:02   60
+   141  1.2352e-04  1.3522e-05  2.8796e-05  2.2875e-01  1.8409e-07  0:00:02   59
+   142  1.2027e-04  1.3161e-05  2.8023e-05  2.2875e-01  1.7927e-07  0:00:02   58
+   143  1.1711e-04  1.2810e-05  2.7277e-05  2.2875e-01  1.7457e-07  0:00:02   57
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   144  1.1403e-04  1.2468e-05  2.6546e-05  2.2875e-01  1.7000e-07  0:00:02   56
+   145  1.1104e-04  1.2135e-05  2.5839e-05  2.2875e-01  1.6555e-07  0:00:02   55
+   146  1.0812e-04  1.1812e-05  2.5148e-05  2.2875e-01  1.6121e-07  0:00:02   54
+   147  1.0528e-04  1.1497e-05  2.4479e-05  2.2875e-01  1.5699e-07  0:00:02   53
+   148  1.0252e-04  1.1191e-05  2.3825e-05  2.2875e-01  1.5288e-07  0:00:02   52
+   149  9.9823e-05  1.0893e-05  2.3191e-05  2.2874e-01  1.4888e-07  0:00:02   51
+   150  9.7202e-05  1.0603e-05  2.2573e-05  2.2874e-01  1.4498e-07  0:00:02   50
+   151  9.4649e-05  1.0321e-05  2.1972e-05  2.2874e-01  1.4118e-07  0:00:02   49
+   152  9.2164e-05  1.0047e-05  2.1387e-05  2.2874e-01  1.3748e-07  0:00:02   48
+   153  8.9744e-05  9.7796e-06  2.0819e-05  2.2874e-01  1.3388e-07  0:00:02   47
+   154  8.7387e-05  9.5197e-06  2.0265e-05  2.2874e-01  1.3037e-07  0:00:02   46
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   155  8.5093e-05  9.2669e-06  1.9727e-05  2.2874e-01  1.2696e-07  0:00:02   45
+   156  8.2859e-05  9.0209e-06  1.9202e-05  2.2874e-01  1.2363e-07  0:00:01   44
+   157  8.0684e-05  8.7814e-06  1.8692e-05  2.2874e-01  1.2039e-07  0:00:01   43
+   158  7.8566e-05  8.5484e-06  1.8196e-05  2.2874e-01  1.1724e-07  0:00:01   42
+   159  7.6503e-05  8.3217e-06  1.7713e-05  2.2874e-01  1.1417e-07  0:00:01   41
+   160  7.4495e-05  8.1010e-06  1.7243e-05  2.2874e-01  1.1118e-07  0:00:01   40
+   161  7.2540e-05  7.8863e-06  1.6786e-05  2.2874e-01  1.0827e-07  0:00:01   39
+   162  7.0636e-05  7.6773e-06  1.6341e-05  2.2874e-01  1.0543e-07  0:00:01   38
+   163  6.8782e-05  7.4740e-06  1.5908e-05  2.2874e-01  1.0267e-07  0:00:01   37
+   164  6.6977e-05  7.2760e-06  1.5486e-05  2.2874e-01  9.9980e-08  0:00:01   36
+   165  6.5220e-05  7.0834e-06  1.5076e-05  2.2874e-01  9.7361e-08  0:00:01   35
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   166  6.3508e-05  6.8959e-06  1.4676e-05  2.2874e-01  9.4811e-08  0:00:01   34
+   167  6.1842e-05  6.7134e-06  1.4288e-05  2.2874e-01  9.2327e-08  0:00:01   33
+   168  6.0219e-05  6.5358e-06  1.3910e-05  2.2874e-01  8.9909e-08  0:00:01   32
+   169  5.8639e-05  6.3630e-06  1.3542e-05  2.2874e-01  8.7554e-08  0:00:01   31
+   170  5.7100e-05  6.1947e-06  1.3183e-05  2.2874e-01  8.5260e-08  0:00:01   30
+   171  5.5602e-05  6.0310e-06  1.2835e-05  2.2874e-01  8.3027e-08  0:00:01   29
+   172  5.4144e-05  5.8716e-06  1.2495e-05  2.2874e-01  8.0852e-08  0:00:01   28
+   173  5.2723e-05  5.7164e-06  1.2165e-05  2.2874e-01  7.8734e-08  0:00:01   27
+   174  5.1340e-05  5.5654e-06  1.1844e-05  2.2874e-01  7.6671e-08  0:00:01   26
+   175  4.9993e-05  5.4184e-06  1.1531e-05  2.2874e-01  7.4663e-08  0:00:01   25
+   176  4.8682e-05  5.2753e-06  1.1226e-05  2.2874e-01  7.2707e-08  0:00:02   24
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   177  4.7405e-05  5.1361e-06  1.0930e-05  2.2874e-01  7.0802e-08  0:00:01   23
+   178  4.6161e-05  5.0005e-06  1.0641e-05  2.2874e-01  6.8947e-08  0:00:01   22
+   179  4.4951e-05  4.8685e-06  1.0360e-05  2.2874e-01  6.7141e-08  0:00:01   21
+   180  4.3772e-05  4.7401e-06  1.0087e-05  2.2874e-01  6.5382e-08  0:00:01   20
+   181  4.2623e-05  4.6150e-06  9.8204e-06  2.2874e-01  6.3669e-08  0:00:01   19
+   182  4.1506e-05  4.4933e-06  9.5613e-06  2.2874e-01  6.2001e-08  0:00:01   18
+   183  4.0417e-05  4.3748e-06  9.3091e-06  2.2874e-01  6.0377e-08  0:00:01   17
+   184  3.9357e-05  4.2595e-06  9.0636e-06  2.2874e-01  5.8795e-08  0:00:01   16
+   185  3.8325e-05  4.1472e-06  8.8246e-06  2.2874e-01  5.7255e-08  0:00:01   15
+   186  3.7320e-05  4.0379e-06  8.5919e-06  2.2874e-01  5.5755e-08  0:00:01   14
+   187  3.6341e-05  3.9315e-06  8.3654e-06  2.2874e-01  5.4294e-08  0:00:01   13
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   188  3.5388e-05  3.8279e-06  8.1449e-06  2.2874e-01  5.2872e-08  0:00:00   12
+   189  3.4460e-05  3.7270e-06  7.9303e-06  2.2874e-01  5.1487e-08  0:00:00   11
+   190  3.3557e-05  3.6288e-06  7.7213e-06  2.2874e-01  5.0138e-08  0:00:00   10
+   191  3.2677e-05  3.5333e-06  7.5179e-06  2.2874e-01  4.8824e-08  0:00:00    9
+   192  3.1820e-05  3.4402e-06  7.3198e-06  2.2874e-01  4.7545e-08  0:00:00    8
+   193  3.0985e-05  3.3496e-06  7.1271e-06  2.2874e-01  4.6300e-08  0:00:00    7
+   194  3.0173e-05  3.2614e-06  6.9394e-06  2.2874e-01  4.5087e-08  0:00:00    6
+   195  2.9382e-05  3.1756e-06  6.7566e-06  2.2874e-01  4.3905e-08  0:00:00    5
+   196  2.8611e-05  3.0920e-06  6.5788e-06  2.2874e-01  4.2755e-08  0:00:00    4
+   197  2.7861e-05  3.0106e-06  6.4056e-06  2.2874e-01  4.1635e-08  0:00:00    3
+   198  2.7131e-05  2.9314e-06  6.2370e-06  2.2874e-01  4.0544e-08  0:00:00    2
+
+  iter  continuity  x-velocity  y-velocity           k       omega     time/iter
+   199  2.6420e-05  2.8543e-06  6.0728e-06  2.2874e-01  3.9482e-08  0:00:00    1
+   200  2.5727e-05  2.7792e-06  5.9130e-06  2.2874e-01  3.8448e-08  0:00:00    0
+
+Writing to en4226642rl:"/home/nuoxu9/PIDIF/runs_v251/channel_01/case.cas.h5" in NODE0 mode and compression level 1 ...
+Grouping cells for Laplace smoothing ...
+          33 cells,     1 zone  ...
+          80 faces,     4 zones ...
+          48 nodes,     1 zone  ...
+  Done.
+Done.
+
+Writing to en4226642rl:"/home/nuoxu9/PIDIF/runs_v251/channel_01/data.dat.h5" in NODE0 mode and compression level 1 ...
+  Writing results.
+Done.
+
+Posting ANSYS Product Improvement Program performance data 
+Done.
+Shutting down Server...
+Services Shutdown...Done.
+Server Shutdown...Done.
+Queue Cleared...Done.
+Shutdown Complete.
+Auto-Transcript Stop Time:  10:16:30, 03 Mar 2026 
+Total Transcript Time: 0 Minute 26 Second.
+
+Automatic transcript closed.
