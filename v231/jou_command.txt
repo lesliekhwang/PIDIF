@@ -1,0 +1,13 @@
+/report/surface-integrals/area-weighted-avg
+outlet
+pressure
+yes
+"/home/nuoxu9/PIDIF/runs/channel_00/pout.txt"
+yes
+
+/report/surface-integrals/area-weighted-avg
+inlet
+pressure
+yes
+"/home/nuoxu9/PIDIF/runs/channel_00/pin.txt"
+yes
