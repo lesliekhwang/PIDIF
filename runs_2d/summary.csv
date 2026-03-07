@@ -1,0 +1,11 @@
+case,status,spec_json,step_path,mesh_path,case_data_path,pin_txt,pout_txt,uin_mps,pin_pa,pout_pa,dp_pa,tin_txt,tout_txt,tin_k,tout_k,inlet_name,outlet_name,wall_bottom_name,wall_top_name,elapsed_sec
+channel_00,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_00.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_00.step,,,,,0.15460520435890462,,,,,,,,,,,,
+channel_01,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_01.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_01.step,,,,,0.1679096457915431,,,,,,,,,,,,
+channel_02,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_02.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_02.step,,,,,0.18901474832729032,,,,,,,,,,,,
+channel_03,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_03.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_03.step,,,,,0.08408580826771654,,,,,,,,,,,,
+channel_04,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_04.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_04.step,,,,,0.14474965986830973,,,,,,,,,,,,
+channel_05,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_05.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_05.step,,,,,0.18396816819832967,,,,,,,,,,,,
+channel_06,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_06.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_06.step,,,,,0.056570564868084317,,,,,,,,,,,,
+channel_07,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_07.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_07.step,,,,,0.19512645986513155,,,,,,,,,,,,
+channel_08,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_08.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_08.step,,,,,0.07842070386264285,,,,,,,,,,,,
+channel_09,failed: name 'pressure_png' is not defined,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_09.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_09.step,,,,,0.15047209920237659,,,,,,,,,,,,
