@@ -1,0 +1,11 @@
+case,geometry_spec,step_file,status
+channel_00,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_00.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_00.step,ok
+channel_01,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_01.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_01.step,ok
+channel_02,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_02.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_02.step,ok
+channel_03,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_03.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_03.step,ok
+channel_04,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_04.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_04.step,ok
+channel_05,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_05.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_05.step,ok
+channel_06,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_06.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_06.step,ok
+channel_07,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_07.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_07.step,ok
+channel_08,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_08.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_08.step,ok
+channel_09,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_09.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_09.step,ok
