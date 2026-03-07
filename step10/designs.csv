@@ -1,4 +1,0 @@
-case,kind,L_mm,H_mean_mm,A_mm,lambda_mm,phase_rad,Uin_mps
-channel_00,straight,50.0,1.0,0.0,1.0,0.0,0.1
-channel_01,straight,50.0,1.2,0.0,1.0,0.0,0.2
-
