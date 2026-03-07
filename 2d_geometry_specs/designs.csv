@@ -1,0 +1,11 @@
+case,geometry_spec,target_geometry_file,A_mm,lam_mm,phase_rad,Lx_mm,Ly_mm,npts,Uin_mps,y_shift_applied_mm
+channel_00,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_00.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_00.step,0.7739560485559633,21.583176596280786,5.3947298351621535,50.0,20.0,200,0.15460520435890462,0.7735774721184253
+channel_01,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_01.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_01.step,0.09417734788764953,29.63433527455134,4.782381792256834,50.0,20.0,200,0.1679096457915431,0.094159131520219
+channel_02,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_02.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_02.step,0.12811363267554587,21.755789068433508,2.3297926977893746,50.0,20.0,200,0.18901474832729032,0.12810437812603628
+channel_03,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_03.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_03.step,0.6438651200806645,27.341424199062452,2.7860535790666945,50.0,20.0,200,0.08408580826771654,0.6438298852438297
+channel_04,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_04.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_04.step,0.5545847870158348,15.95725884156263,5.200160019627613,50.0,20.0,200,0.14474965986830973,0.5545630795368643
+channel_05,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_05.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_05.step,0.7580877400853738,20.317889521948025,6.0990755645863075,50.0,20.0,200,0.18396816819832967,0.7580869644638185
+channel_06,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_06.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_06.step,0.7783834970737619,17.919580617779513,2.93249455316981,50.0,20.0,200,0.056570564868084317,0.7783093264684826
+channel_07,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_07.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_07.step,0.15428949206754783,25.24573429863682,4.679478635343389,50.0,20.0,200,0.19512645986513155,0.15428948646191562
+channel_08,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_08.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_08.step,0.32582535813815194,20.556895590523034,2.950306174308947,50.0,20.0,200,0.07842070386264285,0.32582244605075916
+channel_09,/home/nuoxu9/PIDIF/2d_geometry_specs/channel_09.json,/home/nuoxu9/PIDIF/2d_geometry_step/channel_09.step,0.12992150533547164,22.135573893389008,1.4257134880181992,50.0,20.0,200,0.15047209920237659,0.12991917009616819
