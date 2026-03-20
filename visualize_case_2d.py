@@ -56,7 +56,7 @@ def main():
     ap.add_argument(
         "--run_dir",
         type=str,
-        default="/home/nuoxu9/PIDIF/runs_2d/channel_00",
+        default="/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00",
         help="Folder containing the solved case/data files.",
     )
     ap.add_argument(
@@ -121,7 +121,7 @@ def main():
         solver = launch_solver_2d(nprocs=args.nprocs)
         read_case_and_data(solver, case_path=case_path, data_path=data_path)
 
-        surfaces = solver.field_data.surfaces()
+        surfaces = solver.fields.field_data.surfaces()
         if isinstance(surfaces, dict):
             surface_names = list(surfaces.keys())
         else:
@@ -137,7 +137,7 @@ def main():
             raise RuntimeError("No surfaces found to plot. Try --list_surfaces.")
 
         graphics = Graphics(solver)
-        graphics.picture.x_resolution = 1400
+        graphics.picture.x_resolution = 500
         graphics.picture.y_resolution = 500
 
         # Pressure
@@ -162,20 +162,8 @@ def main():
             instance_name="velocity_contour",
         )
 
-        # Temperature
-        temperature_png = out_dir / "temperature.png"
-        save_contour(
-            solver=solver,
-            graphics=graphics,
-            surface_name=surf,
-            field_name="temperature",
-            out_png=temperature_png,
-            instance_name="temperature_contour",
-        )
-
         print(f"[OK] Wrote: {pressure_png}")
         print(f"[OK] Wrote: {velocity_png}")
-        print(f"[OK] Wrote: {temperature_png}")
         print(f"[INFO] Plotted on surface: {surf}")
 
     finally:

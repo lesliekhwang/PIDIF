@@ -1,0 +1,47 @@
+{
+  "case": "rect_ar03",
+  "boundaries": {
+    "inlet": "open_cascade_step_translator_7.5",
+    "outlet": "open_cascade_step_translator_7.3",
+    "wall_top": "open_cascade_step_translator_7.4",
+    "wall_bottom": "open_cascade_step_translator_7.2"
+  },
+  "inlet": {
+    "pressure_pa": 0.0023991816,
+    "temperature_k": 272.99999,
+    "velocity_mps": 0.099999996,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/pin.txt",
+      "temperature": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/tin.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/vin.txt"
+    }
+  },
+  "outlet": {
+    "pressure_pa": 0.0,
+    "temperature_k": 273.17636,
+    "velocity_mps": 0.10006831,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/pout.txt",
+      "temperature": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/tout.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/vout.txt"
+    }
+  },
+  "wall_top": {
+    "temperature_k": 350.0
+  },
+  "wall_bottom": {
+    "temperature_k": 350.0
+  },
+  "derived": {
+    "dp_pa": 0.0023991816,
+    "delta_t_k": 0.17636999999996306
+  },
+  "residual_files": {
+    "combined_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/residuals.csv",
+    "plot_png": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/residuals.png",
+    "pressure_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/pressure.csv",
+    "temperature_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/temperature.csv",
+    "x_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/x-velocity.csv",
+    "y_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rect_ar03/y-velocity.csv"
+  }
+}

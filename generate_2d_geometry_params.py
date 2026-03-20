@@ -11,68 +11,40 @@ import numpy as np
 # =========================================
 # CONFIG
 # =========================================
-BASE_DIR = Path("/home/nuoxu9/PIDIF")
-OUT_DIR = BASE_DIR / "2d_geometry_specs"
+BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
+OUT_DIR = BASE_DIR / "2d_geometry_specs" / "trapezoid"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-STEP_DIR = BASE_DIR / "2d_geometry_step"
+STEP_DIR = BASE_DIR / "2d_geometry_step" / "trapezoid"
 CSV_PATH = OUT_DIR / "designs.csv"
 
 # reproducibility
 SEED = 42
 rng = np.random.default_rng(SEED)
 
-# channel size in mm
-Lx = 50.0
-Ly = 20.0
+# square side length (200 um = 0.2 mm)
+L = 0.2  # mm
 
 # number of designs
 N_CASES = 10
 
-# waviness ranges
-# keep amplitude conservative relative to Ly
-A_MIN = 0.0
-A_MAX = 1.0
+# trapezoid offsets
+DELTA_MIN = -L * 0.2
+DELTA_MAX = L * 0.2
 
-LAM_MIN = 15.0
-LAM_MAX = 30.0
-
-PHASE_MIN = 0.0
-PHASE_MAX = 2.0 * math.pi
-
-# geometry sampling resolution for curve description
-NPTS = 200
-
-# simulation metadata
-UIN_MIN = 0.05
-UIN_MAX = 0.20
+# inlet beta-profile settings (symmetric: alpha = beta)
+ALPHA_MIN = 1
+ALPHA_MAX = 3
+UIN_COEFF = 0.1  # m/s
+INLET_PROFILE_NPTS = 201
 
 
 def make_case_name(i: int) -> str:
-    return f"channel_{i:02d}"
+    return f"trapezoid_{i:02d}"
 
 
-def validate_inputs(
-    lx: float,
-    ly: float,
-    amplitude: float,
-    wavelength: float,
-    npts: int,
-) -> None:
-    if lx <= 0.0:
-        raise ValueError(f"Lx must be positive, got {lx}")
-    if ly <= 0.0:
-        raise ValueError(f"Ly must be positive, got {ly}")
-    if wavelength <= 0.0:
-        raise ValueError(f"Wavelength must be positive, got {wavelength}")
-    if npts < 2:
-        raise ValueError(f"npts must be >= 2, got {npts}")
-
-    # safety bound for future use
-    amax = 0.20 * ly
-    if abs(amplitude) > amax:
-        raise ValueError(
-            f"Amplitude {amplitude} exceeds safety bound ±{amax} for Ly={ly}"
-        )
+def validate_inputs(l: float) -> None:
+    if l <= 0.0:
+        raise ValueError(f"L must be positive, got {l}")
 
 
 def deduplicate_consecutive_points(pts, tol=1e-12):
@@ -102,79 +74,36 @@ def polygon_signed_area(poly):
     return 0.5 * area
 
 
-def make_wall_curves(
-    lx: float,
-    ly: float,
-    amplitude: float,
-    wavelength: float,
-    phase: float,
-    npts: int = 200,
-):
+def make_trapezoid_walls(l: float, delta1: float, delta2: float):
     """
-    Build a constant-gap wavy channel:
-      - bottom and top walls shift together
-      - channel height remains constant everywhere
-
-    Returns:
-      pts_bot: bottom wall, left -> right
-      pts_top: top wall, left -> right
-      inlet:   left boundary, bottom -> top
-      outlet:  right boundary, bottom -> top
-      fluid_polygon_ccw: closed polygon loop in CCW order
-                         bottom(left->right) + outlet(bottom->top)
-                         + top(right->left) + inlet(top->bottom)
+    Start from an L by L square and offset y-coordinates:
+      - top-left y    = L - delta1
+      - bottom-left y = 0 + delta1
+      - bottom-right y= 0 + delta2
+      - top-right y   = L - delta2
     """
-    validate_inputs(lx, ly, amplitude, wavelength, npts)
+    validate_inputs(l)
 
-    xs = np.linspace(0.0, lx, npts)
+    bl = (0.0, float(delta1))
+    br = (float(l), float(delta2))
+    tr = (float(l), float(l - delta2))
+    tl = (0.0, float(l - delta1))
 
-    offset = amplitude * np.sin(2.0 * math.pi * xs / wavelength + phase)
+    pts_bot = [bl, br]  # left -> right
+    pts_top = [tl, tr]  # left -> right
+    inlet = [bl, tl]    # bottom -> top
+    outlet = [br, tr]   # bottom -> top
+    fluid_polygon_ccw = [bl, br, tr, tl]
 
-    y_bot = offset.copy()
-    y_top = ly + offset
-
-    # shift upward if bottom wall dips below y=0
-    min_bot = float(np.min(y_bot))
-    if min_bot < 0.0:
-        shift = -min_bot
-        y_bot += shift
-        y_top += shift
-    else:
-        shift = 0.0
-
-    pts_bot = [(float(x), float(y)) for x, y in zip(xs, y_bot)]
-    pts_top = [(float(x), float(y)) for x, y in zip(xs, y_top)]
-
-    pts_bot = deduplicate_consecutive_points(pts_bot)
-    pts_top = deduplicate_consecutive_points(pts_top)
-
-    inlet = [pts_bot[0], pts_top[0]]       # bottom -> top
-    outlet = [pts_bot[-1], pts_top[-1]]    # bottom -> top
-
-    # Build a CCW closed loop:
-    # bottom left->right
-    # then top right->left
-    fluid_polygon_ccw = pts_bot + list(reversed(pts_top))
-    fluid_polygon_ccw = deduplicate_consecutive_points(fluid_polygon_ccw)
-
-    # Ensure CCW
     if polygon_signed_area(fluid_polygon_ccw) < 0.0:
         fluid_polygon_ccw = list(reversed(fluid_polygon_ccw))
 
-    # basic validations
-    if len(fluid_polygon_ccw) < 4:
-        raise ValueError("Fluid polygon has too few points.")
-
-    if abs(inlet[0][0] - inlet[1][0]) > 1e-9:
-        raise ValueError("Inlet is not vertical.")
-    if abs(outlet[0][0] - outlet[1][0]) > 1e-9:
-        raise ValueError("Outlet is not vertical.")
     if inlet[1][1] <= inlet[0][1]:
         raise ValueError("Inlet has non-positive height.")
     if outlet[1][1] <= outlet[0][1]:
         raise ValueError("Outlet has non-positive height.")
 
-    return pts_bot, pts_top, inlet, outlet, fluid_polygon_ccw, shift
+    return pts_bot, pts_top, inlet, outlet, fluid_polygon_ccw
 
 
 def validate_geometry(
@@ -183,7 +112,7 @@ def validate_geometry(
     inlet,
     outlet,
     fluid_polygon,
-    lx: float,
+    l: float,
 ):
     if len(pts_bot) != len(pts_top):
         raise ValueError("Bottom and top wall point counts do not match.")
@@ -204,11 +133,11 @@ def validate_geometry(
         if yt <= yb:
             raise ValueError("Top wall is not above bottom wall at some x.")
 
-    # inlet/outlet should be located at x=0 and x=Lx
+    # inlet/outlet should be located at x=0 and x=L
     if abs(inlet[0][0] - 0.0) > 1e-9 or abs(inlet[1][0] - 0.0) > 1e-9:
         raise ValueError("Inlet is not located at x=0.")
-    if abs(outlet[0][0] - lx) > 1e-9 or abs(outlet[1][0] - lx) > 1e-9:
-        raise ValueError(f"Outlet is not located at x={lx}.")
+    if abs(outlet[0][0] - l) > 1e-9 or abs(outlet[1][0] - l) > 1e-9:
+        raise ValueError(f"Outlet is not located at x={l}.")
 
     # polygon orientation should be CCW
     area = polygon_signed_area(fluid_polygon)
@@ -218,6 +147,62 @@ def validate_geometry(
 
 def point_list_to_dicts(pts):
     return [{"x": float(x), "y": float(y)} for x, y in pts]
+
+
+def beta_pdf(y_norm: float, alpha: float, beta: float) -> float:
+    """
+    Beta PDF on y_norm in [0, 1].
+    Uses endpoint values consistent with alpha,beta > 1 => zero at both ends.
+    """
+    if not (0.0 <= y_norm <= 1.0):
+        raise ValueError(f"y_norm must be in [0,1], got {y_norm}")
+    if alpha <= 0.0 or beta <= 0.0:
+        raise ValueError(f"alpha and beta must be > 0, got {alpha}, {beta}")
+
+    if y_norm in (0.0, 1.0):
+        if alpha > 1.0 and beta > 1.0:
+            return 0.0
+        # fallback for the mathematically singular endpoint case
+        return 0.0
+
+    beta_fn = math.gamma(alpha) * math.gamma(beta) / math.gamma(alpha + beta)
+    return (y_norm ** (alpha - 1.0)) * ((1.0 - y_norm) ** (beta - 1.0)) / beta_fn
+
+
+def build_inlet_velocity_profile(
+    inlet_bottom_y: float,
+    inlet_top_y: float,
+    alpha: float,
+    beta: float,
+    coeff_mps: float,
+    npts: int,
+):
+    """
+    Build inlet velocity profile using normalized inlet coordinate y_norm.
+    u_norm follows Beta(alpha, beta) PDF; u_mps = coeff_mps * u_norm.
+    """
+    if inlet_top_y <= inlet_bottom_y:
+        raise ValueError("Inlet has non-positive height for profile generation.")
+    if npts < 2:
+        raise ValueError(f"npts must be >= 2, got {npts}")
+
+    ys = np.linspace(inlet_bottom_y, inlet_top_y, npts)
+    inlet_len = float(inlet_top_y - inlet_bottom_y)
+
+    profile = []
+    for y in ys:
+        y_norm = float((y - inlet_bottom_y) / inlet_len)
+        u_norm = float(beta_pdf(y_norm, alpha, beta))
+        u_mps = float(coeff_mps * u_norm)
+        profile.append(
+            {
+                "y_mm": float(y),
+                "y_norm": y_norm,
+                "u_norm": u_norm,
+                "u_mps": u_mps,
+            }
+        )
+    return profile
 
 
 def write_geometry_spec(
@@ -233,12 +218,12 @@ def write_geometry_spec(
     payload = {
         "case": case,
         "units": "mm",
-        "geometry_type": "2d_channel_constant_gap",
+        "geometry_type": "2d_trapezoid_channel",
         "topology": {
             "fluid_region_type": "single_closed_polygon",
             "boundary_order_ccw": [
                 "wall_bottom:left_to_right",
-                "wall_top:right_to_left"
+                "wall_top:right_to_left",
             ],
             "notes": (
                 "fluid_polygon is the authoritative closed loop for downstream "
@@ -266,18 +251,15 @@ def main():
     for i in range(N_CASES):
         case = make_case_name(i)
 
-        amp = float(rng.uniform(A_MIN, A_MAX))
-        lam = float(rng.uniform(LAM_MIN, LAM_MAX))
-        phase = float(rng.uniform(PHASE_MIN, PHASE_MAX))
-        uin = float(rng.uniform(UIN_MIN, UIN_MAX))
+        delta1 = float(rng.uniform(DELTA_MIN, DELTA_MAX))
+        delta2 = float(rng.uniform(DELTA_MIN, DELTA_MAX))
+        alpha = float(rng.uniform(ALPHA_MIN, ALPHA_MAX))
+        beta = alpha
 
-        pts_bot, pts_top, inlet, outlet, fluid_polygon, shift = make_wall_curves(
-            lx=Lx,
-            ly=Ly,
-            amplitude=amp,
-            wavelength=lam,
-            phase=phase,
-            npts=NPTS,
+        pts_bot, pts_top, inlet, outlet, fluid_polygon = make_trapezoid_walls(
+            l=L,
+            delta1=delta1,
+            delta2=delta2,
         )
 
         validate_geometry(
@@ -286,21 +268,40 @@ def main():
             inlet=inlet,
             outlet=outlet,
             fluid_polygon=fluid_polygon,
-            lx=Lx,
+            l=L,
         )
+
+        # Normalize velocity magnitude based on left inlet length.
+        left_inlet_len = float(L - 2.0 * delta1)
+        inlet_scale = float(L / left_inlet_len)
+        coeff_scaled = float(UIN_COEFF * inlet_scale)
+
+        inlet_profile = build_inlet_velocity_profile(
+            inlet_bottom_y=inlet[0][1],
+            inlet_top_y=inlet[1][1],
+            alpha=alpha,
+            beta=beta,
+            coeff_mps=coeff_scaled,
+            npts=INLET_PROFILE_NPTS,
+        )
+
+        # Keep scalar Uin_mps for compatibility with downstream scripts:
+        # average of profile over normalized inlet [0,1], where integral(pdf)=1.
+        uin = coeff_scaled
 
         spec_path = OUT_DIR / f"{case}.json"
 
         meta = {
             "random_seed": SEED,
-            "A_mm": amp,
-            "lam_mm": lam,
-            "phase_rad": phase,
-            "Lx_mm": Lx,
-            "Ly_mm": Ly,
-            "npts": NPTS,
+            "L_mm": L,
+            "delta1_mm": delta1,
+            "delta2_mm": delta2,
+            "alpha": alpha,
+            "beta": beta,
+            "left_inlet_len_mm": left_inlet_len,
+            "inlet_velocity_scale_mps": coeff_scaled,
+            "inlet_velocity_profile": inlet_profile,
             "Uin_mps": uin,
-            "y_shift_applied_mm": float(shift),
             "target_geometry_file": str(STEP_DIR / f"{case}.step"),
         }
 
@@ -319,14 +320,14 @@ def main():
             "case": case,
             "geometry_spec": str(spec_path),
             "target_geometry_file": str(STEP_DIR / f"{case}.step"),
-            "A_mm": amp,
-            "lam_mm": lam,
-            "phase_rad": phase,
-            "Lx_mm": Lx,
-            "Ly_mm": Ly,
-            "npts": NPTS,
+            "L_mm": L,
+            "delta1_mm": delta1,
+            "delta2_mm": delta2,
+            "alpha": alpha,
+            "beta": beta,
+            "left_inlet_len_mm": left_inlet_len,
+            "inlet_velocity_scale_mps": coeff_scaled,
             "Uin_mps": uin,
-            "y_shift_applied_mm": float(shift),
         })
 
         print(f"[OK] Wrote geometry spec: {spec_path}")
@@ -338,14 +339,14 @@ def main():
                 "case",
                 "geometry_spec",
                 "target_geometry_file",
-                "A_mm",
-                "lam_mm",
-                "phase_rad",
-                "Lx_mm",
-                "Ly_mm",
-                "npts",
+                "L_mm",
+                "delta1_mm",
+                "delta2_mm",
+                "alpha",
+                "beta",
+                "left_inlet_len_mm",
+                "inlet_velocity_scale_mps",
                 "Uin_mps",
-                "y_shift_applied_mm",
             ],
         )
         writer.writeheader()

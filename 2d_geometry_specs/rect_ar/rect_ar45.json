@@ -1,0 +1,86 @@
+{
+  "case": "rect_ar45",
+  "units": "mm",
+  "geometry_type": "2d_channel_constant_gap",
+  "topology": {
+    "fluid_region_type": "single_closed_polygon",
+    "boundary_order_ccw": [
+      "wall_bottom:left_to_right",
+      "wall_top:right_to_left"
+    ],
+    "notes": "fluid_polygon is the authoritative closed loop for downstream geometry creation. inlet/outlet are provided separately for named boundary reconstruction."
+  },
+  "boundaries": {
+    "wall_bottom": [
+      {
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "x": 6750.0,
+        "y": -0.0
+      }
+    ],
+    "wall_top": [
+      {
+        "x": 0.0,
+        "y": 150.0
+      },
+      {
+        "x": 6750.0,
+        "y": 150.0
+      }
+    ],
+    "inlet": [
+      {
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "x": 0.0,
+        "y": 150.0
+      }
+    ],
+    "outlet": [
+      {
+        "x": 6750.0,
+        "y": -0.0
+      },
+      {
+        "x": 6750.0,
+        "y": 150.0
+      }
+    ],
+    "fluid_polygon": [
+      {
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "x": 6750.0,
+        "y": -0.0
+      },
+      {
+        "x": 6750.0,
+        "y": 150.0
+      },
+      {
+        "x": 0.0,
+        "y": 150.0
+      }
+    ]
+  },
+  "metadata": {
+    "random_seed": 42,
+    "A_mm": 0.0,
+    "lam_mm": 1.0,
+    "phase_rad": 0.0,
+    "Lx_mm": 6750.0,
+    "Ly_mm": 150.0,
+    "npts": 2,
+    "Uin_mps": 0.1,
+    "y_shift_applied_mm": 0.0,
+    "target_geometry_file": "/home/hantianl/Documents/PIDIF/2d_geometry_step/rect_ar45.step",
+    "aspect_ratio": 45
+  }
+}

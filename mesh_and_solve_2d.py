@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -19,12 +21,12 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # ============================================================
 
 DEFAULT_NPROCS = 4
-DEFAULT_NITER = 200
+DEFAULT_NITER = 2000
 DEFAULT_PRECISION = "double"
 DEFAULT_UI_MODE = "hidden_gui"
 
-BASE_DIR = Path("/home/nuoxu9/PIDIF")
-DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d"
+BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
+DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "trapezoid"
 
 
 # ============================================================
@@ -71,14 +73,41 @@ def get_case_info_from_spec(spec_json: Path) -> dict[str, Any]:
     meta = spec.get("metadata", {})
 
     case = spec["case"]
-    uin_mps = float(meta.get("Uin_mps", 1.0))
+    inlet_profile = meta.get("inlet_velocity_profile", [])
+    if not isinstance(inlet_profile, list):
+        inlet_profile = []
+
+    # Prefer explicit scalar velocity if present; otherwise derive from profile.
+    if "Uin_mps" in meta:
+        uin_mps = float(meta["Uin_mps"])
+    elif inlet_profile:
+        u_vals = [float(p.get("u_mps", 0.0)) for p in inlet_profile]
+        uin_mps = float(sum(u_vals) / len(u_vals)) if u_vals else 1.0
+    else:
+        uin_mps = 1.0
+
     step_path = meta.get("target_geometry_file", str(spec_json.with_suffix(".step")))
-    lx_m = float(meta["Lx_mm"]) / 1000.0
-    ly_m = float(meta["Ly_mm"]) / 1000.0
+
+    # Backward + forward compatibility:
+    # old schema: Lx_mm/Ly_mm
+    # new schema: L_mm
+    if "Lx_mm" in meta and "Ly_mm" in meta:
+        lx_m = float(meta["Lx_mm"]) / 1000.0
+        ly_m = float(meta["Ly_mm"]) / 1000.0
+    elif "L_mm" in meta:
+        lx_m = float(meta["L_mm"]) / 1000.0
+        ly_m = float(meta["L_mm"]) / 1000.0
+    else:
+        raise KeyError(
+            "Spec metadata missing geometry size fields. "
+            "Expected either (Lx_mm, Ly_mm) or L_mm."
+        )
 
     return {
         "case": case,
         "uin_mps": uin_mps,
+        "inlet_velocity_profile": inlet_profile,
+        "inlet_velocity_scale_mps": float(meta.get("inlet_velocity_scale_mps", uin_mps)),
         "step_path": str(step_path),
         "lx_m": lx_m,
         "ly_m": ly_m,
@@ -366,16 +395,16 @@ def mesh_check(solver) -> None:
 
 
 def set_models_and_materials(solver) -> None:
-    # enable energy equation
+    # keep energy equation disabled for isothermal runs
     try:
-        solver.settings.setup.models.energy.enabled = True
-        log("[INFO] Enabled energy equation")
+        solver.settings.setup.models.energy.enabled = False
+        log("[INFO] Energy equation disabled")
     except Exception:
         try:
-            solver.tui.define.models.energy("yes")
-            log("[INFO] Enabled energy equation via TUI")
+            solver.tui.define.models.energy("no")
+            log("[INFO] Energy equation disabled via TUI")
         except Exception as e:
-            log(f"[WARN] Could not enable energy equation: {e}")
+            log(f"[WARN] Could not explicitly disable energy equation: {e}")
     
     # viscous model       
     try:
@@ -480,11 +509,9 @@ def set_residual_targets(
         crit["continuity"].absolute_criteria = continuity
         crit["x-velocity"].absolute_criteria = x_velocity
         crit["y-velocity"].absolute_criteria = y_velocity
-        if "energy" in crit:
-            crit["energy"].absolute_criteria = energy
         log(
             f"[INFO] Residual targets set via settings API: "
-            f"continuity={continuity}, x={x_velocity}, y={y_velocity}, energy={energy}"
+            f"continuity={continuity}, x={x_velocity}, y={y_velocity}"
         )
         return
     except Exception as e:
@@ -495,7 +522,6 @@ def set_residual_targets(
             str(continuity),
             str(x_velocity),
             str(y_velocity),
-            str(energy),
         )
         log("[INFO] Residual targets set via TUI")
         return
@@ -504,18 +530,97 @@ def set_residual_targets(
 
     log("[WARN] Could not set residual targets:\n- " + "\n- ".join(tried))
 
-def set_velocity_inlet(solver, inlet_name: str, uin_mps: float, temp_K: float = 300.0) -> None:
+def set_velocity_inlet(
+    solver,
+    inlet_name: str,
+    uin_mps: float,
+    inlet_velocity_profile: list[dict[str, Any]] | None = None,
+    temp_K: float = 300.0,
+) -> None:
 
     inlet = solver.settings.setup.boundary_conditions.velocity_inlet[inlet_name]
 
+    # Signature compatibility only (energy equation is disabled).
+    _ = temp_K
+
+    # Apply the actual nonuniform inlet profile when available.
+    if inlet_velocity_profile and len(inlet_velocity_profile) >= 2:
+        try:
+            pts = sorted(
+                [
+                    (float(p["y_mm"]) / 1000.0, float(p["u_mps"]))
+                    for p in inlet_velocity_profile
+                ],
+                key=lambda t: t[0],
+            )
+        except Exception as e:
+            raise RuntimeError(f"Invalid inlet_velocity_profile format: {e}")
+
+        profile_name = f"{inlet_name.replace('.', '_')}_u_profile"
+
+        # with tempfile.NamedTemporaryFile(mode="w", suffix=".prof", delete=False) as tf:
+        with open("./profile.prof", "w") as tf:
+            prof_path = Path(tf.name)
+            tf.write(f"(({profile_name} line {len(pts)})\n")
+            tf.write("(x\n")
+            for _y_m, _u in pts:
+                tf.write("0.0\n")
+            tf.write(")\n")
+            tf.write("(y\n")
+            for y_m, _u in pts:
+                tf.write(f"{y_m:.16e}\n")
+            tf.write(")\n")
+            tf.write("(u-velocity\n")
+            for _y_m, u in pts:
+                tf.write(f"{u:.16e}\n")
+            tf.write(")\n")
+            tf.write(")\n")
+
+        try:
+            solver.tui.file.read_profile(str(prof_path))
+            log(f"[INFO] Read Fluent profile file {prof_path}")
+            log(f"[INFO] profile: {solver.tui.define.profiles.list_profiles()}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to read Fluent profile file {prof_path}: {e}")
+
+        bind_errors: list[str] = []
+        bound = False
+
+        try:
+            inlet.momentum.velocity_magnitude.option = "profile"
+            inlet.momentum.velocity_magnitude.profile_name = profile_name
+            inlet.momentum.velocity_magnitude.field_name = "velocity-magnitude"
+            bound = True
+        except Exception as e:
+            log(f"[WARN] option/profile_name API failed: {e}")
+            bind_errors.append(f"option/profile_name API failed: {e}")
+        raise RuntimeError("Stop here")
+
+        if not bound:
+            try:
+                inlet.momentum.velocity_magnitude.set_state(
+                    {"option": "profile", "profile_name": profile_name, "field_name": "velocity-magnitude"}
+                )
+                bound = True
+            except Exception as e:
+                log(f"[WARN] set_state profile mapping failed: {e}")
+                bind_errors.append(f"set_state profile mapping failed: {e}")
+
+        if not bound:
+            raise RuntimeError(
+                "Loaded inlet profile but could not bind it to velocity inlet. Tried:\n- "
+                + "\n- ".join(bind_errors)
+            )
+
+        log(
+            f"[INFO] Set velocity inlet '{inlet_name}' from profile '{profile_name}' "
+            f"with {len(pts)} points."
+        )
+        return
+
+    # Scalar fallback only when profile data is unavailable.
     inlet.momentum.velocity_magnitude.value = float(uin_mps)
-
-    try:
-        inlet.thermal.temperature.value = float(temp_K)
-    except Exception:
-        pass
-
-    log(f"[INFO] Set velocity inlet '{inlet_name}' = {uin_mps} m/s, T={temp_K} K")
+    log(f"[INFO] Set velocity inlet '{inlet_name}' = {uin_mps} m/s (scalar)")
 
 
 def set_pressure_outlet(solver, outlet_name: str, gauge_pressure_pa: float = 0.0) -> None:
@@ -532,58 +637,18 @@ def set_pressure_outlet(solver, outlet_name: str, gauge_pressure_pa: float = 0.0
     log(f"[INFO] Set pressure outlet '{outlet_name}' = {gauge_pressure_pa} Pa")
 
 def set_wall_temperature(solver, wall_name: str, temp_K: float = 350.0) -> None:
-    wall = solver.settings.setup.boundary_conditions.wall[wall_name]
-
-    activation_errors = []
-
-    for attr_name, value in [
-        ("thermal_condition", "Temperature"),
-        ("boundary_condition", "Temperature"),
-    ]:
-        try:
-            setattr(wall.thermal, attr_name, value)
-            log(f"[INFO] Activated wall thermal mode via {attr_name}='{value}' for '{wall_name}'")
-            break
-        except Exception as e:
-            activation_errors.append(f"{attr_name}={value}: {e}")
-    else:
-        raise RuntimeError(
-            f"Could not activate temperature BC for wall '{wall_name}'. Tried:\n- "
-            + "\n- ".join(activation_errors)
-        )
-
-    value_errors = []
-
-    try:
-        wall.thermal.temperature.value = float(temp_K)
-        log(f"[INFO] Set wall '{wall_name}' temperature = {temp_K} K via .value")
-        return
-    except Exception as e:
-        value_errors.append(f"temperature.value: {e}")
-
-    try:
-        wall.thermal.temperature.set_state(float(temp_K))
-        log(f"[INFO] Set wall '{wall_name}' temperature = {temp_K} K via set_state")
-        return
-    except Exception as e:
-        value_errors.append(f"temperature.set_state: {e}")
-
-    try:
-        wall.thermal.temperature = float(temp_K)
-        log(f"[INFO] Set wall '{wall_name}' temperature = {temp_K} K via direct assignment")
-        return
-    except Exception as e:
-        value_errors.append(f"temperature=: {e}")
-
-    raise RuntimeError(
-        f"Temperature field for wall '{wall_name}' is still not writable after activation. Tried:\n- "
-        + "\n- ".join(value_errors)
-    )
+    # Signature kept for compatibility; thermal wall BC is intentionally unused.
+    _ = (solver, wall_name, temp_K)
+    log(f"[INFO] Skipping wall temperature setup for '{wall_name}' (energy equation disabled)")
 
 def initialize_solution(solver) -> None:
     try:
         solver.tui.solve.initialize.hyb_initialization()
         log("[INFO] Hybrid initialization completed")
+        log(f"[INFO] check inlet velocity: {solver.tui.report.surface_integrals.area_weighted_average(
+            zone_name="inlet",
+            quantity="velocity-magnitude",
+        )}")
     except Exception:
         solver.tui.solve.initialize.initialize_flow()
         log("[INFO] Standard initialization completed")
@@ -681,7 +746,7 @@ def write_residual_csv_from_monitor(solver, out_csv: Path):
 def write_individual_residual_csvs(solver, out_dir: Path):
     """
     Export residual monitor history into individual CSV files
-    for continuity, x-velocity, y-velocity, energy.
+    for continuity, x-velocity, y-velocity.
     """
     ensure_dir(out_dir)
 
@@ -697,7 +762,6 @@ def write_individual_residual_csvs(solver, out_dir: Path):
         "continuity": "pressure.csv",
         "x-velocity": "x-velocity.csv",
         "y-velocity": "y-velocity.csv",
-        "energy": "temperature.csv",
     }
 
     for key, filename in mapping.items():
@@ -747,6 +811,7 @@ def solve_2d_mesh(
     mesh_path: Path,
     out_dir: Path,
     uin_mps: float,
+    inlet_velocity_profile: list[dict[str, Any]] | None,
     nprocs: int,
     n_iter: int,
     lx_m: float,
@@ -776,11 +841,13 @@ def solve_2d_mesh(
             outlet_zone=boundary_map["outlet"],
         )
 
-        set_velocity_inlet(solver, inlet_name=boundary_map["inlet"], uin_mps=uin_mps)
+        set_velocity_inlet(
+            solver,
+            inlet_name=boundary_map["inlet"],
+            uin_mps=uin_mps,
+            inlet_velocity_profile=inlet_velocity_profile,
+        )
         set_pressure_outlet(solver, outlet_name=boundary_map["outlet"], gauge_pressure_pa=0.0)
-
-        set_wall_temperature(solver, boundary_map["wall_top"], 350.0)
-        set_wall_temperature(solver, boundary_map["wall_bottom"], 350.0)
 
         initialize_solution(solver)
         set_residual_targets(
@@ -788,7 +855,6 @@ def solve_2d_mesh(
             continuity=1e-20,
             x_velocity=1e-20,
             y_velocity=1e-20,
-            energy=1e-20,
         )
         iterate_solver(solver, n_iter=n_iter)
 
@@ -800,8 +866,6 @@ def solve_2d_mesh(
 
         pin_txt = out_dir / "pin.txt"
         pout_txt = out_dir / "pout.txt"
-        tin_txt = out_dir / "tin.txt"
-        tout_txt = out_dir / "tout.txt"
         vin_txt = out_dir / "vin.txt"
         vout_txt = out_dir / "vout.txt"
         case_data_path = out_dir / "case2d.cas.h5"
@@ -810,14 +874,8 @@ def solve_2d_mesh(
         pout = report_area_weighted_pressure(solver, boundary_map["outlet"], pout_txt)
         dp = pin - pout
 
-        tin = report_area_weighted_temperature(solver, boundary_map["inlet"], tin_txt)
-        tout = report_area_weighted_temperature(solver, boundary_map["outlet"], tout_txt)
-
         vin = report_area_weighted_velocity(solver, boundary_map["inlet"], vin_txt)
         vout = report_area_weighted_velocity(solver, boundary_map["outlet"], vout_txt)
-
-        wall_top_temp = 350.0
-        wall_bottom_temp = 350.0
 
         postprocess_summary = {
             "case": mesh_path.stem.replace(".msh", ""),
@@ -829,39 +887,27 @@ def solve_2d_mesh(
             },
             "inlet": {
                 "pressure_pa": pin,
-                "temperature_k": tin,
                 "velocity_mps": vin,
                 "txt_files": {
                     "pressure": str(pin_txt),
-                    "temperature": str(tin_txt),
                     "velocity": str(vin_txt),
                 },
             },
             "outlet": {
                 "pressure_pa": pout,
-                "temperature_k": tout,
                 "velocity_mps": vout,
                 "txt_files": {
                     "pressure": str(pout_txt),
-                    "temperature": str(tout_txt),
                     "velocity": str(vout_txt),
                 },
             },
-            "wall_top": {
-                "temperature_k": wall_top_temp,
-            },
-            "wall_bottom": {
-                "temperature_k": wall_bottom_temp,
-            },
             "derived": {
                 "dp_pa": dp,
-                "delta_t_k": tout - tin,
             },
             "residual_files": {
                 "combined_csv": str(residual_csv),
                 "plot_png": str(residual_png),
                 "pressure_csv": str(out_dir / "pressure.csv"),
-                "temperature_csv": str(out_dir / "temperature.csv"),
                 "x_velocity_csv": str(out_dir / "x-velocity.csv"),
                 "y_velocity_csv": str(out_dir / "y-velocity.csv"),
             },
@@ -891,12 +937,8 @@ def solve_2d_mesh(
             "outlet_name": boundary_map["outlet"],
             "wall_bottom_name": boundary_map["wall_bottom"],
             "wall_top_name": boundary_map["wall_top"],
-            "tin_k": tin,
-            "tout_k": tout,
             "vin_mps": vin,
             "vout_mps": vout,
-            "tin_txt": str(tin_txt),
-            "tout_txt": str(tout_txt),
             "vin_txt": str(vin_txt),
             "vout_txt": str(vout_txt),
             "residual_csv": str(residual_csv),
@@ -922,8 +964,8 @@ def run_case_2d(
     uin_mps: float | None = None,
     nprocs: int = DEFAULT_NPROCS,
     n_iter: int = DEFAULT_NITER,
-    global_max_size_mm: float = 0.5,
-    global_min_size_mm: float = 0.1,
+    global_max_size_mm: float = 5e-3,
+    global_min_size_mm: float = 1e-3,
 ) -> dict[str, Any]:
     spec_json = Path(spec_json)
     step_path = Path(step_path)
@@ -940,6 +982,7 @@ def run_case_2d(
     case = spec_info["case"]
     if uin_mps is None:
         uin_mps = spec_info["uin_mps"]
+    inlet_velocity_profile = spec_info.get("inlet_velocity_profile", [])
 
     mesh_path = out_dir / f"{case}.msh.h5"
     summary_json = out_dir / "run_summary.json"
@@ -958,6 +1001,7 @@ def run_case_2d(
         mesh_path=mesh_path,
         out_dir=out_dir,
         uin_mps=float(uin_mps),
+        inlet_velocity_profile=inlet_velocity_profile,
         nprocs=nprocs,
         n_iter=n_iter,
         lx_m=spec_info["lx_m"],
@@ -970,6 +1014,7 @@ def run_case_2d(
         "spec_json": str(spec_json),
         "step_path": str(step_path),
         "uin_mps": float(uin_mps),
+        "inlet_profile_points": len(inlet_velocity_profile),
         "elapsed_sec": time.time() - started,
         **solve_result,
     }
@@ -992,7 +1037,8 @@ def _run_one_case_from_row(
     spec_json = Path(row["geometry_spec"])
     step_path = Path(row["target_geometry_file"])
     out_dir = Path(runs_root) / case
-    uin = float(row.get("Uin_mps", 1.0))
+    uin_raw = row.get("Uin_mps")
+    uin = float(uin_raw) if (uin_raw is not None and str(uin_raw).strip() != "") else None
 
     try:
         res = run_case_2d(
@@ -1012,7 +1058,7 @@ def _run_one_case_from_row(
             "status": f"failed: {e}",
             "spec_json": str(spec_json),
             "step_path": str(step_path),
-            "uin_mps": uin,
+            "uin_mps": "" if uin is None else uin,
         }
 
 # ============================================================
@@ -1109,10 +1155,6 @@ def batch_run_from_csv(
             "pin_pa",
             "pout_pa",
             "dp_pa",
-            "tin_txt",
-            "tout_txt",
-            "tin_k",
-            "tout_k",
             "inlet_name",
             "outlet_name",
             "wall_bottom_name",
@@ -1146,14 +1188,17 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--total-cores", type=int, default=72, help="Total CPU cores available on the machine. Used to choose how many cases to run in parallel.")
     p.add_argument("--max-parallel-cases", type=int, default=None, help="Optional hard cap on number of concurrent Fluent jobs.")
     p.add_argument("--niter", type=int, default=DEFAULT_NITER)
-    p.add_argument("--max-size-mm", type=float, default=0.5, help="Maximum global mesh element size in mm. Smaller values produce finer meshes (more elements). Default: 0.5 mm.")
-    p.add_argument("--min-size-mm", type=float, default=0.1, help="Minimum mesh element size in mm used for curvature/feature refinement. Must be smaller than --max-size-mm. Default: 0.1 mm.")
+    p.add_argument("--max-size-mm", type=float, default=0.005, help="Maximum global mesh element size in mm. Smaller values produce finer meshes (more elements). Default: 0.5 mm.")
+    p.add_argument("--min-size-mm", type=float, default=0.001, help="Minimum mesh element size in mm used for curvature/feature refinement. Must be smaller than --max-size-mm. Default: 0.1 mm.")
 
     return p
 
 
 def main():
     args = build_argparser().parse_args()
+    
+    ANSYS_ROOT_V251 = "/usr/local/tools/ansys_inc/v251"
+    os.environ.setdefault("AWP_ROOT251", ANSYS_ROOT_V251)
 
     if args.json:
         spec_json = Path(args.json)
