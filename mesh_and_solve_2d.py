@@ -655,6 +655,15 @@ def report_area_weighted_temperature(solver, zone_name: str, out_txt: Path) -> f
         quantity_label="temperature",
     )
 
+def report_area_weighted_velocity(solver, zone_name: str, out_txt: Path) -> float:
+    return report_area_weighted_quantity(
+        solver=solver,
+        zone_name=zone_name,
+        out_txt=out_txt,
+        report_candidates=["velocity-magnitude"],
+        quantity_label="velocity",
+    )
+
 def write_residual_csv_from_monitor(solver, out_csv: Path):
     ensure_dir(out_csv.parent)
 
@@ -669,6 +678,37 @@ def write_residual_csv_from_monitor(solver, out_csv: Path):
 
     log(f"[INFO] Residual CSV written: {out_csv}")
 
+def write_individual_residual_csvs(solver, out_dir: Path):
+    """
+    Export residual monitor history into individual CSV files
+    for continuity, x-velocity, y-velocity, energy.
+    """
+    ensure_dir(out_dir)
+
+    try:
+        history = solver.monitor.get_monitor_set_data("residual")
+    except Exception as e:
+        log(f"[WARN] Could not access residual monitor history: {e}")
+        return
+
+    df = pd.DataFrame(history)
+
+    mapping = {
+        "continuity": "pressure.csv",
+        "x-velocity": "x-velocity.csv",
+        "y-velocity": "y-velocity.csv",
+        "energy": "temperature.csv",
+    }
+
+    for key, filename in mapping.items():
+        if key in df.columns:
+            out_file = out_dir / filename
+            pd.DataFrame({
+                "iter": df["iter"],
+                key: df[key],
+            }).to_csv(out_file, index=False)
+
+            log(f"[INFO] Saved residual history: {out_file}")
 
 def save_residual_plot(residual_csv: Path, out_png: Path):
     if not residual_csv.exists():
@@ -745,10 +785,10 @@ def solve_2d_mesh(
         initialize_solution(solver)
         set_residual_targets(
             solver,
-            continuity=1e-8,
-            x_velocity=1e-8,
-            y_velocity=1e-8,
-            energy=1e-10,
+            continuity=1e-20,
+            x_velocity=1e-20,
+            y_velocity=1e-20,
+            energy=1e-20,
         )
         iterate_solver(solver, n_iter=n_iter)
 
@@ -756,20 +796,82 @@ def solve_2d_mesh(
         residual_png = out_dir / "residuals.png"
         write_residual_csv_from_monitor(solver, residual_csv)
         save_residual_plot(residual_csv, residual_png)
+        write_individual_residual_csvs(solver, out_dir)
 
         pin_txt = out_dir / "pin.txt"
         pout_txt = out_dir / "pout.txt"
+        tin_txt = out_dir / "tin.txt"
+        tout_txt = out_dir / "tout.txt"
+        vin_txt = out_dir / "vin.txt"
+        vout_txt = out_dir / "vout.txt"
         case_data_path = out_dir / "case2d.cas.h5"
 
         pin = report_area_weighted_pressure(solver, boundary_map["inlet"], pin_txt)
         pout = report_area_weighted_pressure(solver, boundary_map["outlet"], pout_txt)
         dp = pin - pout
 
-        tin_txt = out_dir / "tin.txt"
-        tout_txt = out_dir / "tout.txt"
-
         tin = report_area_weighted_temperature(solver, boundary_map["inlet"], tin_txt)
         tout = report_area_weighted_temperature(solver, boundary_map["outlet"], tout_txt)
+
+        vin = report_area_weighted_velocity(solver, boundary_map["inlet"], vin_txt)
+        vout = report_area_weighted_velocity(solver, boundary_map["outlet"], vout_txt)
+
+        wall_top_temp = 350.0
+        wall_bottom_temp = 350.0
+
+        postprocess_summary = {
+            "case": mesh_path.stem.replace(".msh", ""),
+            "boundaries": {
+                "inlet": boundary_map["inlet"],
+                "outlet": boundary_map["outlet"],
+                "wall_top": boundary_map["wall_top"],
+                "wall_bottom": boundary_map["wall_bottom"],
+            },
+            "inlet": {
+                "pressure_pa": pin,
+                "temperature_k": tin,
+                "velocity_mps": vin,
+                "txt_files": {
+                    "pressure": str(pin_txt),
+                    "temperature": str(tin_txt),
+                    "velocity": str(vin_txt),
+                },
+            },
+            "outlet": {
+                "pressure_pa": pout,
+                "temperature_k": tout,
+                "velocity_mps": vout,
+                "txt_files": {
+                    "pressure": str(pout_txt),
+                    "temperature": str(tout_txt),
+                    "velocity": str(vout_txt),
+                },
+            },
+            "wall_top": {
+                "temperature_k": wall_top_temp,
+            },
+            "wall_bottom": {
+                "temperature_k": wall_bottom_temp,
+            },
+            "derived": {
+                "dp_pa": dp,
+                "delta_t_k": tout - tin,
+            },
+            "residual_files": {
+                "combined_csv": str(residual_csv),
+                "plot_png": str(residual_png),
+                "pressure_csv": str(out_dir / "pressure.csv"),
+                "temperature_csv": str(out_dir / "temperature.csv"),
+                "x_velocity_csv": str(out_dir / "x-velocity.csv"),
+                "y_velocity_csv": str(out_dir / "y-velocity.csv"),
+            },
+        }
+
+        post_json = out_dir / "postprocess_summary.json"
+        with open(post_json, "w") as f:
+            json.dump(postprocess_summary, f, indent=2)
+
+        log(f"[INFO] Wrote postprocess summary: {post_json}")
 
         try:
             solver.settings.file.write_case_data(file_name=str(case_data_path))
@@ -791,13 +893,15 @@ def solve_2d_mesh(
             "wall_top_name": boundary_map["wall_top"],
             "tin_k": tin,
             "tout_k": tout,
+            "vin_mps": vin,
+            "vout_mps": vout,
             "tin_txt": str(tin_txt),
             "tout_txt": str(tout_txt),
+            "vin_txt": str(vin_txt),
+            "vout_txt": str(vout_txt),
             "residual_csv": str(residual_csv),
             "residual_png": str(residual_png),
-            "pressure_png": str(pressure_png),
-            "temperature_png": str(temperature_png),
-            "velocity_png": str(velocity_png),
+            "postprocess_summary_json": str(post_json),
         }
 
     finally:
