@@ -281,6 +281,8 @@ def build_case_subdomains(
     field_map=FIELD_MAP,
     ar_scale=50.0,
     dtype=np.float32,
+    interface_jitter=0.0,
+    rng=None,
 ):
     """
     Convert one Fluent case into fixed-size FNO samples.
@@ -319,6 +321,25 @@ def build_case_subdomains(
     ymin, ymax = mesh_info["y_min_mm"], mesh_info["y_max_mm"]
     x_edges = np.linspace(xmin, xmax, n_subdomains + 1)
     y_grid = np.linspace(ymin, ymax, ny)
+    
+    if interface_jitter > 0:
+        if rng is None:
+            rng = np.random.default_rng()
+        base_dx = (xmax - xmin) / n_subdomains
+        jitter_dx = base_dx * interface_jitter
+        noise = rng.uniform(
+            low=-jitter_dx,
+            high=jitter_dx,
+            size=n_subdomains - 1,
+        )
+        
+        x_edges[1:-1] += noise
+        
+        if np.any(np.diff(x_edges) <= 0):
+            raise RuntimeError(
+                "Jittered x_edges are not strictly increasing. "
+                "Reduce the jitter range."
+            )
 
     X_blocks, Y_blocks, meta = [], [], []
     for i in range(n_subdomains):
@@ -344,13 +365,29 @@ def build_case_subdomains(
             "x_right_mm": float(x1),
             "y_bottom_mm": float(ymin),
             "y_top_mm": float(ymax),
+            "local_aspect_ratio": float(x1 - x0) / float(ymax - ymin),
         })
 
-    dx_grid = (x_edges[1] - x_edges[0]) / max(nx - 1, 1)
-    slab_half_width = max(dx_grid, 1e-9)
+    dx_grid_each_subdomain = np.diff(x_edges) / max(nx - 1, 1)
+
+    slab_half_widths = np.empty(n_subdomains + 1, dtype=np.float64)
+
+    # Inlet and outlet.
+    slab_half_widths[0] = dx_grid_each_subdomain[0]
+    slab_half_widths[-1] = dx_grid_each_subdomain[-1]
+
+    # Interior interfaces use the smaller neighboring grid spacing.
+    if n_subdomains > 1:
+        slab_half_widths[1:-1] = np.minimum(
+            dx_grid_each_subdomain[:-1],
+            dx_grid_each_subdomain[1:],
+        )
+
+    slab_half_widths = np.maximum(slab_half_widths, 1.0e-9)
+    
     interfaces = np.stack([
         _sample_vertical_profile_by_slab(x, y, values, xe, ymin, ymax, ny, slab_half_width, dtype=dtype)
-        for xe in x_edges
+        for xe, slab_half_width in zip(x_edges, slab_half_widths)
     ], axis=0)
 
     return {
