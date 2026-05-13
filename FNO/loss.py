@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class LpLoss(nn.Module):
     def __init__(self, p=2, size_average=True):
@@ -13,11 +14,15 @@ class LpLoss(nn.Module):
         loss = diff / (norm + 1e-8)
         return loss.mean() if self.size_average else loss.sum()
 
-def pde_residual(pred_phys, Lx, Ly):
+
+def pde_residual(pred_phys, uin, Lx=0.05, Ly=0.02):
     """
-    pred_phys: (B, H, W, 4) — physical units
-               channel order: [pressure, temperature, u, v]
-    Lx, Ly   : physical domain length (m)
+    Nondimensional PDE residuals for FNO-based convection problem.
+
+    pred_phys: (B, H, W, 4)
+               channel order: [pressure, temperature, u_velocity, v_velocity]
+
+    Lx, Ly: physical domain size [m]
 
     Returns:
         continuity : (B, H, W)
@@ -26,66 +31,202 @@ def pde_residual(pred_phys, Lx, Ly):
         energy     : (B, H, W)
     """
 
-    # ── unpack channels ──────────────────────────────────────
-    p = pred_phys[..., 0]   # (B, H, W)
+    p = pred_phys[..., 0]
     T = pred_phys[..., 1]
     u = pred_phys[..., 2]
     v = pred_phys[..., 3]
 
-    # ── air properties ───────────────────────────────────────
-    rho = 1.225
-    mu  = 1.789e-5
-    cp  = 1006.0
-    k   = 0.0242
+    # Fluid density [kg/m^3]
+    rho = 1.086
 
-    # ── spectral derivative helpers ──────────────────────────
-    def ddx(f):
-        """∂f/∂x using spectral (FFT) differentiation along W axis"""
+    # Kinematic viscosity [m^2/s]
+    nu = 1.822e-5
+
+    # Heat capacity [J/(kg·K)]
+    cp = 1006.0
+
+    # Thermal conductivity [W/(m·K)]
+    k = 0.0280
+
+    # Gravitational acceleration [m/s^2]
+    g = 9.81
+
+    # Convert uin to tensor for batch-wise broadcasting
+    if not torch.is_tensor(uin):
+        uin = torch.tensor(uin, device=pred_phys.device, dtype=pred_phys.dtype)
+    else:
+        uin = uin.to(device=pred_phys.device, dtype=pred_phys.dtype)
+
+    # Case-specific reference velocity [m/s]
+    if uin.ndim == 1:
+        U_ref = uin.view(-1, 1, 1)
+    else:
+        U_ref = uin
+
+    # Characteristic length for Re and Pe [m]
+    L_ref = Lx
+
+    # Characteristic distance for buoyancy term [m]
+    d_ref = Ly
+
+    # Reference/free-stream temperature [K]
+    T_inf = 300.0
+
+    # Heated surface temperature [K]
+    T_s = 350.0
+
+    # Reference temperature difference [K]
+    dT_ref = T_s - T_inf
+
+    # Dynamic pressure scale [Pa]
+    p_ref = rho * U_ref**2
+
+    # Thermal diffusivity [m^2/s]
+    alpha = k / (rho * cp)
+
+    # Reynolds number: inertia / viscous diffusion
+    Re = U_ref * L_ref / nu
+
+    # Prandtl number: momentum diffusivity / thermal diffusivity
+    Pr = nu / alpha
+
+    # Peclet number: thermal convection / thermal diffusion
+    Pe = Re * Pr
+
+    # Thermal expansion coefficient approximation [1/K]
+    beta = 1.0 / T_inf
+
+    # Richardson number: buoyancy / inertia
+    Ri = g * beta * dT_ref * d_ref / (U_ref**2)
+
+    # Inverse Reynolds number
+    Re_ = 1.0 / Re
+
+    # Inverse Peclet number
+    Pe_ = 1.0 / Pe
+
+    # Aspect ratio correction for normalized grid
+    gamma = Lx / Ly
+
+    # Nondimensional x-velocity
+    U = u / U_ref
+
+    # Nondimensional y-velocity
+    V = v / U_ref
+
+    # Nondimensional pressure
+    P = p / p_ref
+
+    # Nondimensional temperature
+    T_nd = (T - T_inf) / dT_ref
+
+    # First derivative with respect to normalized x-coordinate
+    def ddx_nd(f):
         W = f.shape[2]
-        # rfft along x-axis (dim=2)
-        F = torch.fft.rfft(f, dim=2)
-        # wavenumbers: 0, 1, ..., W//2
-        kx = torch.fft.rfftfreq(W, d=1.0/W).to(f.device)   # shape (W//2+1,)
-        kx = kx.view(1, 1, -1)                               # broadcast to (1,1,W//2+1)
-        # multiply by i * 2π / Lx
-        F_dx = F * (1j * 2.0 * torch.pi * kx / Lx)
+        F_fft = torch.fft.rfft(f, dim=2)
+        kx = torch.fft.rfftfreq(W, d=1.0 / W).to(f.device).view(1, 1, -1)
+        F_dx = F_fft * (1j * 2.0 * torch.pi * kx)
         return torch.fft.irfft(F_dx, n=W, dim=2)
 
-    def ddy(f):
-        """∂f/∂y using spectral (FFT) differentiation along H axis"""
+    # First derivative with respect to normalized y-coordinate
+    def ddy_nd(f):
         H = f.shape[1]
-        F = torch.fft.rfft(f, dim=1)
-        ky = torch.fft.rfftfreq(H, d=1.0/H).to(f.device)   # shape (H//2+1,)
-        ky = ky.view(1, -1, 1)                               # broadcast to (1,H//2+1,1)
-        F_dy = F * (1j * 2.0 * torch.pi * ky / Ly)
+        F_fft = torch.fft.rfft(f, dim=1)
+        ky = torch.fft.rfftfreq(H, d=1.0 / H).to(f.device).view(1, -1, 1)
+        F_dy = F_fft * (1j * 2.0 * torch.pi * ky)
         return torch.fft.irfft(F_dy, n=H, dim=1)
 
-    def laplacian(f):
-        """∇²f = ∂²f/∂x² + ∂²f/∂y² using spectral differentiation"""
-        H, W = f.shape[1], f.shape[2]
+    # Second derivative with respect to normalized x-coordinate
+    def d2dx_nd(f):
+        W = f.shape[2]
+        F_fft = torch.fft.rfft(f, dim=2)
+        kx = torch.fft.rfftfreq(W, d=1.0 / W).to(f.device).view(1, 1, -1)
+        F_dxx = F_fft * (-(2.0 * torch.pi * kx) ** 2)
+        return torch.fft.irfft(F_dxx, n=W, dim=2)
 
-        # ∂²f/∂x²
-        Fx  = torch.fft.rfft(f, dim=2)
-        kx  = torch.fft.rfftfreq(W, d=1.0/W).to(f.device).view(1, 1, -1)
-        d2x = torch.fft.irfft(Fx * (-(2.0 * torch.pi * kx / Lx)**2), n=W, dim=2)
+    # Second derivative with respect to normalized y-coordinate
+    def d2dy_nd(f):
+        H = f.shape[1]
+        F_fft = torch.fft.rfft(f, dim=1)
+        ky = torch.fft.rfftfreq(H, d=1.0 / H).to(f.device).view(1, -1, 1)
+        F_dyy = F_fft * (-(2.0 * torch.pi * ky) ** 2)
+        return torch.fft.irfft(F_dyy, n=H, dim=1)
 
-        # ∂²f/∂y²
-        Fy  = torch.fft.rfft(f, dim=1)
-        ky  = torch.fft.rfftfreq(H, d=1.0/H).to(f.device).view(1, -1, 1)
-        d2y = torch.fft.irfft(Fy * (-(2.0 * torch.pi * ky / Ly)**2), n=H, dim=1)
+    # Pressure gradient
+    P_x = ddx_nd(P)
+    P_y = ddy_nd(P)
 
-        return d2x + d2y
+    # x-velocity gradient
+    U_x = ddx_nd(U)
+    U_y = ddy_nd(U)
 
-    # ── 1. Continuity:  ∇·u = 0 ─────────────────────────────
-    continuity = ddx(u) + ddy(v)
+    # y-velocity gradient
+    V_x = ddx_nd(V)
+    V_y = ddy_nd(V)
 
-    # ── 2. Momentum (x):  ρ(u·∇)u = -∂p/∂x + μ∇²u ─────────
-    mom_u = rho * (u * ddx(u) + v * ddy(u)) + ddx(p) - mu * laplacian(u)
+    # Temperature gradient
+    T_x = ddx_nd(T_nd)
+    T_y = ddy_nd(T_nd)
 
-    # ── 3. Momentum (y):  ρ(u·∇)v = -∂p/∂y + μ∇²v ─────────
-    mom_v = rho * (u * ddx(v) + v * ddy(v)) + ddy(p) - mu * laplacian(v)
+    # x-velocity second derivative
+    U_xx = d2dx_nd(U)
+    U_yy = d2dy_nd(U)
 
-    # ── 4. Energy:  ρcₚ(u·∇T) = k∇²T ───────────────────────
-    energy = rho * cp * (u * ddx(T) + v * ddy(T)) - k * laplacian(T)
+    # y-velocity second derivative
+    V_xx = d2dx_nd(V)
+    V_yy = d2dy_nd(V)
+
+    # Temperature second derivative
+    T_xx = d2dx_nd(T_nd)
+    T_yy = d2dy_nd(T_nd)
+
+    # Continuity residual: incompressible mass conservation
+    continuity = U_x + gamma * V_y
+
+    # x-momentum residual: convection + pressure gradient + viscous diffusion
+    mom_u = (
+        U * U_x
+        + gamma * V * U_y
+        + P_x
+        - Re_ * (U_xx + (gamma ** 2) * U_yy)
+    )
+
+    # y-momentum residual: convection + pressure gradient + diffusion + buoyancy
+    mom_v = (
+        U * V_x
+        + gamma * V * V_y
+        + gamma * P_y
+        - Re_ * (V_xx + (gamma ** 2) * V_yy)
+        + Ri * T_nd
+    )
+
+    # Energy residual: thermal convection + thermal diffusion
+    energy = (
+        U * T_x
+        + gamma * V * T_y
+        - Pe_ * (T_xx + (gamma ** 2) * T_yy)
+    )
 
     return continuity, mom_u, mom_v, energy
+
+
+def masked_residual_mse(residual, fluid_mask):
+    """
+    Compute PDE residual MSE only inside the fluid region.
+
+    residual: (B, H, W)
+    fluid_mask: (B, H, W)
+    """
+
+    # Boolean mask for fluid region
+    mask = fluid_mask.bool()
+
+    # Residual values only inside the fluid region
+    selected = residual[mask]
+
+    # Return zero if no fluid points are selected
+    if selected.numel() == 0:
+        return torch.tensor(0.0, device=residual.device, dtype=residual.dtype)
+
+    # Mean squared residual against zero
+    return F.mse_loss(selected, torch.zeros_like(selected))

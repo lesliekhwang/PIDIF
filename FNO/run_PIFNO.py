@@ -7,6 +7,7 @@ from model import FNO2d
 from loss import *
 from normalizer import *
 
+
 def run(cfg, device):
 
     print(f"\n{'='*60}")
@@ -19,6 +20,16 @@ def run(cfg, device):
     x_train, y_train, uin_train = load_dataset(cfg['train_path'])
     x_test, y_test, uin_test = load_dataset(cfg['test_path'])
     
+    if not torch.is_tensor(uin_train):
+        uin_train = torch.tensor(uin_train, dtype=torch.float32)
+    else:
+        uin_train = uin_train.float()
+
+    if not torch.is_tensor(uin_test):
+        uin_test = torch.tensor(uin_test, dtype=torch.float32)
+    else:
+        uin_test = uin_test.float()
+
     fluid_mask_train = x_train[..., 0]
     fluid_mask_test  = x_test[..., 0]
 
@@ -56,11 +67,11 @@ def run(cfg, device):
     # dataloader
     # -----------------------------
     train_loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(x_train_enc, y_train_enc, fluid_mask_train),
+        torch.utils.data.TensorDataset(x_train_enc, y_train_enc, fluid_mask_train, uin_train),
         batch_size=cfg['batch_size'], shuffle=True
     )
     test_loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(x_test_enc, y_test_enc, y_test, fluid_mask_test),
+        torch.utils.data.TensorDataset(x_test_enc, y_test_enc, y_test, fluid_mask_test, uin_test),
         batch_size=cfg['batch_size'], shuffle=False
     )
 
@@ -83,29 +94,8 @@ def run(cfg, device):
 
     data_loss_fn = LpLoss()
 
-    H = x_train.shape[1]
-    W = x_train.shape[2]
-
     Lx = cfg.get("Lx", 0.050)
     Ly = cfg.get("Ly", 0.020)
-
-    dx_phys = Lx / (W - 1)
-    dy_phys = Ly / (H - 1)
-
-    U_ref  = cfg.get("U_ref", 0.20)
-    L_ref  = cfg.get("L_ref", Lx)
-    dT_ref = cfg.get("dT_ref", 50.0)
-    rho    = cfg.get("rho", 1.225)
-    cp     = cfg.get("cp", 1006.0)
-
-    cont_scale   = (U_ref / L_ref) ** 2
-    mom_scale    = (rho * U_ref ** 2 / L_ref) ** 2
-    energy_scale = (rho * cp * U_ref * dT_ref / L_ref) ** 2
-
-    lambda_pde = cfg["lambda_pde"]
-
-    ema_decay = 0.99
-    ema_scale = {"cont": 1.0, "mou": 1.0, "mov": 1.0, "ene": 1.0}
 
     os.makedirs("pred", exist_ok=True)
     os.makedirs("model", exist_ok=True)
@@ -139,9 +129,11 @@ def run(cfg, device):
 
         train_rel_ch = torch.zeros(4).to(device)
 
-        for x, y, fluid_mask in train_loader:
-            x, y, fluid_mask = x.to(device), y.to(device), fluid_mask.to(device)
-            mask_sum = fluid_mask.sum() + 1e-8
+        for x, y, fluid_mask, uin_batch in train_loader:
+            x = x.to(device)
+            y = y.to(device)
+            fluid_mask = fluid_mask.to(device)
+            uin_batch = uin_batch.to(device)
 
             optimizer.zero_grad()
 
@@ -156,57 +148,32 @@ def run(cfg, device):
 
             # physics loss (physical space)
             pred_phys = y_normalizer.decode(pred)
-            continuity, mom_u, mom_v, energy = pde_residual(pred_phys, Lx, Ly)
 
-            # Normalization
+            continuity, mom_u, mom_v, energy = pde_residual(pred_phys, uin=uin_batch, Lx=Lx, Ly=Ly)
 
-            with torch.no_grad():
-                raw_cont = float(continuity.pow(2).mean().clamp(min=1e-10).item())
-                raw_mou  = float(mom_u.pow(2).mean().clamp(min=1e-10).item())
-                raw_mov  = float(mom_v.pow(2).mean().clamp(min=1e-10).item())
-                raw_ene  = float(energy.pow(2).mean().clamp(min=1e-10).item())
-
-            ema_scale["cont"] = ema_decay * ema_scale["cont"] + (1 - ema_decay) * raw_cont
-            ema_scale["mou"]  = ema_decay * ema_scale["mou"]  + (1 - ema_decay) * raw_mou
-            ema_scale["mov"]  = ema_decay * ema_scale["mov"]  + (1 - ema_decay) * raw_mov
-            ema_scale["ene"]  = ema_decay * ema_scale["ene"]  + (1 - ema_decay) * raw_ene
-
-            s_cont = max(ema_scale["cont"], 1e-10)
-            s_mou  = max(ema_scale["mou"],  1e-10)
-            s_mov  = max(ema_scale["mov"],  1e-10)
-            s_ene  = max(ema_scale["ene"],  1e-10)
-
-            pde_cont = (continuity.pow(2) * fluid_mask).sum() / mask_sum / s_cont
-            pde_mou  = (mom_u.pow(2)      * fluid_mask).sum() / mask_sum / s_mou
-            pde_mov  = (mom_v.pow(2)      * fluid_mask).sum() / mask_sum / s_mov
-            pde_ene  = (energy.pow(2)     * fluid_mask).sum() / mask_sum / s_ene
-
-            pde_loss = pde_cont + pde_mou + pde_mov + pde_ene
-
-            # pde_cont = (continuity.pow(2) * fluid_mask).sum() / mask_sum / cont_scale
-            # pde_mou  = (mom_u.pow(2)      * fluid_mask).sum() / mask_sum / mom_scale
-            # pde_mov  = (mom_v.pow(2)      * fluid_mask).sum() / mask_sum / mom_scale
-            # pde_ene  = (energy.pow(2)     * fluid_mask).sum() / mask_sum / energy_scale
-
-            # pde_cont   = continuity.pow(2).mean() / cont_scale
-            # pde_mou    = mom_u.pow(2).mean()      / mom_scale
-            # pde_mov    = mom_v.pow(2).mean()      / mom_scale
-            # pde_ene    = energy.pow(2).mean()     / energy_scale
+            pde_cont = masked_residual_mse(continuity, fluid_mask)
+            pde_mou  = masked_residual_mse(mom_u, fluid_mask)
+            pde_mov  = masked_residual_mse(mom_v, fluid_mask)
+            pde_ene  = masked_residual_mse(energy, fluid_mask)
 
             pde_cont_sum   += pde_cont.item()
             pde_mou_sum    += pde_mou.item()
             pde_mov_sum    += pde_mov.item()
             pde_energy_sum += pde_ene.item()
 
+            pde_loss = pde_cont + pde_mou + pde_mov + pde_ene
+
+            data_loss_sum += data_loss.item()
+            pde_loss_sum  += pde_loss.item()
+
             # total loss
-            warmup_ep = cfg.get("warmup_epochs", 0)
+            warmup_ep = cfg.get("warmup_epochs", 200)
             if ep < warmup_ep:
                 progress = ep / warmup_ep
                 lambda_pde_current = cfg["lambda_pde"] * (1 - torch.cos(torch.tensor(progress * torch.pi)).item()) / 2
             else:
                 lambda_pde_current = cfg["lambda_pde"]
 
-            # print(f"lambda pde current: {lambda_pde_current}")
             loss = data_loss + lambda_pde_current * pde_loss
 
             loss.backward()
@@ -214,9 +181,6 @@ def run(cfg, device):
 
             optimizer.step()
             # scheduler.step()
-
-            data_loss_sum += data_loss.item()
-            pde_loss_sum  += pde_loss.item()
 
             # per-channel train rel (physical space)
             y_phys = y_normalizer.decode(y)
@@ -234,8 +198,8 @@ def run(cfg, device):
         test_rel_ch  = torch.zeros(4).to(device)
 
         with torch.no_grad():
-            for x, y_n, y_p, fluid_mask in test_loader:
-                x, y_n, y_p = x.to(device), y_n.to(device), y_p.to(device)
+            for x, y_n, y_p, fluid_mask, uin_batch in test_loader:
+                x, y_n, y_p, uin_batch = x.to(device), y_n.to(device), y_p.to(device), uin_batch.to(device)
 
                 out_n = model(x)
                 test_l2 += data_loss_fn(
@@ -265,7 +229,8 @@ def run(cfg, device):
         avg_mov    = pde_mov_sum    / len(train_loader)
         avg_ene    = pde_energy_sum / len(train_loader)
         avg_pde    = avg_cont + avg_mou + avg_mov + avg_ene
-        weighted_pde = lambda_pde * avg_pde
+
+        weighted_pde = lambda_pde_current * avg_pde
         total_loss = avg_data + weighted_pde
 
         # CSV row
@@ -353,18 +318,13 @@ CONFIGS = [
         'modes'         : 25,
         'width'         : 128,
         'batch_size'    : 20,
-        'epochs'        : 500,
+        'epochs'        : 1000,
         'learning_rate' : 1e-3,
         'weight_decay'  : 1e-4,
         'Lx'            : 0.050,
         'Ly'            : 0.020,
-        'L_ref'         : 0.050,
-        'U_ref'         : 0.20,
-        'dT_ref'        : 50.0,
-        'rho'           : 1.225,
-        'cp'            : 1006.0,
-        'lambda_pde'    : 0.001,
-        'tag'           : 'PIFNO_lambda0.001_minmax_ep500_nowarmup'
+        'lambda_pde'    : 0.01,
+        'tag'           : 'test'
     }
 ]
 
