@@ -390,8 +390,6 @@ def initialize_unknown_interior_interfaces(
     init_std_scale: float = 1.0,
     init_value: Optional[Union[float, Sequence[float], Array]] = None,
     init_noise_std: float = 1.0e-3,
-    init_gaussian_center_y: float = 0.5,
-    init_gaussian_var_y: float = 0.02,
     preserve_wall_corners: bool = False,
 ) -> Array:
     """
@@ -426,8 +424,9 @@ def initialize_unknown_interior_interfaces(
         mean, std = _branch_random_stats(branch, layout, branch_normalizer)
         mean = mean.astype(np.float32, copy=False)
         std = np.maximum(std, 1.0e-12) * float(init_std_scale)
-        gauss_center = mean
-        gauss_var = std
+        gauss_center = np.tile(mean, (layout.right.size, 1))
+        gauss_var = np.tile(std, (layout.right.size, 1))
+        
     else:
         init_value_arr = np.asarray(init_value, dtype=np.float32)
         if init_value_arr.ndim == 0:
@@ -439,8 +438,8 @@ def initialize_unknown_interior_interfaces(
                     f"init_value must be scalar or length {value_dim}, got shape {init_value_arr.shape}"
                 )
         std = np.full((value_dim,), noise_std, dtype=np.float32)
-        gauss_center = mean
-        gauss_var = std
+        gauss_center = np.tile(mean, (layout.right.size, 1))
+        gauss_var = np.tile(std, (layout.right.size, 1))
 
     for interface_id in range(1, n_sub):
         if init_mode == "pointwise_random":

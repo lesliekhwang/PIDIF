@@ -270,6 +270,7 @@ def build_fluent_deeponet_dataset(
     n_subdomains: int = 10,
     include_corner_dupes: bool = True,
     keep_cases: bool = False,
+    interface_placement: str = "fixed",
     interface_jitter: float = 0.0,
     rng: Optional[np.random.Generator] = None,
     n_realizations: int = 1,
@@ -311,6 +312,7 @@ def build_fluent_deeponet_dataset(
                 n_subdomains=n_subdomains,
                 nx=nx,
                 ny=ny,
+                interface_placement=interface_placement,
                 interface_jitter=interface_jitter,
                 rng=rng,
             )
@@ -934,13 +936,15 @@ def train_deeponet_one_epoch(
         else:
             field_loss = F.mse_loss(pred, target)
 
-        bc_loss = boundary_loss(
-            model=model,
-            branch=branch,
-            branch_normalizer=branch_normalizer,
-            y_normalizer=y_normalizer,
-            branch_channel_names=branch_channel_names,
-        )
+        bc_loss = torch.zeros_like(field_loss)
+        if lambda_bc > 0.0:
+            bc_loss = boundary_loss(
+                model=model,
+                branch=branch,
+                branch_normalizer=branch_normalizer,
+                y_normalizer=y_normalizer,
+                branch_channel_names=branch_channel_names,
+            )
 
         loss = field_loss + float(lambda_bc) * bc_loss
 

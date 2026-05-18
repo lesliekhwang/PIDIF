@@ -271,6 +271,48 @@ def _sample_vertical_profile_by_slab(x, y, values, x_line, y0, y1, ny, slab_half
     prof = _fill_nan_grid_neighbor_mean(prof[:, None, :])[:, 0, :]
     return prof.astype(dtype)
 
+
+def _sample_constrained_x_edges(xmin, xmax, n_subdomains, min_subdomain_width, rng):
+    """
+    Sample sorted x-edges with a lower bound on every subdomain width.
+
+    min_subdomain_width is interpreted as a fraction of total span.
+    For example, 0.01 means each subdomain has width >= 1% of (xmax - xmin).
+    """
+    span = float(xmax) - float(xmin)
+    min_width_frac = float(min_subdomain_width)
+
+    if n_subdomains < 1:
+        raise ValueError(f"n_subdomains must be >= 1, got {n_subdomains}")
+    if min_width_frac < 0:
+        raise ValueError(
+            f"min_subdomain_width must be non-negative, got {min_subdomain_width}"
+        )
+    if min_width_frac > 1:
+        raise ValueError(
+            f"min_subdomain_width must be <= 1 as a span fraction, got {min_subdomain_width}"
+        )
+
+    if n_subdomains == 1:
+        return np.array([xmin, xmax], dtype=np.float64)
+
+    min_total = n_subdomains * min_width_frac * span
+    if min_total > span:
+        raise ValueError(
+            "Infeasible subdomain constraints: "
+            f"{n_subdomains} * min_subdomain_width ({n_subdomains * min_width_frac:.6g}) "
+            "must be <= 1 when min_subdomain_width is a span fraction."
+        )
+
+    slack = span - min_total
+
+    # Dirichlet draws positive extras that sum to 1; this keeps widths smooth.
+    extras = rng.dirichlet(np.ones(n_subdomains, dtype=np.float64))
+    widths = (min_width_frac * span) + slack * extras
+    x_edges = np.concatenate([[xmin], xmin + np.cumsum(widths)])
+    x_edges[-1] = xmax
+    return x_edges.astype(np.float64)
+
 def build_case_subdomains(
     mesh_h5,
     dat_h5,
@@ -281,7 +323,9 @@ def build_case_subdomains(
     field_map=FIELD_MAP,
     ar_scale=50.0,
     dtype=np.float32,
+    interface_placement="fixed",
     interface_jitter=0.0,
+    min_subdomain_width=0.01,
     rng=None,
 ):
     """
@@ -319,27 +363,44 @@ def build_case_subdomains(
 
     xmin, xmax = mesh_info["x_min_mm"], mesh_info["x_max_mm"]
     ymin, ymax = mesh_info["y_min_mm"], mesh_info["y_max_mm"]
-    x_edges = np.linspace(xmin, xmax, n_subdomains + 1)
-    y_grid = np.linspace(ymin, ymax, ny)
     
-    if interface_jitter > 0:
+    if interface_placement == "fixed":
+        x_edges = np.linspace(xmin, xmax, n_subdomains + 1)
+        if interface_jitter > 0:
+            if rng is None:
+                rng = np.random.default_rng()
+            base_dx = (xmax - xmin) / n_subdomains
+            jitter_dx = base_dx * interface_jitter
+            noise = rng.uniform(
+                low=-jitter_dx,
+                high=jitter_dx,
+                size=n_subdomains - 1,
+            )
+            
+            x_edges[1:-1] += noise
+            
+            if np.any(np.diff(x_edges) <= 0):
+                raise RuntimeError(
+                    "Jittered x_edges are not strictly increasing. "
+                    "Reduce the jitter range."
+                )
+                
+    elif interface_placement == "random":
         if rng is None:
             rng = np.random.default_rng()
-        base_dx = (xmax - xmin) / n_subdomains
-        jitter_dx = base_dx * interface_jitter
-        noise = rng.uniform(
-            low=-jitter_dx,
-            high=jitter_dx,
-            size=n_subdomains - 1,
+        x_edges = _sample_constrained_x_edges(
+            xmin=xmin,
+            xmax=xmax,
+            n_subdomains=n_subdomains,
+            min_subdomain_width=min_subdomain_width,
+            rng=rng,
         )
-        
-        x_edges[1:-1] += noise
-        
-        if np.any(np.diff(x_edges) <= 0):
-            raise RuntimeError(
-                "Jittered x_edges are not strictly increasing. "
-                "Reduce the jitter range."
-            )
+    else:
+        raise ValueError(f"Invalid interface_placement: {interface_placement}")
+    
+    print(f"Interface locations: {x_edges.tolist()}")
+            
+    y_grid = np.linspace(ymin, ymax, ny)
 
     X_blocks, Y_blocks, meta = [], [], []
     for i in range(n_subdomains):
