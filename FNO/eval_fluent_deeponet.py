@@ -424,7 +424,6 @@ def initialize_unknown_interior_interfaces(
         mean, std = _branch_random_stats(branch, layout, branch_normalizer)
         mean = mean.astype(np.float32, copy=False)
         std = np.maximum(std, 1.0e-12) * float(init_std_scale)
-        gauss_center = np.tile(mean, (layout.right.size, 1))
         gauss_var = np.tile(std, (layout.right.size, 1))
         
     else:
@@ -438,7 +437,6 @@ def initialize_unknown_interior_interfaces(
                     f"init_value must be scalar or length {value_dim}, got shape {init_value_arr.shape}"
                 )
         std = np.full((value_dim,), noise_std, dtype=np.float32)
-        gauss_center = np.tile(mean, (layout.right.size, 1))
         gauss_var = np.tile(std, (layout.right.size, 1))
 
     for interface_id in range(1, n_sub):
@@ -459,23 +457,25 @@ def initialize_unknown_interior_interfaces(
             # Build smooth Gaussian profiles along y for each interface side.
             y_right = branch[interface_id - 1, layout.right, layout.y_channel].astype(np.float32)
             y_left = branch[interface_id, layout.left, layout.y_channel].astype(np.float32)
-            g_right = np.exp(-0.5 * ((y_right - gauss_center) ** 2) / gauss_var).astype(np.float32)
-            g_left = np.exp(-0.5 * ((y_left - gauss_center) ** 2) / gauss_var).astype(np.float32)
-            right_base = g_right.reshape(-1, 1) * mean.reshape(1, value_dim)
-            left_base = g_left.reshape(-1, 1) * mean.reshape(1, value_dim)
+            y_right = np.tile(y_right, (layout.value_channels.size, 1)).T
+            y_left = np.tile(y_left, (layout.value_channels.size, 1)).T
+            g_right = np.exp(-0.5 * ((y_right - 0.5) ** 2) / gauss_var).astype(np.float32)
+            g_left = np.exp(-0.5 * ((y_left - 0.5) ** 2) / gauss_var).astype(np.float32)
+            g_right = g_right * mean
+            g_left = g_left * mean
             if noise_std > 0.0:
-                right_base = right_base + rng.normal(
+                g_right = g_right + rng.normal(
                     loc=0.0,
                     scale=noise_std,
-                    size=right_base.shape,
+                    size=g_right.shape,
                 ).astype(np.float32)
-                left_base = left_base + rng.normal(
+                g_left = g_left + rng.normal(
                     loc=0.0,
                     scale=noise_std,
-                    size=left_base.shape,
+                    size=g_left.shape,
                 ).astype(np.float32)
-            right_rand = right_base.astype(np.float32, copy=False)
-            left_rand = left_base.astype(np.float32, copy=False)
+            right_rand = g_right.astype(np.float32, copy=False)
+            left_rand = g_left.astype(np.float32, copy=False)
 
         if preserve_wall_corners:
             right_rand = _preserve_wall_corner_values(
@@ -756,8 +756,6 @@ def iterative_unknown_interface_inference(
             init_std_scale=config.init_std_scale,
             init_value=config.init_value,
             init_noise_std=config.init_noise_std,
-            init_gaussian_center_y=config.init_gaussian_center_y,
-            init_gaussian_var_y=config.init_gaussian_var_y,
             preserve_wall_corners=config.preserve_wall_corners,
         )
     initial_random_branch = current_branch.copy()

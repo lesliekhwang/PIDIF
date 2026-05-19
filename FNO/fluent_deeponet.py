@@ -263,11 +263,10 @@ def make_deeponet_branch_inputs_for_case(
 
 def build_fluent_deeponet_dataset(
     case_files: CaseFiles,
-    ar_min: int = 10,
-    ar_max: int = 20,
+    ars: Sequence[int],
     nx: int = 256,
     ny: int = 256,
-    n_subdomains: int = 10,
+    n_subdomains: Union[int, Sequence[int]] = 10,
     include_corner_dupes: bool = True,
     keep_cases: bool = False,
     interface_placement: str = "fixed",
@@ -298,8 +297,12 @@ def build_fluent_deeponet_dataset(
     rng = np.random.default_rng() if rng is None else rng
     if n_realizations < 1:
         raise ValueError("n_realizations must be >= 1")
-
-    for ar in range(int(ar_min), int(ar_max) + 1):
+    if type(n_subdomains) == Sequence and len(n_subdomains) != len(ars):
+        raise ValueError("n_subdomains must be a sequence of the same length as ars")
+    if type(n_subdomains) == int:
+        n_subdomains = [n_subdomains] * len(ars)
+        
+    for ar, n_sub in zip(ars, n_subdomains):
         if ar not in case_files:
             print(f"Skipping AR={ar}: not in case_files")
             continue
@@ -309,7 +312,7 @@ def build_fluent_deeponet_dataset(
                 mesh_h5=case_files[ar]["mesh"],
                 dat_h5=case_files[ar]["dat"],
                 aspect_ratio=ar,
-                n_subdomains=n_subdomains,
+                n_subdomains=n_sub,
                 nx=nx,
                 ny=ny,
                 interface_placement=interface_placement,
@@ -367,7 +370,7 @@ def build_fluent_deeponet_dataset(
         "y_top_mm": y_top_mm,
         "nx": int(nx),
         "ny": int(ny),
-        "n_subdomains": int(n_subdomains),
+        "n_subdomains": n_subdomains,
         "include_corner_dupes": bool(include_corner_dupes),
         "cases": cases if keep_cases else None,
         "local_aspect_ratio": local_aspect_ratio,
