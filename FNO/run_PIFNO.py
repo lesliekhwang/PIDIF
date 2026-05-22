@@ -17,9 +17,9 @@ def run(cfg, device):
     # -----------------------------
     # load dataset
     # -----------------------------
-    x_train, y_train, uin_train = load_dataset(cfg['train_path'])
-    x_test, y_test, uin_test = load_dataset(cfg['test_path'])
-    
+    x_train, y_train, uin_train, amp_train, lam_train, phase_train = load_dataset(cfg['train_path'])
+    x_test, y_test, uin_test, amp_test, lam_test, phase_test = load_dataset(cfg['test_path'])
+
     if not torch.is_tensor(uin_train):
         uin_train = torch.tensor(uin_train, dtype=torch.float32)
     else:
@@ -30,28 +30,27 @@ def run(cfg, device):
     else:
         uin_test = uin_test.float()
 
+    amp_train = torch.tensor(amp_train, dtype=torch.float32) if not torch.is_tensor(amp_train) else amp_train.float()
+    lam_train = torch.tensor(lam_train, dtype=torch.float32) if not torch.is_tensor(lam_train) else lam_train.float()
+    phase_train = torch.tensor(phase_train, dtype=torch.float32) if not torch.is_tensor(phase_train) else phase_train.float()
+
+    amp_test = torch.tensor(amp_test, dtype=torch.float32) if not torch.is_tensor(amp_test) else amp_test.float()
+    lam_test = torch.tensor(lam_test, dtype=torch.float32) if not torch.is_tensor(lam_test) else lam_test.float()
+    phase_test = torch.tensor(phase_test, dtype=torch.float32) if not torch.is_tensor(phase_test) else phase_test.float()
+
     fluid_mask_train = x_train[..., 0]
     fluid_mask_test  = x_test[..., 0]
 
     # -----------------------------
     # normalization
     # -----------------------------
-    if cfg['normalizer'] == "unitguassian":
-        x_normalizer = UnitGaussianNormalizer(x_train)
-        y_normalizer = UnitGaussianNormalizer(y_train)
-    elif cfg['normalizer'] == "minmax":
-        x_normalizer = MinMaxNormalizerMinusOneToOne(x_train)
-        y_normalizer = MinMaxNormalizerMinusOneToOne(y_train)
-    else:
-        x_normalizer = PhysicsAwareInputNormalizer(U_ref=0.20)
-        y_normalizer = PhysicsAwareOutputNormalizer(U_ref=0.20)
+    x_normalizer = PhysicsAwareInputNormalizer()
+    y_normalizer = PhysicsAwareOutputNormalizer()
 
-    # print("y_normalizer std:", y_normalizer.std.squeeze())
-
-    x_train_enc = x_normalizer.encode(x_train)
-    y_train_enc = y_normalizer.encode(y_train)
-    x_test_enc  = x_normalizer.encode(x_test)
-    y_test_enc  = y_normalizer.encode(y_test)
+    x_train_enc = x_normalizer.encode(x_train, uin_train)
+    x_test_enc  = x_normalizer.encode(x_test, uin_test)
+    y_train_enc = y_normalizer.encode(y_train, uin_train)
+    y_test_enc  = y_normalizer.encode(y_test, uin_test)
 
     x_normalizer.to(device)
     y_normalizer.to(device)
@@ -67,11 +66,12 @@ def run(cfg, device):
     # dataloader
     # -----------------------------
     train_loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(x_train_enc, y_train_enc, fluid_mask_train, uin_train),
+        torch.utils.data.TensorDataset(x_train_enc, y_train_enc, fluid_mask_train, uin_train, amp_train, lam_train, phase_train),
         batch_size=cfg['batch_size'], shuffle=True
     )
+    
     test_loader = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(x_test_enc, y_test_enc, y_test, fluid_mask_test, uin_test),
+        torch.utils.data.TensorDataset(x_test_enc, y_test_enc, y_test, fluid_mask_test, uin_test, amp_test, lam_test, phase_test),
         batch_size=cfg['batch_size'], shuffle=False
     )
 
@@ -97,6 +97,10 @@ def run(cfg, device):
     Lx = cfg.get("Lx", 0.050)
     Ly = cfg.get("Ly", 0.020)
 
+    lambda_data = cfg.get ("lambda_data", 1.0)
+    lambda_pde = cfg["lambda_pde"]
+    lambda_bc = cfg.get("lambda_bc", 1.0)
+
     os.makedirs("pred", exist_ok=True)
     os.makedirs("model", exist_ok=True)
     log_path = f"pred/{cfg['tag']}.csv"
@@ -104,7 +108,8 @@ def run(cfg, device):
 
     with open(log_path, "w", newline="") as f:
         writer = csv.writer(f)
-        header = ["epoch", "time", "data_loss", 
+        header = ["epoch", "time", "data_loss", "weighted_data_loss",
+                  "inlet_loss", "wall_loss", "outlet_loss", "boundary_loss", "weighted_boundary_loss",
                   "pde_continuity", "pde_mom_u", "pde_mom_v", "pde_energy", "pde_total", "weighted_pde_loss",
                   "total_loss", "test_l2"]
 
@@ -113,6 +118,34 @@ def run(cfg, device):
         for col in OUTPUT_COLS:
             header.extend([f"{col}_test_mse", f"{col}_test_rel"])
         writer.writerow(header)
+    
+    # with torch.no_grad():
+    #     x_sample = x_train_enc[:20].to(device)
+    #     y_sample = y_train_enc[:20].to(device)
+    #     uin_sample = uin_train[:20].to(device)
+    #     mask_sample = fluid_mask_train[:20].to(device)
+    #     amp_sample = amp_train[:20].to(device)
+    #     lam_sample = lam_train[:20].to(device)
+    #     phase_sample = phase_train[:20].to(device)
+
+        # cont, mu, mv, ene = pde_residual(y_sample, uin=uin_sample, Lx=Lx, Ly=Ly)
+        
+        # cont, mu, mv, ene = pde_residual_wavy(
+        #     y_sample, uin=uin_sample, amp=amp_sample, lam=lam_sample, phase=phase_sample, Lx=Lx, Ly=Ly
+        # )
+        # print(f"[GT PDE residual]")
+        # print(f"  Cont:   {masked_residual_mse(cont,  mask_sample).item():.4e}")
+        # print(f"  Mom-u:  {masked_residual_mse(mu,    mask_sample).item():.4e}")
+        # print(f"  Mom-v:  {masked_residual_mse(mv,    mask_sample).item():.4e}")
+        # print(f"  Energy: {masked_residual_mse(ene,   mask_sample).item():.4e}")
+        # print(f"y_train_enc stats:")
+        # print(f"  P  min/max: {y_sample[...,0].min():.3f} / {y_sample[...,0].max():.3f}")
+        # print(f"  T  min/max: {y_sample[...,1].min():.3f} / {y_sample[...,1].max():.3f}")
+        # print(f"  U  min/max: {y_sample[...,2].min():.3f} / {y_sample[...,2].max():.3f}")
+        # print(f"  V  min/max: {y_sample[...,3].min():.3f} / {y_sample[...,3].max():.3f}")
+        # print(f"uin_sample: {uin_sample[:5]}")
+        # print(f"uin_train raw:     {uin_train[:5]}")
+        # print(f"uin_sample(device): {uin_sample[:5]}")
     # ========================================================
     # TRAIN LOOP
     # ========================================================
@@ -126,64 +159,82 @@ def run(cfg, device):
         pde_mov_sum    = 0.0
         pde_energy_sum = 0.0
         pde_loss_sum   = 0.0
+        bc_loss_sum = 0.0
+        bc_inlet_sum = 0.0
+        bc_outlet_sum = 0.0
+        bc_wall_sum = 0.0
 
         train_rel_ch = torch.zeros(4).to(device)
 
-        for x, y, fluid_mask, uin_batch in train_loader:
+        # for x, y, fluid_mask, uin_batch in train_loader:
+        for x, y, fluid_mask, uin_batch, amp_batch, lam_batch, phase_batch in train_loader:
             x = x.to(device)
             y = y.to(device)
             fluid_mask = fluid_mask.to(device)
             uin_batch = uin_batch.to(device)
+            amp_batch = amp_batch.to(device)
+            lam_batch = lam_batch.to(device)
+            phase_batch = phase_batch.to(device)
 
             optimizer.zero_grad()
 
             # forward
             pred = model(x)
 
-            # data loss (normalized space)
-            data_loss = data_loss_fn(
-                pred.reshape(x.shape[0], -1),
-                y.reshape(x.shape[0], -1)
+            # data_loss = data_loss_fn(pred.reshape(x.shape[0], -1),y.reshape(x.shape[0], -1))
+            data_loss = masked_data_rel_l2(pred, y, fluid_mask)
+
+            # physics loss in nondimensional space
+            continuity, mom_u, mom_v, energy = pde_residual_wavy(
+                pred, uin=uin_batch, amp=amp_batch, lam=lam_batch, phase=phase_batch, Lx=Lx, Ly=Ly
             )
 
-            # physics loss (physical space)
-            pred_phys = y_normalizer.decode(pred)
-
-            continuity, mom_u, mom_v, energy = pde_residual(pred_phys, uin=uin_batch, Lx=Lx, Ly=Ly)
+            pred_phys = y_normalizer.decode(pred, uin_batch)
 
             pde_cont = masked_residual_mse(continuity, fluid_mask)
             pde_mou  = masked_residual_mse(mom_u, fluid_mask)
             pde_mov  = masked_residual_mse(mom_v, fluid_mask)
             pde_ene  = masked_residual_mse(energy, fluid_mask)
 
-            pde_cont_sum   += pde_cont.item()
-            pde_mou_sum    += pde_mou.item()
-            pde_mov_sum    += pde_mov.item()
-            pde_energy_sum += pde_ene.item()
-
             pde_loss = pde_cont + pde_mou + pde_mov + pde_ene
 
-            data_loss_sum += data_loss.item()
-            pde_loss_sum  += pde_loss.item()
+            bc_loss, bc_inlet, bc_outlet, bc_wall = boundary_condition_loss(pred, x)
 
             # total loss
-            warmup_ep = cfg.get("warmup_epochs", 200)
-            if ep < warmup_ep:
-                progress = ep / warmup_ep
-                lambda_pde_current = cfg["lambda_pde"] * (1 - torch.cos(torch.tensor(progress * torch.pi)).item()) / 2
+            # warmup_ep = cfg["warmup_epochs"]
+            # if ep < warmup_ep:
+            #     progress = ep / warmup_ep
+            #     lambda_pde_current = lambda_pde * (1 - torch.cos(torch.tensor(progress * torch.pi)).item()) / 2
+            # else:
+            #     lambda_pde_current = lambda_pde
+
+            pde_start_epoch = cfg["pde_start_epoch"]
+            if ep < pde_start_epoch:
+                lambda_pde_current = 0.0
             else:
-                lambda_pde_current = cfg["lambda_pde"]
+                lambda_pde_current = lambda_pde
 
-            loss = data_loss + lambda_pde_current * pde_loss
-
+            loss = lambda_data * data_loss + lambda_pde_current * pde_loss + lambda_bc * bc_loss
             loss.backward()
+
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
             optimizer.step()
             # scheduler.step()
 
+            data_loss_sum += data_loss.item()
+            pde_loss_sum  += pde_loss.item()
+            pde_cont_sum   += pde_cont.item()
+            pde_mou_sum    += pde_mou.item()
+            pde_mov_sum    += pde_mov.item()
+            pde_energy_sum += pde_ene.item()
+            bc_loss_sum += bc_loss.item()
+            bc_inlet_sum += bc_inlet.item()
+            bc_outlet_sum += bc_outlet.item()
+            bc_wall_sum += bc_wall.item()
+
             # per-channel train rel (physical space)
-            y_phys = y_normalizer.decode(y)
+            y_phys = y_normalizer.decode(y, uin_batch)
             for c in range(4):
                 diff = torch.norm((pred_phys[..., c] - y_phys[..., c]).reshape(x.shape[0], -1), p=2, dim=1)
                 norm = torch.norm(y_phys[..., c].reshape(x.shape[0], -1), p=2, dim=1)
@@ -198,16 +249,22 @@ def run(cfg, device):
         test_rel_ch  = torch.zeros(4).to(device)
 
         with torch.no_grad():
-            for x, y_n, y_p, fluid_mask, uin_batch in test_loader:
-                x, y_n, y_p, uin_batch = x.to(device), y_n.to(device), y_p.to(device), uin_batch.to(device)
+            # for x, y_n, y_p, fluid_mask, uin_batch in test_loader:
+            for x, y_n, y_p, fluid_mask, uin_batch, amp_batch, lam_batch, phase_batch in test_loader:
+                x = x.to(device)
+                y_n = y_n.to(device)
+                y_p = y_p.to(device)
+                fluid_mask = fluid_mask.to(device)
+                uin_batch = uin_batch.to(device)
+                amp_batch = amp_batch.to(device)
+                lam_batch = lam_batch.to(device)
+                phase_batch = phase_batch.to(device)
 
                 out_n = model(x)
-                test_l2 += data_loss_fn(
-                    out_n.reshape(x.shape[0], -1),
-                    y_n.reshape(x.shape[0], -1)
-                ).item()
+                # test_l2 += data_loss_fn(out_n.reshape(x.shape[0], -1),y_n.reshape(x.shape[0], -1)).item()
+                test_l2 += masked_data_rel_l2(out_n, y_n, fluid_mask).item()
 
-                out_p = y_normalizer.decode(out_n)
+                out_p = y_normalizer.decode(out_n, uin_batch)
                 for c in range(4):
                     test_mse_ch[c] += F.mse_loss(out_p[..., c], y_p[..., c]).item()
                     diff = torch.norm((out_p[..., c] - y_p[..., c]).reshape(x.shape[0], -1), p=2, dim=1)
@@ -217,28 +274,33 @@ def run(cfg, device):
         t2 = default_timer()
 
         avg_data = data_loss_sum / len(train_loader)
-        avg_pde  = pde_loss_sum  / len(train_loader)
         avg_test = test_l2       / len(test_loader)
 
         avg_train_rel = train_rel_ch / len(train_loader)
-        avg_mse  = test_mse_ch  / len(test_loader)
-        avg_rel  = test_rel_ch  / len(test_loader)
+        avg_mse = test_mse_ch  / len(test_loader)
+        avg_rel = test_rel_ch  / len(test_loader)
 
-        avg_cont   = pde_cont_sum   / len(train_loader)
-        avg_mou    = pde_mou_sum    / len(train_loader)
-        avg_mov    = pde_mov_sum    / len(train_loader)
-        avg_ene    = pde_energy_sum / len(train_loader)
-        avg_pde    = avg_cont + avg_mou + avg_mov + avg_ene
+        avg_cont = pde_cont_sum   / len(train_loader)
+        avg_mou = pde_mou_sum    / len(train_loader)
+        avg_mov = pde_mov_sum    / len(train_loader)
+        avg_ene = pde_energy_sum / len(train_loader)
+        avg_pde = pde_loss_sum  / len(train_loader)
 
+        avg_bc_inlet = bc_inlet_sum / len(train_loader)
+        avg_bc_outlet = bc_outlet_sum / len(train_loader)
+        avg_bc_wall = bc_wall_sum / len(train_loader)
+        avg_bc = bc_loss_sum / len(train_loader)
+        
+        weighted_data = lambda_data * avg_data
         weighted_pde = lambda_pde_current * avg_pde
-        total_loss = avg_data + weighted_pde
+        weighted_bc = lambda_bc * avg_bc
+
+        total_loss = weighted_data + weighted_pde + weighted_bc
 
         # CSV row
-        log_row = [
-            ep, round(t2 - t1, 2), avg_data,
-            avg_cont, avg_mou, avg_mov, avg_ene,
-            avg_pde, weighted_pde,total_loss,avg_test
-        ]
+        log_row = [ep, round(t2 - t1, 2), avg_data, weighted_data, 
+                   avg_bc_inlet, avg_bc_wall, avg_bc_outlet, avg_bc, weighted_bc,
+                   avg_cont, avg_mou, avg_mov, avg_ene, avg_pde, weighted_pde, total_loss, avg_test]
 
         for i in range(4):
             log_row.append(avg_train_rel[i].item())
@@ -248,11 +310,35 @@ def run(cfg, device):
         with open(log_path, "a", newline="") as f:
             csv.writer(f).writerow(log_row)
 
-        print(
-            f"Epoch {ep} | Time {t2-t1:.1f}s | Data {avg_data:.5f} | PDE {avg_pde:.5f} | "
-            f"λ_cur {lambda_pde_current:.6f} | weighted_PDE {lambda_pde_current * avg_pde:.5f} | "
-            f"Test {avg_test:.5f}"
-        )
+        print(f"Epoch {ep} | Total {total_loss:.4f} | Data {avg_data:.4f} | PDE {avg_pde:.4f} | BC {avg_bc:.4f} | Test {avg_test:.4f}")
+
+        if ep % 10 == 0 or ep == cfg["epochs"] - 1:
+            print(
+                f"  Weighted | "
+                f"Data {weighted_data:.3f} | "
+                f"PDE {weighted_pde:.3f} | "
+                f"BC {weighted_bc:.3f}"
+            )
+            print(
+                f"  PDE | "
+                f"Cont {avg_cont:.3f} | "
+                f"Mom-u {avg_mou:.3f} | "
+                f"Mom-v {avg_mov:.3f} | "
+                f"Energy {avg_ene:.3f}"
+            )
+            print(
+                f"  BC  | "
+                f"Inlet {avg_bc_inlet:.3f} | "
+                f"Wall {avg_bc_wall:.3f} | "
+                f"Outlet {avg_bc_outlet:.3f}"
+            )
+            print(
+                f"  Rel | "
+                f"P {avg_rel[0].item():.3f} | "
+                f"T {avg_rel[1].item():.3f} | "
+                f"U {avg_rel[2].item():.3f} | "
+                f"V {avg_rel[3].item():.3f}"
+            )
         
     # ========================================================
     # SAVE
@@ -266,28 +352,38 @@ def run(cfg, device):
     pred = torch.zeros(y_test.shape)
     index = 0
 
+    # test_loader_single = torch.utils.data.DataLoader(
+    #     torch.utils.data.TensorDataset(x_test_enc, y_test, uin_test),
+    #     batch_size=1,
+    #     shuffle=False
+    # )
     test_loader_single = torch.utils.data.DataLoader(
-        torch.utils.data.TensorDataset(x_test_enc, y_test),
-        batch_size=1, shuffle=False
+        torch.utils.data.TensorDataset(x_test_enc, y_test, uin_test, amp_test, lam_test, phase_test),
+        batch_size=1,
+        shuffle=False
     )
 
     model.eval()
     print("Starting inference for saving .mat file...")
     with torch.no_grad():
-        for x, y in test_loader_single:
+        # for x, y, uin_batch in test_loader_single:
+        for x, y, uin_batch, amp_b, lam_b, phase_b in test_loader_single:
             x = x.to(device)
             y = y.to(device)
+            uin_batch = uin_batch.to(device)
 
             out = model(x)  # (1, H, W, 4)
-            out = y_normalizer.decode(out)
+            out = y_normalizer.decode(out, uin_batch)
 
             pred[index] = out.cpu()[0]
+
             diff = torch.norm(out.reshape(1, -1) - y.reshape(1, -1), p=2)
             norm = torch.norm(y.reshape(1, -1), p=2)
             sample_l2 = (diff / (norm + 1e-8)).item()
 
             if index % 20 == 0:
                 print(f"Sample {index} | Rel L2: {sample_l2:.4f}")
+
             index += 1
 
     ################################################################
@@ -311,20 +407,23 @@ def run(cfg, device):
 
 CONFIGS = [
     {
-        'train_path'    : 'data/2d_s64_train_v2.mat',
-        'test_path'     : 'data/2d_s64_test_gap_v2.mat',
-        'normalizer'    : 'minmax',
+        'train_path'    : 'data/2d_s64_train_new.mat',
+        'test_path'     : 'data/2d_s64_test_gap_new.mat',
         'scheduler'     : "none",
         'modes'         : 25,
         'width'         : 128,
         'batch_size'    : 20,
         'epochs'        : 1000,
+        'warmup_epochs' : 0,
+        'pde_start_epoch': 0,
         'learning_rate' : 1e-3,
         'weight_decay'  : 1e-4,
         'Lx'            : 0.050,
         'Ly'            : 0.020,
-        'lambda_pde'    : 0.01,
-        'tag'           : 'test'
+        'lambda_data'   : 1.0,
+        'lambda_pde'    : 0.1,
+        'lambda_bc'     : 0.0,
+        'tag'           : 'test_new_v2'
     }
 ]
 
