@@ -412,7 +412,7 @@ def build_fluent_deeponet_dataset(
     ar_list: Sequence[int],
     n_subdomains: Union[int, Sequence[int]] = 10,
     n_interface_points: int = 256,
-    n_wall_points: int = 256,
+    n_boundary_points: int = 256,
     interface_placement: str = "fixed",
     interface_jitter: float = 0.0,
     min_subdomain_width: float = 0.01,
@@ -421,7 +421,6 @@ def build_fluent_deeponet_dataset(
     bc_kwargs: Optional[Mapping[str, float]] = None,
     keep_raw_case_data: bool = False,
     n_realizations: int = 1,
-    include_interface_endpoints: bool = False,
 ) -> Dict[str, object]:
     """
     Build a non-grid DeepONet dataset from Fluent HDF5 files.
@@ -433,11 +432,8 @@ def build_fluent_deeponet_dataset(
     ----------
     n_interface_points:
         Number of sensor points per vertical inlet/outlet/interface side.
-    n_wall_points:
-        Number of sensor points per horizontal wall side.
-    include_interface_endpoints:
-        If False, interface sensors exclude the wall corners; wall sensors still
-        include x_local=0 and x_local=1.  This avoids duplicate corner sensors.
+    n_boundary_points:
+        Number of sensor points per boundary side.
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -447,10 +443,10 @@ def build_fluent_deeponet_dataset(
     sub_counts = _expand_n_subdomains(n_subdomains, ar_list)
 
     n_interface_points = int(n_interface_points)
-    n_wall_points = int(n_wall_points)
+    n_boundary_points = int(n_boundary_points)
     n_realizations = int(n_realizations)
-    if n_interface_points <= 0 or n_wall_points <= 1:
-        raise ValueError("n_interface_points must be positive and n_wall_points must be > 1")
+    if n_interface_points <= 0 or n_boundary_points <= 1:
+        raise ValueError("n_interface_points must be positive and n_boundary_points must be > 1")
     if n_realizations < 1:
         raise ValueError("n_realizations must be >= 1")
 
@@ -462,17 +458,18 @@ def build_fluent_deeponet_dataset(
         if ar not in case_files:
             print(f"Skipping AR={ar}: not in case_files")
             continue
+        
+        centers, mesh_info = read_fluent_cell_centers(case_files[ar]["mesh"])
+        fields = read_fluent_cell_fields(case_files[ar]["dat"], field_map=field_map)
+        values_all = _ordered_values_from_fields(fields)
+        
+        if len(values_all) != len(centers):
+            raise ValueError(
+                f"Mesh has {len(centers)} cells but .dat.h5 has {len(values_all)} values for AR={ar}."
+            )
 
         for realization_id in range(n_realizations):
             print(f"Processing AR={ar} realization={realization_id}", flush=True)
-            centers, mesh_info = read_fluent_cell_centers(case_files[ar]["mesh"])
-            fields = read_fluent_cell_fields(case_files[ar]["dat"], field_map=field_map)
-            values_all = _ordered_values_from_fields(fields)
-
-            if len(values_all) != len(centers):
-                raise ValueError(
-                    f"Mesh has {len(centers)} cells but .dat.h5 has {len(values_all)} values for AR={ar}."
-                )
 
             valid = np.all(np.isfinite(centers), axis=1) & np.all(np.isfinite(values_all), axis=1)
             x = centers[valid, 0].astype(np.float64)
@@ -511,12 +508,9 @@ def build_fluent_deeponet_dataset(
 
             linear, nearest = _make_global_interpolators(x, y, values)
 
-            if include_interface_endpoints:
-                y_interface_phys = np.linspace(ymin, ymax, n_interface_points, dtype=np.float64)
-            else:
-                y_interface_phys = np.linspace(ymin, ymax, n_interface_points + 2, dtype=np.float64)[1:-1]
+            y_interface_phys = np.linspace(ymin, ymax, n_interface_points + 2, dtype=np.float64)[1:-1]
             y_interface_local = ((y_interface_phys - ymin) / max(height, 1.0e-12)).astype(np.float32)
-            x_wall_local = np.linspace(0.0, 1.0, n_wall_points, dtype=np.float32)
+            x_wall_local = np.linspace(0.0, 1.0, n_boundary_points, dtype=np.float32)
 
             for s in range(n_sub):
                 x0 = float(x_edges[s])
@@ -579,26 +573,26 @@ def build_fluent_deeponet_dataset(
                     )
                 )
 
-                vals, known = make_rect_channel_bc_values("bottom", n_wall_points, **bc_kwargs)
+                vals, known = make_rect_channel_bc_values("bottom", n_boundary_points, **bc_kwargs)
                 branch_parts.append(
                     _stack_cell_branch_features(
                         x_local=x_wall_local,
-                        y_local=np.zeros(n_wall_points, dtype=np.float32),
-                        wall_mask=np.ones(n_wall_points, dtype=np.float32),
-                        interface_mask=np.zeros(n_wall_points, dtype=np.float32),
+                        y_local=np.zeros(n_boundary_points, dtype=np.float32),
+                        wall_mask=np.ones(n_boundary_points, dtype=np.float32),
+                        interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
                         values=vals,
                         known_mask=known,
                         local_aspect_ratio=local_aspect,
                     )
                 )
 
-                vals, known = make_rect_channel_bc_values("top", n_wall_points, **bc_kwargs)
+                vals, known = make_rect_channel_bc_values("top", n_boundary_points, **bc_kwargs)
                 branch_parts.append(
                     _stack_cell_branch_features(
                         x_local=x_wall_local,
-                        y_local=np.ones(n_wall_points, dtype=np.float32),
-                        wall_mask=np.ones(n_wall_points, dtype=np.float32),
-                        interface_mask=np.zeros(n_wall_points, dtype=np.float32),
+                        y_local=np.ones(n_boundary_points, dtype=np.float32),
+                        wall_mask=np.ones(n_boundary_points, dtype=np.float32),
+                        interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
                         values=vals,
                         known_mask=known,
                         local_aspect_ratio=local_aspect,
@@ -648,8 +642,7 @@ def build_fluent_deeponet_dataset(
         "n_cells": np.asarray([m["n_cells"] for m in metadata], dtype=np.int64),
         "n_subdomains": sub_counts if len(set(sub_counts)) > 1 else int(sub_counts[0]),
         "n_interface_points": int(n_interface_points),
-        "n_wall_points": int(n_wall_points),
-        "include_interface_endpoints": bool(include_interface_endpoints),
+        "n_boundary_points": int(n_boundary_points),
         "interface_placement": str(interface_placement),
         "interface_jitter": float(interface_jitter),
         "n_realizations": int(n_realizations),
@@ -789,7 +782,7 @@ def save_deeponet_dataset_h5(dataset: Mapping[str, object], output_path: PathLik
         f.attrs["trunk_channel_names"] = "\n".join(dataset["trunk_channel_names"])
         f.attrs["output_channel_names"] = "\n".join(dataset["output_channel_names"])
         f.attrs["n_interface_points"] = int(dataset["n_interface_points"])
-        f.attrs["n_wall_points"] = int(dataset["n_wall_points"])
+        f.attrs["n_boundary_points"] = int(dataset["n_boundary_points"])
         f.attrs["include_interface_endpoints"] = bool(dataset.get("include_interface_endpoints", False))
         f.attrs["n_samples"] = len(samples)
 
@@ -847,6 +840,32 @@ def load_deeponet_dataset_h5(path: PathLike) -> Dict[str, object]:
             "trunk_channel_names": str(f.attrs["trunk_channel_names"]).split("\n"),
             "output_channel_names": str(f.attrs["output_channel_names"]).split("\n"),
             "n_interface_points": int(f.attrs["n_interface_points"]),
-            "n_wall_points": int(f.attrs["n_wall_points"]),
+            "n_boundary_points": int(f.attrs["n_boundary_points"]),
             "include_interface_endpoints": bool(f.attrs.get("include_interface_endpoints", False)),
         }
+
+def deeponet_cell_collate_fn(batch):
+    """
+    Collate DeepONet samples with fixed-size branch and variable-size query.
+
+    Returns:
+        branch:          (B, M, Cb)
+        query_cat:       (N_total, 2)
+        target_cat:      (N_total, 4)
+        query_batch_id:  (N_total,)
+        sample_idx:      (B,)
+    """
+    branches, queries, targets, sample_indices = zip(*batch)
+
+    branch = torch.stack(branches, dim=0)      # (B, M, Cb)
+    query_cat = torch.cat(queries, dim=0)      # (N_total, 2)
+    target_cat = torch.cat(targets, dim=0)     # (N_total, 4)
+
+    query_batch_id = torch.cat([
+        torch.full((query.shape[0],), i, dtype=torch.long)
+        for i, query in enumerate(queries)
+    ])
+
+    sample_idx = torch.stack(sample_indices, dim=0)
+
+    return branch, query_cat, target_cat, query_batch_id, sample_idx

@@ -199,8 +199,6 @@ class TrunkNet(nn.Module):
         )
 
     def forward(self, query: torch.Tensor) -> torch.Tensor:
-        if query.ndim != 3:
-            raise ValueError(f"Expected query shape (B,Q,C), got {tuple(query.shape)}")
         return self.net(query)
 
 
@@ -266,22 +264,68 @@ class DeepONet(nn.Module):
         )
         self.bias = nn.Parameter(torch.zeros(self.output_channels))
 
-    def forward(self, branch: torch.Tensor, query: torch.Tensor) -> torch.Tensor:
+    def forward(self, branch: torch.Tensor, query: torch.Tensor, query_batch_id: Optional[torch.Tensor] = None) -> torch.Tensor:
         if branch.ndim != 3:
             raise ValueError(f"Expected branch shape (B,M,C), got {tuple(branch.shape)}")
+        coeff = self.branch_net(branch)  # (B, Cout, R)
+        
+        # ------------------------------------------------------------
+        # Concatenated mode:
+        #   branch:         (B, M, Cb)
+        #   query:          (N_total, Cq)
+        #   query_batch_id: (N_total,)
+        #   output:         (N_total, Cout)
+        # ------------------------------------------------------------
+        if query_batch_id is not None:
+            if query.ndim != 2:
+                raise ValueError(
+                    f"Ragged mode expects query shape (N_total,C), got {tuple(query.shape)}"
+                )
+            if query_batch_id.ndim != 1:
+                raise ValueError(
+                    f"Expected query_batch_id shape (N_total,), got {tuple(query_batch_id.shape)}"
+                )
+            if query.shape[0] != query_batch_id.shape[0]:
+                raise ValueError("query and query_batch_id must have the same first dimension")
+
+            basis = self.trunk_net(query)  # (N_total, R)
+
+            if basis.ndim == 3 and basis.shape[0] == 1:
+                basis = basis.squeeze(0)
+
+            if basis.ndim != 2:
+                raise ValueError(
+                    f"Ragged mode expects trunk_net(query) to return (N_total,R), got {tuple(basis.shape)}"
+                )
+
+            coeff_per_query = coeff[query_batch_id]  # (N_total, Cout, R)
+
+            out = torch.einsum("ncr,nr->nc", coeff_per_query, basis)
+
+            return out + self.bias.reshape(1, -1)
+        
+        # ------------------------------------------------------------
+        # Original fixed-size mode:
+        #   branch: (B, M, Cb)
+        #   query:  (B, Q, Cq) or (Q, Cq)
+        #   output: (B, Q, Cout)
+        # ------------------------------------------------------------
         if query.ndim == 2:
             query = query.unsqueeze(0).expand(branch.shape[0], -1, -1)
+
         if query.ndim != 3:
             raise ValueError(f"Expected query shape (B,Q,C) or (Q,C), got {tuple(query.shape)}")
+
         if query.shape[0] != branch.shape[0]:
             if query.shape[0] == 1:
                 query = query.expand(branch.shape[0], -1, -1)
             else:
                 raise ValueError("branch and query batch dimensions do not match")
 
-        coeff = self.branch_net(branch)      # (B, Cout, R)
-        basis = self.trunk_net(query)        # (B, Q, R)
+        basis = self.trunk_net(query)  # (B, Q, R)
+
         out = torch.einsum("bcr,bqr->bqc", coeff, basis)
+
         return out + self.bias.reshape(1, 1, -1)
 
     def config(self) -> Dict[str, object]:
@@ -301,18 +345,39 @@ class DeepONet(nn.Module):
             "layer_norm": self.layer_norm,
         }
 
+def relative_L2_loss(pred: torch.Tensor, target: torch.Tensor, eps: float = 1.0e-12) -> torch.Tensor:
+    pred_f = pred.reshape(pred.shape[0], -1)
+    target_f = target.reshape(target.shape[0], -1)
+    num = torch.linalg.norm(pred_f - target_f, dim=1)
+    den = torch.linalg.norm(target_f, dim=1).clamp_min(eps)
+    return (num / den).mean()
+    
+def ragged_mse_loss(pred, target, query_batch_id, batch_size):
+    point_loss = ((pred - target) ** 2).mean(dim=-1)  # (N_total,)
 
-class RelativeL2Loss(nn.Module):
-    def __init__(self, eps: float = 1.0e-12):
-        super().__init__()
-        self.eps = float(eps)
+    loss_sum = pred.new_zeros(batch_size)
+    count = pred.new_zeros(batch_size)
 
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        pred_f = pred.reshape(pred.shape[0], -1)
-        target_f = target.reshape(target.shape[0], -1)
-        num = torch.linalg.norm(pred_f - target_f, dim=1)
-        den = torch.linalg.norm(target_f, dim=1).clamp_min(self.eps)
-        return (num / den).mean()
+    loss_sum.scatter_add_(0, query_batch_id, point_loss)
+    count.scatter_add_(0, query_batch_id, torch.ones_like(point_loss))
+
+    loss_per_sample = loss_sum / count.clamp_min(1.0)
+
+    return loss_per_sample.mean()
+
+def ragged_relative_l2_loss(pred, target, query_batch_id, batch_size, eps=1e-12):
+    error_sq = ((pred - target) ** 2).sum(dim=-1)
+    target_sq = (target ** 2).sum(dim=-1)
+
+    error_sum = pred.new_zeros(batch_size)
+    target_sum = pred.new_zeros(batch_size)
+
+    error_sum.scatter_add_(0, query_batch_id, error_sq)
+    target_sum.scatter_add_(0, query_batch_id, target_sq)
+
+    rel = torch.sqrt(error_sum / target_sum.clamp_min(eps))
+
+    return rel.mean()
 
 
 def boundary_loss(
@@ -368,45 +433,48 @@ def train_deeponet_one_epoch(
     loss_type: str = "mse",
     lambda_bc: float = 0.0,
     branch_channel_names: Optional[Sequence[str]] = None,
-) -> float:
+) -> tuple[float, float]:
     """Train for one epoch and return average loss."""
     model.train()
     device = torch.device(device)
-    rel_l2 = RelativeL2Loss()
-    total = 0.0
+    total_bc_loss = 0.0
+    total_field_loss = 0.0
     count = 0
 
-    for branch, query, target, _sample_idx in loader:
+    for branch, query, target, query_batch_id, _sample_idx in loader:
+        bs = int(branch.shape[0])
         branch = branch.to(device)
         query = query.to(device)
         target = target.to(device)
+        query_batch_id = query_batch_id.to(device)
 
         optimizer.zero_grad(set_to_none=True)
-        pred = model(branch, query)
-
+        pred = model(branch, query, query_batch_id)
+        
         if loss_type.lower() == "relative_l2":
-            field_loss = rel_l2(pred, target)
+            field_loss = ragged_relative_l2_loss(pred, target, query_batch_id, bs)
         else:
-            field_loss = F.mse_loss(pred, target)
+            field_loss = ragged_mse_loss(pred, target, query_batch_id, bs)
+            
+        total_field_loss += float(field_loss.item()) * bs
 
         loss = field_loss
         if lambda_bc > 0.0:
             if branch_channel_names is None:
                 raise ValueError("branch_channel_names is required when lambda_bc > 0")
-            loss = loss + float(lambda_bc) * boundary_loss(
+            bc_loss = float(lambda_bc) * boundary_loss(
                 model=model,
                 branch=branch,
                 branch_channel_names=branch_channel_names,
             )
+            total_bc_loss += float(bc_loss.item()) * bs
+            loss = loss + bc_loss
 
         loss.backward()
         optimizer.step()
-
-        bs = int(branch.shape[0])
-        total += float(loss.item()) * bs
         count += bs
 
-    return total / max(count, 1)
+    return total_field_loss / max(count, 1), total_bc_loss / max(count, 1)
 
 
 @torch.no_grad()
@@ -424,16 +492,14 @@ def evaluate_deeponet(
     count = 0
     channel_sse: Optional[torch.Tensor] = None
     channel_energy: Optional[torch.Tensor] = None
-    rel_l2 = RelativeL2Loss()
-
     if y_normalizer is not None:
         y_normalizer = y_normalizer.to(device)
-
-    for branch, query, target, _sample_idx in loader:
+    for branch, query, target, query_batch_id, _sample_idx in loader:
         branch = branch.to(device)
         query = query.to(device)
         target = target.to(device)
-        pred = model(branch, query)
+        query_batch_id = query_batch_id.to(device)
+        pred = model(branch, query, query_batch_id)
 
         pred_metric = pred
         target_metric = target
@@ -442,15 +508,15 @@ def evaluate_deeponet(
             target_metric = y_normalizer.decode(target)
 
         bs = int(branch.shape[0])
-        mse = F.mse_loss(pred_metric, target_metric)
-        rel = rel_l2(pred_metric, target_metric)
+        mse = ragged_mse_loss(pred_metric, target_metric, query_batch_id, bs)
+        rel = ragged_relative_l2_loss(pred_metric, target_metric, query_batch_id, bs)
         mse_sum += float(mse.item()) * bs
         rel_sum += float(rel.item()) * bs
         count += bs
 
         diff = pred_metric - target_metric
-        sse = torch.sum(diff ** 2, dim=(0, 1))
-        energy = torch.sum(target_metric ** 2, dim=(0, 1))
+        sse = torch.sum(diff ** 2, dim=0)
+        energy = torch.sum(target_metric ** 2, dim=0)
         if channel_sse is None:
             channel_sse = sse.detach()
             channel_energy = energy.detach()
@@ -509,7 +575,7 @@ def predict_deeponet_points(
 
 
 @torch.no_grad()
-def predict_deeponet_cell_sample(
+def predict_cell_sample(
     model: nn.Module,
     sample: Mapping[str, np.ndarray],
     device: Union[str, torch.device],

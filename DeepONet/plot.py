@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import torch
 from scipy.interpolate import griddata
 from deeponet_fluent_dataset import DeepONetCellDataset
+from fluent_deeponet import predict_cell_sample
 
 def local_query_to_physical(query_local, metadata):
     """
@@ -186,45 +187,6 @@ def plot_prediction_imshow_from_points(
     return fig, axes
 
 @torch.no_grad()
-def predict_cell_sample(
-    model,
-    sample,
-    device,
-    y_normalizer,
-    local_aspect_mean,
-    local_aspect_std,
-    branch_channel_names,
-):
-    """
-    Predict one non-grid cell-center DeepONet sample using all its cell centers.
-    """
-    tmp_ds = DeepONetCellDataset(
-        samples=[sample],
-        sample_indices=None,
-        n_query_points=None,
-        random_query=False,
-        target_y_normalizer=y_normalizer,
-        local_aspect_mean=local_aspect_mean,
-        local_aspect_std=local_aspect_std,
-        branch_channel_names=branch_channel_names,
-    )
-
-    branch, query, target_norm, _ = tmp_ds[0]
-
-    model.eval()
-
-    pred_norm = model(
-        branch.unsqueeze(0).to(device),
-        query.unsqueeze(0).to(device),
-    ).squeeze(0)
-
-    pred_phys = y_normalizer.decode(pred_norm).detach().cpu().numpy()
-    truth_phys = np.asarray(sample["target"], dtype=np.float32)
-    query_local = np.asarray(sample["query"], dtype=np.float32)
-
-    return query_local, pred_phys, truth_phys
-
-@torch.no_grad()
 def collect_predictions_for_data(
     model,
     data,
@@ -251,7 +213,7 @@ def collect_predictions_for_data(
         sample = data["samples"][sid]
         metadata = data["metadata"][sid]
 
-        query_local, pred_phys, truth_phys = predict_cell_sample(
+        pred_phys = predict_cell_sample(
             model=model,
             sample=sample,
             device=device,
@@ -260,6 +222,8 @@ def collect_predictions_for_data(
             local_aspect_std=local_aspect_std,
             branch_channel_names=data["branch_channel_names"],
         )
+        query_local = np.asarray(sample["query"], dtype=np.float32)
+        truth_phys = np.asarray(sample["target"], dtype=np.float32)
 
         x_phys, y_phys = local_query_to_physical(query_local, metadata)
 

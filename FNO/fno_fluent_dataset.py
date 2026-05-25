@@ -5,6 +5,168 @@ from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 
 FIELD_MAP = {"pressure": "SV_P", "temperature": "SV_T", "u": "SV_U", "v": "SV_V"}
 
+def _sorted_numeric_keys(group):
+    return sorted(group.keys(), key=lambda s: int(s) if str(s).isdigit() else str(s))
+
+def _first_dataset(group):
+    for k in _sorted_numeric_keys(group):
+        if isinstance(group[k], h5py.Dataset):
+            return group[k]
+    raise KeyError(f"No dataset found below {group.name}")
+
+def _read_2node_faces(face_zone_group):
+    nnodes = face_zone_group["nnodes"][()].astype(np.int64)
+    nodes = face_zone_group["nodes"][()].astype(np.int64) - 1
+    if not np.all(nnodes == 2):
+        raise NotImplementedError("This code assumes a 2-D mesh where every face has 2 nodes.")
+    return nodes.reshape(-1, 2)
+
+def _auto_to_mm(coords):
+    coords = coords.astype(np.float64, copy=True)
+    xmax = np.nanmax(coords[:, 0])
+    ymax = np.nanmax(coords[:, 1])
+    # .cas.h5 stores m while .msh.h5 stores mm. Convert meter-scale data to mm.
+    if xmax <= 100.0 and ymax <= 10.0:
+        coords *= 1000.0
+    return coords
+
+def read_fluent_cell_centers(mesh_h5, convert_to_mm="auto"):
+    """Return cell-center coordinates from Fluent .msh.h5 or .cas.h5."""
+    mesh_h5 = Path(mesh_h5)
+    with h5py.File(mesh_h5, "r") as f:
+        mesh = f["meshes/1"]
+
+        coords = _first_dataset(mesh["nodes/coords"])[()]
+        if convert_to_mm == "auto":
+            coords = _auto_to_mm(coords)
+        elif convert_to_mm:
+            coords = coords.astype(np.float64) * 1000.0
+        else:
+            coords = coords.astype(np.float64)
+
+        cell_min_id = int(np.min(mesh["cells/zoneTopology/minId"][()]))
+        cell_max_id = int(np.max(mesh["cells/zoneTopology/maxId"][()]))
+        n_cells = cell_max_id - cell_min_id + 1
+
+        face_nodes_group = mesh["faces/nodes"]
+        c0_group = mesh["faces/c0"]
+        c1_group = mesh["faces/c1"]
+        zone_keys = _sorted_numeric_keys(face_nodes_group)
+
+        all_face_nodes, all_c0, all_c1 = [], [], []
+
+        if len(zone_keys) > 1:
+            # .msh.h5 layout: separate groups for boundary/interior face zones.
+            for zk in zone_keys:
+                fn = _read_2node_faces(face_nodes_group[zk])
+                nfaces = fn.shape[0]
+                c0 = c0_group[zk][()].astype(np.int64) if zk in c0_group else np.zeros(nfaces, dtype=np.int64)
+                c1 = c1_group[zk][()].astype(np.int64) if zk in c1_group else np.zeros(nfaces, dtype=np.int64)
+                all_face_nodes.append(fn)
+                all_c0.append(c0)
+                all_c1.append(c1)
+        else:
+            # .cas.h5 layout in your example: all faces in one group.
+            zk = zone_keys[0]
+            fn = _read_2node_faces(face_nodes_group[zk])
+            nfaces = fn.shape[0]
+
+            c0_key = _sorted_numeric_keys(c0_group)[0]
+            c0 = c0_group[c0_key][()].astype(np.int64)
+            if len(c0) != nfaces:
+                raise ValueError(f"Cannot align c0 values: {len(c0)} values for {nfaces} faces")
+
+            c1_key = _sorted_numeric_keys(c1_group)[0]
+            c1_raw = c1_group[c1_key][()].astype(np.int64)
+            if len(c1_raw) == nfaces:
+                c1 = c1_raw
+            else:
+                # Usually c1 is stored only for interior faces. Reinsert it by face-zone ranges.
+                c1 = np.zeros(nfaces, dtype=np.int64)
+                ztop = mesh["faces/zoneTopology"]
+                z_c1 = ztop["c1"][()] if "c1" in ztop else None
+                z_min = ztop["minId"][()]
+                z_max = ztop["maxId"][()]
+                raw_pos = 0
+                if z_c1 is not None:
+                    for has_c1, lo, hi in zip(z_c1 != 0, z_min, z_max):
+                        count = int(hi - lo + 1)
+                        if has_c1:
+                            c1[int(lo) - 1 : int(hi)] = c1_raw[raw_pos : raw_pos + count]
+                            raw_pos += count
+                if raw_pos != len(c1_raw):
+                    # Fallback: boundary faces first, interior faces last.
+                    c1[:] = 0
+                    c1[-len(c1_raw):] = c1_raw
+
+            all_face_nodes.append(fn)
+            all_c0.append(c0)
+            all_c1.append(c1)
+
+        face_nodes = np.vstack(all_face_nodes)   # 0-based node ids, shape (n_faces, 2)
+        c0 = np.concatenate(all_c0)              # 1-based cell ids; 0 means no adjacent cell
+        c1 = np.concatenate(all_c1)
+
+    # Vectorized cell -> unique node pairs, then vertex-average centroids.
+    valid0 = c0 > 0
+    valid1 = c1 > 0
+    cell_idx = np.concatenate([
+        np.repeat(c0[valid0] - cell_min_id, 2),
+        np.repeat(c1[valid1] - cell_min_id, 2),
+    ])
+    node_idx = np.concatenate([
+        face_nodes[valid0].reshape(-1),
+        face_nodes[valid1].reshape(-1),
+    ])
+
+    order = np.lexsort((node_idx, cell_idx))
+    cell_idx = cell_idx[order]
+    node_idx = node_idx[order]
+
+    keep = np.empty(len(cell_idx), dtype=bool)
+    keep[0] = True
+    keep[1:] = (cell_idx[1:] != cell_idx[:-1]) | (node_idx[1:] != node_idx[:-1])
+    cell_idx = cell_idx[keep]
+    node_idx = node_idx[keep]
+
+    node_count = np.bincount(cell_idx, minlength=n_cells)
+    centers = np.full((n_cells, 2), np.nan, dtype=np.float64)
+    valid_cells = node_count > 0
+    for d in range(2):
+        sums = np.bincount(cell_idx, weights=coords[node_idx, d], minlength=n_cells)
+        centers[valid_cells, d] = sums[valid_cells] / node_count[valid_cells]
+
+    x0, x1 = float(np.nanmin(coords[:, 0])), float(np.nanmax(coords[:, 0]))
+    y0, y1 = float(np.nanmin(coords[:, 1])), float(np.nanmax(coords[:, 1]))
+    mesh_info = {
+        "mesh_h5": str(mesh_h5),
+        "n_nodes": int(coords.shape[0]),
+        "n_cells": int(n_cells),
+        "nodes_per_cell_min": int(node_count.min()),
+        "nodes_per_cell_max": int(node_count.max()),
+        "x_min_mm": x0,
+        "x_max_mm": x1,
+        "y_min_mm": y0,
+        "y_max_mm": y1,
+        "Lx_mm": x1 - x0,
+        "Ly_mm": y1 - y0,
+        "inferred_AR": (x1 - x0) / (y1 - y0),
+    }
+    return centers, mesh_info
+
+def read_fluent_cell_fields(dat_h5, field_map=FIELD_MAP):
+    """Read Fluent cell-centered fields from .dat.h5."""
+    fields = {}
+    with h5py.File(dat_h5, "r") as f:
+        base = f["results/1/phase-1/cells"]
+        for clean_name, fluent_name in field_map.items():
+            if fluent_name not in base:
+                raise KeyError(f"Missing {fluent_name} in {base.name}")
+            g = base[fluent_name]
+            pieces = [g[k][()].reshape(-1) for k in _sorted_numeric_keys(g) if isinstance(g[k], h5py.Dataset)]
+            fields[clean_name] = np.concatenate(pieces).astype(np.float64)
+    return fields
+
 def _fill_nan_grid_neighbor_mean(grid, max_iter=200):
     """
     Fill NaN cells in a (C, nx, ny) grid by repeated neighbor averaging.
@@ -299,7 +461,7 @@ def build_case_subdomains(
     X_blocks, Y_blocks, meta = [], [], []
     for i in range(n_subdomains):
         x0, x1 = x_edges[i], x_edges[i + 1]
-        Y_block = _interpolate_points_to_grid(x, y, values, x0, x1, ymin, ymax, nx, ny, dtype=dtype)
+        Y_block = _rasterize_points_to_grid(x, y, values, x0, x1, ymin, ymax, nx, ny, dtype=dtype)
         Y_blocks.append(Y_block)
 
         x_grid = np.linspace(x0, x1, nx)
