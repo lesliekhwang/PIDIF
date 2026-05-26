@@ -141,3 +141,4 @@
 2026-05-24 17:13:59 - pino - INFO - Total plotted points: 651482
 2026-05-24 17:13:59 - pino - INFO - x range: 0.5120154 7499.4707
 2026-05-24 17:13:59 - pino - INFO - y range: 0.5280181 149.4933
+2026-05-24 17:58:13 - pino - INFO - Device: cuda:2

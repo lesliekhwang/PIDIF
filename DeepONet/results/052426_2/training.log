@@ -1,0 +1,146 @@
+2026-05-24 17:58:13 - pino - INFO - Training comment
+2026-05-24 17:58:13 - pino - INFO - AR 10-30 random interface 10 realizations 0.1 BC weight
+2026-05-24 17:58:13 - pino - INFO - 10 True True
+2026-05-24 17:58:13 - pino - INFO - 20 True True
+2026-05-24 17:58:13 - pino - INFO - 30 True True
+2026-05-24 17:58:13 - pino - INFO - 50 True True
+2026-05-24 19:03:45 - pino - INFO - Train samples: 3450
+2026-05-24 19:03:45 - pino - INFO - Valid samples: 75
+2026-05-24 19:03:45 - pino - INFO - Train branch channels: ['x_local', 'y_local', 'wall_mask', 'interface_mask', 'boundary_pressure', 'boundary_temperature', 'boundary_u', 'boundary_v', 'known_pressure', 'known_temperature', 'known_u', 'known_v', 'local_aspect_ratio']
+2026-05-24 19:03:45 - pino - INFO - Train trunk channels: ['x_local', 'y_local']
+2026-05-24 19:03:45 - pino - INFO - Output channels: ['pressure', 'temperature', 'u', 'v']
+2026-05-24 19:03:45 - pino - INFO - Example train sample:
+2026-05-24 19:03:45 - pino - INFO - branch: (1024, 13)
+2026-05-24 19:03:45 - pino - INFO - query: (11259, 2)
+2026-05-24 19:03:45 - pino - INFO - target: (11259, 4)
+2026-05-24 19:03:45 - pino - INFO - Train ARs: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 26, 27, 28, 29]
+2026-05-24 19:03:45 - pino - INFO - Valid ARs: [20, 25, 30]
+2026-05-24 19:03:46 - pino - INFO - Y mean: tensor([ 2.3686e-03,  2.7328e+02,  1.0007e-01, -1.0800e-07])
+2026-05-24 19:03:46 - pino - INFO - Y std: tensor([0.0017, 0.5126, 0.0354, 0.0006])
+2026-05-24 19:03:46 - pino - INFO - local_aspect_mean: 1.0
+2026-05-24 19:03:46 - pino - INFO - local_aspect_std: 0.7482308745384216
+2026-05-24 19:03:46 - pino - INFO - branch batch: torch.Size([20, 1024, 13])
+2026-05-24 19:03:46 - pino - INFO - query batch: torch.Size([286737, 2])
+2026-05-24 19:03:46 - pino - INFO - target batch: torch.Size([286737, 4])
+2026-05-24 19:03:46 - pino - INFO - query batch id: tensor(0) tensor(19)
+2026-05-24 19:03:46 - pino - INFO - sample indices: tensor([1176, 2109,  567, 1682,  337, 2861, 3417, 2784, 2454,  604, 2431, 1715,
+        2462, 1777,  669, 1338,  631,  236, 2429, 1118])
+2026-05-24 19:03:46 - pino - INFO - {'branch_input_dim': 13, 'trunk_input_dim': 2, 'output_channels': 4, 'latent_dim': 128, 'branch_point_hidden_dim': 128, 'branch_point_depth': 3, 'branch_global_hidden_dim': 128, 'branch_global_depth': 3, 'trunk_hidden_dim': 128, 'trunk_depth': 4, 'aggregation': 'mean', 'activation': 'gelu', 'layer_norm': False}
+2026-05-24 19:04:02 - pino - INFO - Epoch 0001 | data loss=3.924e-01 | bc loss=8.024e-02 | valid MSE=4.227e-03 | valid rel L2=4.451e-04 | pressure=1.964e-01, temperature=4.736e-04, u=1.151e-01, v=6.904e-01 | Time: 0:00:16.118002
+2026-05-24 19:06:25 - pino - INFO - Epoch 0010 | data loss=4.042e-02 | bc loss=1.070e-02 | valid MSE=3.279e-04 | valid rel L2=1.263e-04 | pressure=2.673e-02, temperature=1.320e-04, u=2.858e-02, v=3.034e-01 | Time: 0:02:38.427467
+2026-05-24 19:09:02 - pino - INFO - Epoch 0020 | data loss=1.818e-02 | bc loss=5.512e-03 | valid MSE=2.214e-04 | valid rel L2=1.061e-04 | pressure=1.613e-02, temperature=1.086e-04, u=2.115e-02, v=2.071e-01 | Time: 0:05:15.356484
+2026-05-24 19:11:36 - pino - INFO - Epoch 0030 | data loss=1.052e-02 | bc loss=2.792e-03 | valid MSE=8.942e-05 | valid rel L2=6.231e-05 | pressure=1.219e-02, temperature=6.905e-05, u=1.190e-02, v=1.390e-01 | Time: 0:07:49.347580
+2026-05-24 19:14:09 - pino - INFO - Epoch 0040 | data loss=1.017e-02 | bc loss=3.261e-03 | valid MSE=1.326e-04 | valid rel L2=7.842e-05 | pressure=3.108e-02, temperature=8.401e-05, u=1.675e-02, v=1.298e-01 | Time: 0:10:23.146140
+2026-05-24 19:16:49 - pino - INFO - Epoch 0050 | data loss=1.696e-02 | bc loss=3.226e-03 | valid MSE=8.601e-05 | valid rel L2=6.391e-05 | pressure=1.900e-02, temperature=6.768e-05, u=1.320e-02, v=1.149e-01 | Time: 0:13:02.428480
+2026-05-24 19:19:20 - pino - INFO - Epoch 0060 | data loss=7.933e-03 | bc loss=2.662e-03 | valid MSE=3.967e-05 | valid rel L2=3.964e-05 | pressure=7.568e-03, temperature=4.597e-05, u=8.686e-03, v=8.968e-02 | Time: 0:15:34.007709
+2026-05-24 19:21:52 - pino - INFO - Epoch 0070 | data loss=5.985e-03 | bc loss=2.670e-03 | valid MSE=2.052e-04 | valid rel L2=1.005e-04 | pressure=5.334e-02, temperature=1.045e-04, u=2.149e-02, v=2.020e-01 | Time: 0:18:05.584764
+2026-05-24 19:24:29 - pino - INFO - Epoch 0080 | data loss=3.009e-03 | bc loss=8.233e-04 | valid MSE=2.177e-05 | valid rel L2=3.145e-05 | pressure=4.959e-03, temperature=3.400e-05, u=7.922e-03, v=7.193e-02 | Time: 0:20:43.110941
+2026-05-24 19:27:05 - pino - INFO - Epoch 0090 | data loss=3.582e-03 | bc loss=1.154e-03 | valid MSE=3.474e-05 | valid rel L2=4.093e-05 | pressure=1.310e-02, temperature=4.298e-05, u=9.152e-03, v=7.832e-02 | Time: 0:23:18.362447
+2026-05-24 19:29:41 - pino - INFO - Epoch 0100 | data loss=2.680e-03 | bc loss=7.960e-04 | valid MSE=2.069e-05 | valid rel L2=3.230e-05 | pressure=1.102e-02, temperature=3.315e-05, u=7.645e-03, v=6.480e-02 | Time: 0:25:54.544789
+2026-05-24 19:32:19 - pino - INFO - Epoch 0110 | data loss=4.430e-03 | bc loss=1.062e-03 | valid MSE=4.233e-05 | valid rel L2=4.596e-05 | pressure=7.510e-03, temperature=4.738e-05, u=1.208e-02, v=8.259e-02 | Time: 0:28:32.373841
+2026-05-24 19:34:55 - pino - INFO - Epoch 0120 | data loss=2.276e-03 | bc loss=5.204e-04 | valid MSE=2.721e-05 | valid rel L2=3.726e-05 | pressure=1.745e-02, temperature=3.808e-05, u=6.831e-03, v=7.509e-02 | Time: 0:31:08.974260
+2026-05-24 19:37:31 - pino - INFO - Epoch 0130 | data loss=1.407e-03 | bc loss=3.792e-04 | valid MSE=2.966e-05 | valid rel L2=3.866e-05 | pressure=1.511e-02, temperature=3.930e-05, u=1.701e-02, v=5.779e-02 | Time: 0:33:44.701631
+2026-05-24 19:40:08 - pino - INFO - Epoch 0140 | data loss=2.109e-03 | bc loss=6.166e-04 | valid MSE=2.000e-05 | valid rel L2=3.135e-05 | pressure=5.818e-03, temperature=3.266e-05, u=5.221e-03, v=5.869e-02 | Time: 0:36:21.323548
+2026-05-24 19:42:40 - pino - INFO - Epoch 0150 | data loss=3.496e-03 | bc loss=7.401e-04 | valid MSE=4.997e-05 | valid rel L2=4.913e-05 | pressure=1.435e-02, temperature=5.136e-05, u=1.562e-02, v=1.339e-01 | Time: 0:38:54.052533
+2026-05-24 19:45:13 - pino - INFO - Epoch 0160 | data loss=2.005e-03 | bc loss=4.847e-04 | valid MSE=5.936e-04 | valid rel L2=1.700e-04 | pressure=2.029e-02, temperature=1.781e-04, u=2.329e-02, v=1.084e-01 | Time: 0:41:27.069635
+2026-05-24 19:47:50 - pino - INFO - Epoch 0170 | data loss=2.450e-03 | bc loss=7.390e-04 | valid MSE=4.898e-05 | valid rel L2=4.761e-05 | pressure=1.983e-02, temperature=5.095e-05, u=1.341e-02, v=8.531e-02 | Time: 0:44:04.119682
+2026-05-24 19:50:26 - pino - INFO - Epoch 0180 | data loss=1.266e-03 | bc loss=3.131e-04 | valid MSE=1.372e-05 | valid rel L2=2.522e-05 | pressure=6.728e-03, temperature=2.663e-05, u=1.291e-02, v=5.853e-02 | Time: 0:46:39.826557
+2026-05-24 19:52:58 - pino - INFO - Epoch 0190 | data loss=2.423e-03 | bc loss=6.106e-04 | valid MSE=1.347e-05 | valid rel L2=2.580e-05 | pressure=4.248e-03, temperature=2.682e-05, u=3.888e-03, v=4.621e-02 | Time: 0:49:12.072642
+2026-05-24 19:55:32 - pino - INFO - Epoch 0200 | data loss=1.925e-03 | bc loss=6.525e-04 | valid MSE=4.469e-05 | valid rel L2=4.815e-05 | pressure=1.145e-02, temperature=4.881e-05, u=8.409e-03, v=5.964e-02 | Time: 0:51:46.108949
+2026-05-24 19:58:07 - pino - INFO - Epoch 0210 | data loss=1.310e-03 | bc loss=2.101e-04 | valid MSE=7.849e-06 | valid rel L2=1.979e-05 | pressure=3.861e-03, temperature=2.042e-05, u=4.567e-03, v=4.157e-02 | Time: 0:54:20.742703
+2026-05-24 20:00:41 - pino - INFO - Epoch 0220 | data loss=8.391e-04 | bc loss=1.898e-04 | valid MSE=1.314e-05 | valid rel L2=2.603e-05 | pressure=8.442e-03, temperature=2.647e-05, u=4.491e-03, v=4.191e-02 | Time: 0:56:54.714291
+2026-05-24 20:03:14 - pino - INFO - Epoch 0230 | data loss=1.230e-03 | bc loss=2.910e-04 | valid MSE=4.376e-05 | valid rel L2=4.571e-05 | pressure=7.169e-03, temperature=4.834e-05, u=6.818e-03, v=6.653e-02 | Time: 0:59:27.499978
+2026-05-24 20:05:51 - pino - INFO - Epoch 0240 | data loss=2.528e-03 | bc loss=5.597e-04 | valid MSE=2.120e-05 | valid rel L2=3.209e-05 | pressure=1.036e-02, temperature=3.357e-05, u=7.197e-03, v=5.315e-02 | Time: 1:02:04.546756
+2026-05-24 20:08:26 - pino - INFO - Epoch 0250 | data loss=9.747e-04 | bc loss=2.313e-04 | valid MSE=1.324e-05 | valid rel L2=2.634e-05 | pressure=5.635e-03, temperature=2.649e-05, u=6.922e-03, v=4.646e-02 | Time: 1:04:39.945969
+2026-05-24 20:11:01 - pino - INFO - Epoch 0260 | data loss=1.745e-03 | bc loss=4.352e-04 | valid MSE=1.257e-05 | valid rel L2=2.548e-05 | pressure=7.946e-03, temperature=2.582e-05, u=6.384e-03, v=5.454e-02 | Time: 1:07:14.315854
+2026-05-24 20:13:32 - pino - INFO - Epoch 0270 | data loss=9.833e-04 | bc loss=2.849e-04 | valid MSE=1.968e-05 | valid rel L2=3.200e-05 | pressure=1.072e-02, temperature=3.234e-05, u=7.282e-03, v=4.976e-02 | Time: 1:09:46.168896
+2026-05-24 20:16:09 - pino - INFO - Epoch 0280 | data loss=1.678e-03 | bc loss=5.168e-04 | valid MSE=1.612e-05 | valid rel L2=2.818e-05 | pressure=1.362e-02, temperature=2.923e-05, u=7.570e-03, v=4.132e-02 | Time: 1:12:22.481816
+2026-05-24 20:18:40 - pino - INFO - Epoch 0290 | data loss=7.889e-04 | bc loss=1.659e-04 | valid MSE=5.687e-06 | valid rel L2=1.708e-05 | pressure=7.019e-03, temperature=1.741e-05, u=2.989e-03, v=3.446e-02 | Time: 1:14:53.865076
+2026-05-24 20:21:08 - pino - INFO - Epoch 0300 | data loss=5.799e-04 | bc loss=1.092e-04 | valid MSE=4.790e-06 | valid rel L2=1.526e-05 | pressure=4.891e-03, temperature=1.594e-05, u=3.826e-03, v=3.759e-02 | Time: 1:17:22.220466
+2026-05-24 20:23:40 - pino - INFO - Epoch 0310 | data loss=6.469e-04 | bc loss=1.498e-04 | valid MSE=1.970e-05 | valid rel L2=3.190e-05 | pressure=7.114e-03, temperature=3.236e-05, u=7.108e-03, v=4.810e-02 | Time: 1:19:53.479091
+2026-05-24 20:26:12 - pino - INFO - Epoch 0320 | data loss=1.041e-03 | bc loss=2.000e-04 | valid MSE=5.336e-05 | valid rel L2=5.320e-05 | pressure=1.028e-02, temperature=5.328e-05, u=1.116e-02, v=4.543e-02 | Time: 1:22:25.477984
+2026-05-24 20:28:45 - pino - INFO - Epoch 0330 | data loss=6.567e-04 | bc loss=1.157e-04 | valid MSE=5.730e-06 | valid rel L2=1.673e-05 | pressure=4.227e-03, temperature=1.745e-05, u=3.726e-03, v=4.348e-02 | Time: 1:24:59.065424
+2026-05-24 20:31:16 - pino - INFO - Epoch 0340 | data loss=7.960e-04 | bc loss=1.894e-04 | valid MSE=5.119e-06 | valid rel L2=1.622e-05 | pressure=2.980e-03, temperature=1.651e-05, u=2.998e-03, v=3.262e-02 | Time: 1:27:29.918844
+2026-05-24 20:33:45 - pino - INFO - Epoch 0350 | data loss=5.710e-04 | bc loss=9.719e-05 | valid MSE=1.253e-05 | valid rel L2=2.491e-05 | pressure=9.453e-03, temperature=2.585e-05, u=3.951e-03, v=4.000e-02 | Time: 1:29:58.860790
+2026-05-24 20:36:14 - pino - INFO - Epoch 0360 | data loss=1.055e-03 | bc loss=2.396e-04 | valid MSE=8.981e-06 | valid rel L2=2.104e-05 | pressure=1.185e-02, temperature=2.187e-05, u=4.281e-03, v=3.957e-02 | Time: 1:32:28.012677
+2026-05-24 20:38:46 - pino - INFO - Epoch 0370 | data loss=7.684e-04 | bc loss=1.933e-04 | valid MSE=2.260e-05 | valid rel L2=3.449e-05 | pressure=1.092e-02, temperature=3.458e-05, u=9.840e-03, v=4.556e-02 | Time: 1:34:59.312911
+2026-05-24 20:41:15 - pino - INFO - Epoch 0380 | data loss=4.175e-04 | bc loss=7.671e-05 | valid MSE=6.639e-06 | valid rel L2=1.829e-05 | pressure=4.336e-03, temperature=1.879e-05, u=3.923e-03, v=3.103e-02 | Time: 1:37:28.809693
+2026-05-24 20:43:44 - pino - INFO - Epoch 0390 | data loss=8.500e-04 | bc loss=1.616e-04 | valid MSE=1.087e-05 | valid rel L2=2.384e-05 | pressure=3.462e-03, temperature=2.405e-05, u=4.881e-03, v=3.193e-02 | Time: 1:39:57.877494
+2026-05-24 20:46:10 - pino - INFO - Epoch 0400 | data loss=3.426e-04 | bc loss=4.969e-05 | valid MSE=2.789e-06 | valid rel L2=1.160e-05 | pressure=3.833e-03, temperature=1.215e-05, u=3.243e-03, v=2.769e-02 | Time: 1:42:23.542026
+2026-05-24 20:48:39 - pino - INFO - Epoch 0410 | data loss=1.417e-03 | bc loss=4.006e-04 | valid MSE=2.394e-05 | valid rel L2=3.446e-05 | pressure=1.490e-02, temperature=3.570e-05, u=6.952e-03, v=4.483e-02 | Time: 1:44:52.418000
+2026-05-24 20:51:07 - pino - INFO - Epoch 0420 | data loss=5.473e-04 | bc loss=1.002e-04 | valid MSE=1.256e-05 | valid rel L2=2.560e-05 | pressure=3.858e-03, temperature=2.569e-05, u=9.046e-03, v=4.373e-02 | Time: 1:47:20.364984
+2026-05-24 20:53:37 - pino - INFO - Epoch 0430 | data loss=1.094e-03 | bc loss=2.579e-04 | valid MSE=4.224e-06 | valid rel L2=1.473e-05 | pressure=4.133e-03, temperature=1.500e-05, u=2.861e-03, v=2.994e-02 | Time: 1:49:50.439836
+2026-05-24 20:56:12 - pino - INFO - Epoch 0440 | data loss=7.995e-04 | bc loss=2.938e-04 | valid MSE=3.189e-06 | valid rel L2=1.253e-05 | pressure=5.571e-03, temperature=1.302e-05, u=2.754e-03, v=2.836e-02 | Time: 1:52:25.407420
+2026-05-24 20:58:40 - pino - INFO - Epoch 0450 | data loss=4.628e-04 | bc loss=9.545e-05 | valid MSE=5.157e-06 | valid rel L2=1.532e-05 | pressure=5.631e-03, temperature=1.656e-05, u=3.379e-03, v=3.339e-02 | Time: 1:54:53.826739
+2026-05-24 21:01:09 - pino - INFO - Epoch 0460 | data loss=4.271e-04 | bc loss=7.299e-05 | valid MSE=2.497e-06 | valid rel L2=1.121e-05 | pressure=1.769e-03, temperature=1.153e-05, u=2.090e-03, v=2.570e-02 | Time: 1:57:22.773531
+2026-05-24 21:03:36 - pino - INFO - Epoch 0470 | data loss=4.986e-04 | bc loss=1.075e-04 | valid MSE=1.760e-06 | valid rel L2=9.172e-06 | pressure=1.697e-03, temperature=9.668e-06, u=2.192e-03, v=2.506e-02 | Time: 1:59:49.506662
+2026-05-24 21:06:03 - pino - INFO - Epoch 0480 | data loss=1.125e-03 | bc loss=2.871e-04 | valid MSE=2.101e-06 | valid rel L2=1.028e-05 | pressure=2.992e-03, temperature=1.058e-05, u=2.032e-03, v=2.542e-02 | Time: 2:02:16.572578
+2026-05-24 21:08:31 - pino - INFO - Epoch 0490 | data loss=2.508e-04 | bc loss=4.865e-05 | valid MSE=1.092e-06 | valid rel L2=7.174e-06 | pressure=1.391e-03, temperature=7.616e-06, u=1.775e-03, v=2.395e-02 | Time: 2:04:44.898873
+2026-05-24 21:11:00 - pino - INFO - Epoch 0500 | data loss=3.035e-04 | bc loss=8.010e-05 | valid MSE=1.716e-06 | valid rel L2=9.097e-06 | pressure=3.440e-03, temperature=9.557e-06, u=1.882e-03, v=2.474e-02 | Time: 2:07:13.813493
+2026-05-24 21:13:28 - pino - INFO - Epoch 0510 | data loss=4.087e-04 | bc loss=7.714e-05 | valid MSE=2.261e-06 | valid rel L2=1.040e-05 | pressure=1.677e-03, temperature=1.097e-05, u=2.198e-03, v=2.421e-02 | Time: 2:09:42.238763
+2026-05-24 21:15:56 - pino - INFO - Epoch 0520 | data loss=4.889e-04 | bc loss=1.313e-04 | valid MSE=4.497e-06 | valid rel L2=1.489e-05 | pressure=5.054e-03, temperature=1.549e-05, u=2.316e-03, v=3.330e-02 | Time: 2:12:10.120152
+2026-05-24 21:18:22 - pino - INFO - Epoch 0530 | data loss=4.817e-04 | bc loss=1.005e-04 | valid MSE=3.371e-06 | valid rel L2=1.303e-05 | pressure=4.988e-03, temperature=1.336e-05, u=3.577e-03, v=2.918e-02 | Time: 2:14:35.431549
+2026-05-24 21:20:49 - pino - INFO - Epoch 0540 | data loss=3.213e-04 | bc loss=7.663e-05 | valid MSE=2.251e-06 | valid rel L2=1.061e-05 | pressure=2.355e-03, temperature=1.094e-05, u=2.254e-03, v=2.374e-02 | Time: 2:17:02.870828
+2026-05-24 21:23:15 - pino - INFO - Epoch 0550 | data loss=2.553e-04 | bc loss=4.823e-05 | valid MSE=1.992e-06 | valid rel L2=9.839e-06 | pressure=2.139e-03, temperature=1.029e-05, u=2.130e-03, v=2.375e-02 | Time: 2:19:28.939930
+2026-05-24 21:25:45 - pino - INFO - Epoch 0560 | data loss=2.031e-04 | bc loss=2.967e-05 | valid MSE=1.873e-06 | valid rel L2=9.859e-06 | pressure=1.845e-03, temperature=9.988e-06, u=1.888e-03, v=2.318e-02 | Time: 2:21:58.451056
+2026-05-24 21:28:12 - pino - INFO - Epoch 0570 | data loss=3.036e-04 | bc loss=6.010e-05 | valid MSE=1.308e-06 | valid rel L2=7.874e-06 | pressure=1.710e-03, temperature=8.343e-06, u=1.705e-03, v=2.284e-02 | Time: 2:24:25.866255
+2026-05-24 21:30:43 - pino - INFO - Epoch 0580 | data loss=2.072e-04 | bc loss=3.475e-05 | valid MSE=2.577e-06 | valid rel L2=1.154e-05 | pressure=4.539e-03, temperature=1.172e-05, u=2.056e-03, v=2.361e-02 | Time: 2:26:56.593375
+2026-05-24 21:33:11 - pino - INFO - Epoch 0590 | data loss=3.935e-04 | bc loss=1.092e-04 | valid MSE=6.208e-06 | valid rel L2=1.803e-05 | pressure=3.638e-03, temperature=1.818e-05, u=3.644e-03, v=3.384e-02 | Time: 2:29:25.098881
+2026-05-24 21:35:39 - pino - INFO - Epoch 0600 | data loss=2.474e-04 | bc loss=5.539e-05 | valid MSE=1.261e-06 | valid rel L2=7.663e-06 | pressure=1.626e-03, temperature=8.169e-06, u=2.239e-03, v=2.334e-02 | Time: 2:31:53.232907
+2026-05-24 21:38:07 - pino - INFO - Epoch 0610 | data loss=1.784e-04 | bc loss=2.621e-05 | valid MSE=9.431e-07 | valid rel L2=6.734e-06 | pressure=1.797e-03, temperature=7.073e-06, u=1.742e-03, v=2.160e-02 | Time: 2:34:21.235312
+2026-05-24 21:40:35 - pino - INFO - Epoch 0620 | data loss=2.403e-04 | bc loss=4.648e-05 | valid MSE=2.267e-06 | valid rel L2=1.072e-05 | pressure=2.198e-03, temperature=1.099e-05, u=1.942e-03, v=2.372e-02 | Time: 2:36:48.565657
+2026-05-24 21:43:02 - pino - INFO - Epoch 0630 | data loss=1.723e-04 | bc loss=2.675e-05 | valid MSE=2.370e-06 | valid rel L2=1.106e-05 | pressure=2.024e-03, temperature=1.117e-05, u=3.730e-03, v=2.294e-02 | Time: 2:39:15.789710
+2026-05-24 21:45:32 - pino - INFO - Epoch 0640 | data loss=1.937e-04 | bc loss=4.224e-05 | valid MSE=1.197e-06 | valid rel L2=7.681e-06 | pressure=1.933e-03, temperature=7.980e-06, u=1.637e-03, v=2.148e-02 | Time: 2:41:45.590739
+2026-05-24 21:48:00 - pino - INFO - Epoch 0650 | data loss=2.363e-04 | bc loss=5.126e-05 | valid MSE=1.116e-06 | valid rel L2=7.291e-06 | pressure=2.773e-03, temperature=7.699e-06, u=1.774e-03, v=2.224e-02 | Time: 2:44:13.925447
+2026-05-24 21:50:29 - pino - INFO - Epoch 0660 | data loss=1.751e-04 | bc loss=2.928e-05 | valid MSE=1.135e-06 | valid rel L2=7.556e-06 | pressure=2.197e-03, temperature=7.770e-06, u=1.630e-03, v=2.095e-02 | Time: 2:46:42.402173
+2026-05-24 21:52:59 - pino - INFO - Epoch 0670 | data loss=1.779e-04 | bc loss=2.807e-05 | valid MSE=8.167e-07 | valid rel L2=6.255e-06 | pressure=1.928e-03, temperature=6.590e-06, u=1.384e-03, v=2.065e-02 | Time: 2:49:13.098632
+2026-05-24 21:55:28 - pino - INFO - Epoch 0680 | data loss=1.895e-04 | bc loss=3.634e-05 | valid MSE=1.678e-06 | valid rel L2=9.233e-06 | pressure=1.997e-03, temperature=9.407e-06, u=2.957e-03, v=2.554e-02 | Time: 2:51:41.407480
+2026-05-24 21:57:57 - pino - INFO - Epoch 0690 | data loss=2.286e-04 | bc loss=4.721e-05 | valid MSE=3.358e-06 | valid rel L2=1.284e-05 | pressure=2.403e-03, temperature=1.336e-05, u=3.014e-03, v=2.597e-02 | Time: 2:54:10.637251
+2026-05-24 22:00:25 - pino - INFO - Epoch 0700 | data loss=2.891e-04 | bc loss=6.774e-05 | valid MSE=7.355e-07 | valid rel L2=5.836e-06 | pressure=1.155e-03, temperature=6.249e-06, u=1.477e-03, v=2.003e-02 | Time: 2:56:38.383736
+2026-05-24 22:02:52 - pino - INFO - Epoch 0710 | data loss=1.799e-04 | bc loss=2.746e-05 | valid MSE=1.021e-06 | valid rel L2=7.004e-06 | pressure=2.344e-03, temperature=7.372e-06, u=1.405e-03, v=2.093e-02 | Time: 2:59:05.481108
+2026-05-24 22:05:21 - pino - INFO - Epoch 0720 | data loss=1.882e-04 | bc loss=4.757e-05 | valid MSE=2.339e-06 | valid rel L2=1.048e-05 | pressure=4.234e-03, temperature=1.117e-05, u=1.686e-03, v=2.043e-02 | Time: 3:01:34.815855
+2026-05-24 22:07:51 - pino - INFO - Epoch 0730 | data loss=1.623e-04 | bc loss=2.895e-05 | valid MSE=7.569e-07 | valid rel L2=5.910e-06 | pressure=9.909e-04, temperature=6.343e-06, u=1.366e-03, v=1.986e-02 | Time: 3:04:04.973058
+2026-05-24 22:10:22 - pino - INFO - Epoch 0740 | data loss=1.439e-04 | bc loss=2.070e-05 | valid MSE=9.802e-07 | valid rel L2=6.969e-06 | pressure=1.289e-03, temperature=7.227e-06, u=1.282e-03, v=1.963e-02 | Time: 3:06:35.417179
+2026-05-24 22:13:02 - pino - INFO - Epoch 0750 | data loss=1.347e-04 | bc loss=1.868e-05 | valid MSE=6.675e-07 | valid rel L2=5.480e-06 | pressure=1.577e-03, temperature=5.957e-06, u=1.282e-03, v=1.956e-02 | Time: 3:09:15.646110
+2026-05-24 22:15:28 - pino - INFO - Epoch 0760 | data loss=1.404e-04 | bc loss=1.995e-05 | valid MSE=7.298e-07 | valid rel L2=5.813e-06 | pressure=1.185e-03, temperature=6.231e-06, u=1.244e-03, v=1.990e-02 | Time: 3:11:42.202398
+2026-05-24 22:17:58 - pino - INFO - Epoch 0770 | data loss=2.337e-04 | bc loss=6.370e-05 | valid MSE=7.871e-07 | valid rel L2=6.088e-06 | pressure=1.382e-03, temperature=6.465e-06, u=1.498e-03, v=1.948e-02 | Time: 3:14:11.857727
+2026-05-24 22:20:25 - pino - INFO - Epoch 0780 | data loss=1.291e-04 | bc loss=1.740e-05 | valid MSE=8.462e-07 | valid rel L2=6.321e-06 | pressure=1.565e-03, temperature=6.704e-06, u=1.534e-03, v=2.166e-02 | Time: 3:16:39.090004
+2026-05-24 22:22:53 - pino - INFO - Epoch 0790 | data loss=1.348e-04 | bc loss=2.112e-05 | valid MSE=2.385e-06 | valid rel L2=1.119e-05 | pressure=1.301e-03, temperature=1.127e-05, u=1.976e-03, v=2.068e-02 | Time: 3:19:06.893940
+2026-05-24 22:25:21 - pino - INFO - Epoch 0800 | data loss=1.229e-04 | bc loss=1.626e-05 | valid MSE=6.347e-07 | valid rel L2=5.315e-06 | pressure=1.416e-03, temperature=5.805e-06, u=1.341e-03, v=1.870e-02 | Time: 3:21:34.822926
+2026-05-24 22:27:47 - pino - INFO - Epoch 0810 | data loss=1.220e-04 | bc loss=1.650e-05 | valid MSE=5.692e-07 | valid rel L2=4.980e-06 | pressure=1.311e-03, temperature=5.501e-06, u=1.169e-03, v=1.854e-02 | Time: 3:24:00.582503
+2026-05-24 22:30:14 - pino - INFO - Epoch 0820 | data loss=1.189e-04 | bc loss=1.631e-05 | valid MSE=7.263e-07 | valid rel L2=5.812e-06 | pressure=9.752e-04, temperature=6.191e-06, u=1.907e-03, v=2.032e-02 | Time: 3:26:27.679833
+2026-05-24 22:32:45 - pino - INFO - Epoch 0830 | data loss=1.220e-04 | bc loss=1.702e-05 | valid MSE=6.628e-07 | valid rel L2=5.483e-06 | pressure=1.083e-03, temperature=5.939e-06, u=1.187e-03, v=1.868e-02 | Time: 3:28:58.320478
+2026-05-24 22:35:13 - pino - INFO - Epoch 0840 | data loss=1.148e-04 | bc loss=1.486e-05 | valid MSE=5.918e-07 | valid rel L2=5.160e-06 | pressure=1.101e-03, temperature=5.610e-06, u=1.180e-03, v=1.814e-02 | Time: 3:31:26.534450
+2026-05-24 22:37:38 - pino - INFO - Epoch 0850 | data loss=1.134e-04 | bc loss=1.458e-05 | valid MSE=5.502e-07 | valid rel L2=4.922e-06 | pressure=7.663e-04, temperature=5.404e-06, u=1.278e-03, v=1.848e-02 | Time: 3:33:52.225163
+2026-05-24 22:40:05 - pino - INFO - Epoch 0860 | data loss=1.122e-04 | bc loss=1.445e-05 | valid MSE=5.721e-07 | valid rel L2=5.054e-06 | pressure=7.678e-04, temperature=5.516e-06, u=1.125e-03, v=1.785e-02 | Time: 3:36:19.135709
+2026-05-24 22:42:33 - pino - INFO - Epoch 0870 | data loss=1.099e-04 | bc loss=1.381e-05 | valid MSE=5.556e-07 | valid rel L2=4.972e-06 | pressure=7.873e-04, temperature=5.433e-06, u=1.202e-03, v=1.815e-02 | Time: 3:38:47.269322
+2026-05-24 22:45:06 - pino - INFO - Epoch 0880 | data loss=1.099e-04 | bc loss=1.387e-05 | valid MSE=5.385e-07 | valid rel L2=4.886e-06 | pressure=8.215e-04, temperature=5.351e-06, u=1.126e-03, v=1.806e-02 | Time: 3:41:19.354406
+2026-05-24 22:47:33 - pino - INFO - Epoch 0890 | data loss=1.076e-04 | bc loss=1.323e-05 | valid MSE=5.283e-07 | valid rel L2=4.800e-06 | pressure=6.914e-04, temperature=5.300e-06, u=1.113e-03, v=1.781e-02 | Time: 3:43:46.374151
+2026-05-24 22:50:01 - pino - INFO - Epoch 0900 | data loss=1.062e-04 | bc loss=1.303e-05 | valid MSE=5.107e-07 | valid rel L2=4.720e-06 | pressure=6.892e-04, temperature=5.211e-06, u=1.104e-03, v=1.780e-02 | Time: 3:46:14.370175
+2026-05-24 22:52:31 - pino - INFO - Epoch 0910 | data loss=1.055e-04 | bc loss=1.287e-05 | valid MSE=4.996e-07 | valid rel L2=4.652e-06 | pressure=6.660e-04, temperature=5.153e-06, u=1.111e-03, v=1.770e-02 | Time: 3:48:44.865610
+2026-05-24 22:54:59 - pino - INFO - Epoch 0920 | data loss=1.042e-04 | bc loss=1.260e-05 | valid MSE=5.056e-07 | valid rel L2=4.686e-06 | pressure=6.714e-04, temperature=5.186e-06, u=1.057e-03, v=1.757e-02 | Time: 3:51:13.227985
+2026-05-24 22:57:29 - pino - INFO - Epoch 0930 | data loss=1.038e-04 | bc loss=1.243e-05 | valid MSE=4.720e-07 | valid rel L2=4.494e-06 | pressure=7.085e-04, temperature=5.010e-06, u=1.044e-03, v=1.739e-02 | Time: 3:53:42.781223
+2026-05-24 23:00:00 - pino - INFO - Epoch 0940 | data loss=1.034e-04 | bc loss=1.238e-05 | valid MSE=4.844e-07 | valid rel L2=4.566e-06 | pressure=6.416e-04, temperature=5.076e-06, u=1.044e-03, v=1.737e-02 | Time: 3:56:13.797456
+2026-05-24 23:02:28 - pino - INFO - Epoch 0950 | data loss=1.026e-04 | bc loss=1.226e-05 | valid MSE=4.639e-07 | valid rel L2=4.431e-06 | pressure=6.532e-04, temperature=4.966e-06, u=1.048e-03, v=1.739e-02 | Time: 3:58:41.951686
+2026-05-24 23:04:56 - pino - INFO - Epoch 0960 | data loss=1.023e-04 | bc loss=1.217e-05 | valid MSE=4.569e-07 | valid rel L2=4.379e-06 | pressure=6.528e-04, temperature=4.929e-06, u=1.029e-03, v=1.733e-02 | Time: 4:01:09.962375
+2026-05-24 23:07:24 - pino - INFO - Epoch 0970 | data loss=1.020e-04 | bc loss=1.213e-05 | valid MSE=4.539e-07 | valid rel L2=4.378e-06 | pressure=6.405e-04, temperature=4.913e-06, u=1.025e-03, v=1.736e-02 | Time: 4:03:38.031271
+2026-05-24 23:09:50 - pino - INFO - Epoch 0980 | data loss=1.018e-04 | bc loss=1.209e-05 | valid MSE=4.538e-07 | valid rel L2=4.377e-06 | pressure=6.417e-04, temperature=4.912e-06, u=1.026e-03, v=1.734e-02 | Time: 4:06:03.528681
+2026-05-24 23:12:19 - pino - INFO - Epoch 0990 | data loss=1.017e-04 | bc loss=1.209e-05 | valid MSE=4.521e-07 | valid rel L2=4.360e-06 | pressure=6.350e-04, temperature=4.903e-06, u=1.025e-03, v=1.735e-02 | Time: 4:08:32.490170
+2026-05-24 23:14:48 - pino - INFO - Epoch 1000 | data loss=1.016e-04 | bc loss=1.208e-05 | valid MSE=4.519e-07 | valid rel L2=4.359e-06 | pressure=6.354e-04, temperature=4.902e-06, u=1.026e-03, v=1.734e-02 | Time: 4:11:01.722775
+2026-05-24 23:14:48 - pino - INFO - Best validation relative L2: 4.357600725294712e-06
+2026-05-24 23:14:48 - pino - INFO - Saved: results/052426_2/checkpoint.pt
+2026-05-24 23:14:49 - pino - INFO - Loaded: results/052426_2/checkpoint.pt
+2026-05-24 23:14:57 - pino - INFO - Total plotted points: 260696
+2026-05-24 23:14:57 - pino - INFO - x range: 0.5096231 2999.474
+2026-05-24 23:14:57 - pino - INFO - y range: 0.51863676 149.47418
+2026-05-24 23:16:31 - pino - INFO - Total plotted points: 651482
+2026-05-24 23:16:31 - pino - INFO - x range: 0.5120154 7499.4707
+2026-05-24 23:16:31 - pino - INFO - y range: 0.5280181 149.4933
+2026-05-25 10:41:46 - pino - INFO - Loaded: results/052426_2/checkpoint.pt
+2026-05-25 10:41:57 - pino - INFO - Total plotted points: 260696
+2026-05-25 10:41:57 - pino - INFO - x range: 0.5096231 2999.474
+2026-05-25 10:41:57 - pino - INFO - y range: 0.51863676 149.47418
+2026-05-25 10:43:49 - pino - INFO - Total plotted points: 651482
+2026-05-25 10:43:49 - pino - INFO - x range: 0.5120154 7499.4707
+2026-05-25 10:43:49 - pino - INFO - y range: 0.5280181 149.4933
+2026-05-25 11:34:16 - pino - INFO - Device: cuda:2

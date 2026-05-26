@@ -234,6 +234,14 @@ def _edge_profile(branch_one: Array, edge_idx: Array, value_idx: Array) -> Array
     )
 
 
+def _interface_value_profiles_from_branch(branch_inputs: Array, layout: EdgeLayout) -> Tuple[Array, Array]:
+    """Extract left/right interface p/T/u/v profiles for all subdomains."""
+    branch_arr = np.asarray(branch_inputs, dtype=np.float32)
+    left_vals = branch_arr[:, layout.left, :][:, :, layout.value_channels]
+    right_vals = branch_arr[:, layout.right, :][:, :, layout.value_channels]
+    return left_vals.astype(np.float32, copy=False), right_vals.astype(np.float32, copy=False)
+
+
 def _normal_init_stats(
     branch_inputs_for_ar: Array,
     layout: EdgeLayout,
@@ -629,12 +637,14 @@ def iterative_unknown_interface_inference(
     mse_history = []
     mse_by_channel_history = []
     converged_history = []
+    interface_left_history = []
+    interface_right_history = []
     final_pred_left = None
     final_pred_right = None
 
     converged = False
     n_iter_done = 0
-    for iteration in range(config.max_iter + 1):
+    for iteration in range(1, config.max_iter + 1):
         pred_left, pred_right = predict_edge_profiles_physical(
             model=model,
             branch_inputs=current_branch,
@@ -664,15 +674,20 @@ def iterative_unknown_interface_inference(
             max_mse = float(np.max(mse_total)) if mse_total.size else 0.0
             mean_mse = float(np.mean(mse_total)) if mse_total.size else 0.0
             print(f"iter={iteration:04d} | interface MSE max={max_mse:.6e}, mean={mean_mse:.6e} | converged={np.count_nonzero(is_converged)}/{is_converged.size}", flush=True)
+        if not (all_converged or iteration >= config.max_iter):
+            current_branch = update_branch_interfaces_from_edge_predictions(
+                current_branch=current_branch,
+                pred_left=pred_left,
+                pred_right=pred_right,
+                layout=layout,
+                relaxation=config.relaxation,
+            )
+
+        iter_left_vals, iter_right_vals = _interface_value_profiles_from_branch(current_branch, layout)
+        interface_left_history.append(iter_left_vals)
+        interface_right_history.append(iter_right_vals)
         if all_converged or iteration >= config.max_iter:
             break
-        current_branch = update_branch_interfaces_from_edge_predictions(
-            current_branch=current_branch,
-            pred_left=pred_left,
-            pred_right=pred_right,
-            layout=layout,
-            relaxation=config.relaxation,
-        )
 
     pred_samples = predict_cell_samples_physical(
         model=model,
@@ -695,6 +710,8 @@ def iterative_unknown_interface_inference(
         "interface_mse_history": np.stack(mse_history, axis=0),
         "interface_mse_by_channel_history": np.stack(mse_by_channel_history, axis=0),
         "interface_converged_history": np.stack(converged_history, axis=0),
+        "interface_left_values_history": np.stack(interface_left_history, axis=0),
+        "interface_right_values_history": np.stack(interface_right_history, axis=0),
         "converged": bool(converged),
         "n_iter": int(n_iter_done),
         "layout": layout,
@@ -713,6 +730,8 @@ def save_iteration_result_npz(path: PathLike, result: Mapping[str, object], samp
         "interface_mse_history": np.asarray(result["interface_mse_history"], dtype=np.float32),
         "interface_mse_by_channel_history": np.asarray(result["interface_mse_by_channel_history"], dtype=np.float32),
         "interface_converged_history": np.asarray(result["interface_converged_history"], dtype=bool),
+        "interface_left_values_history": np.asarray(result["interface_left_values_history"], dtype=np.float32),
+        "interface_right_values_history": np.asarray(result["interface_right_values_history"], dtype=np.float32),
         "converged": np.asarray(bool(result["converged"])),
         "n_iter": np.asarray(int(result["n_iter"])),
     }

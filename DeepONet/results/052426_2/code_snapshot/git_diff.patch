@@ -1,0 +1,46 @@
+diff --git a/DeepONet/results/052426_1/training.log b/DeepONet/results/052426_1/training.log
+index 76f6eff..47901be 100644
+--- a/DeepONet/results/052426_1/training.log
++++ b/DeepONet/results/052426_1/training.log
+@@ -141,3 +141,4 @@
+ 2026-05-24 17:13:59 - pino - INFO - Total plotted points: 651482
+ 2026-05-24 17:13:59 - pino - INFO - x range: 0.5120154 7499.4707
+ 2026-05-24 17:13:59 - pino - INFO - y range: 0.5280181 149.4933
++2026-05-24 17:58:13 - pino - INFO - Device: cuda:2
+diff --git a/DeepONet/train_deeponet.ipynb b/DeepONet/train_deeponet.ipynb
+index 248ea0f..609cb62 100644
+--- a/DeepONet/train_deeponet.ipynb
++++ b/DeepONet/train_deeponet.ipynb
+@@ -79,12 +79,12 @@
+   },
+   {
+    "cell_type": "code",
+-   "execution_count": 2,
++   "execution_count": null,
+    "id": "584f6752",
+    "metadata": {},
+    "outputs": [],
+    "source": [
+-    "comment = \"AR 10-30 random interface 3 realizations\""
++    "comment = \"AR 10-30 random interface 10 realizations\""
+    ]
+   },
+   {
+@@ -196,7 +196,7 @@
+   },
+   {
+    "cell_type": "code",
+-   "execution_count": 5,
++   "execution_count": null,
+    "id": "874cdda1",
+    "metadata": {},
+    "outputs": [],
+@@ -212,7 +212,7 @@
+     "INTERFACE_PLACEMENT = \"random\"\n",
+     "INTERFACE_JITTER = 0.0\n",
+     "MIN_SUBDOMAIN_WIDTH = 0.01\n",
+-    "N_REALIZATIONS_TRAIN = 3\n",
++    "N_REALIZATIONS_TRAIN = 10\n",
+     "\n",
+     "N_QUERY_TRAIN = None\n",
+     "N_QUERY_VALID = None\n",
