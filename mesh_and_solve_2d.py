@@ -21,12 +21,20 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # ============================================================
 
 DEFAULT_NPROCS = 4
-DEFAULT_NITER = 2000
+DEFAULT_NITER = 10000
 DEFAULT_PRECISION = "double"
 DEFAULT_UI_MODE = "hidden_gui"
 
+# Fluent default air material properties (used for physics sanity checks).
+AIR_DENSITY = 1.225          # kg/m^3
+AIR_VISCOSITY = 1.7894e-5    # Pa*s
+
+# Physics-check thresholds.
+MASS_CONSERVATION_REL_TOL = 0.02   # 2% mismatch between inlet/outlet flux
+REYNOLDS_LAMINAR_LIMIT = 2300.0    # below this the laminar model is appropriate
+
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "trapezoid"
+DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "rand_channel"
 
 
 # ============================================================
@@ -68,9 +76,22 @@ def parse_scalar_file(path: Path) -> float | None:
 # SPEC HELPERS
 # ============================================================
 
+def _segment_height_m(points: list[dict[str, Any]] | None, units: str = "mm") -> float | None:
+    """Height (max y - min y) of an inlet/outlet segment, converted to meters."""
+    if not points or len(points) < 2:
+        return None
+    ys = [float(p["y"]) for p in points]
+    h = max(ys) - min(ys)
+    if h <= 0.0:
+        return None
+    return h / 1000.0 if units.lower().strip() == "mm" else h
+
+
 def get_case_info_from_spec(spec_json: Path) -> dict[str, Any]:
     spec = load_json(spec_json)
     meta = spec.get("metadata", {})
+    units = spec.get("units", "mm")
+    boundaries = spec.get("boundaries", {})
 
     case = spec["case"]
     inlet_profile = meta.get("inlet_velocity_profile", [])
@@ -103,6 +124,12 @@ def get_case_info_from_spec(spec_json: Path) -> dict[str, Any]:
             "Expected either (Lx_mm, Ly_mm) or L_mm."
         )
 
+    # Inlet/outlet heights for mass-conservation and Reynolds-number checks.
+    inlet_height_m = _segment_height_m(boundaries.get("inlet"), units)
+    if inlet_height_m is None and "inlet_height_mm" in meta:
+        inlet_height_m = float(meta["inlet_height_mm"]) / 1000.0
+    outlet_height_m = _segment_height_m(boundaries.get("outlet"), units)
+
     return {
         "case": case,
         "uin_mps": uin_mps,
@@ -111,6 +138,8 @@ def get_case_info_from_spec(spec_json: Path) -> dict[str, Any]:
         "step_path": str(step_path),
         "lx_m": lx_m,
         "ly_m": ly_m,
+        "inlet_height_m": inlet_height_m,
+        "outlet_height_m": outlet_height_m,
         "metadata": meta,
     }
 
@@ -412,6 +441,13 @@ def set_models_and_materials(solver) -> None:
         log("[INFO] Set viscous model = laminar")
     except Exception as e:
         log(f"[WARN] Could not set laminar model explicitly: {e}")
+    
+    try:
+        flow_scheme = solver.settings.solution.methods.p_v_coupling.flow_scheme
+        flow_scheme.set_state("SIMPLE")
+        log("[INFO] Set flow scheme = SIMPLE")
+    except Exception as e:
+        log(f"[WARN] Could not set flow scheme explicitly: {e}")
 
     try:
         fluid_zones = list(solver.settings.setup.cell_zone_conditions.fluid.keys())
@@ -448,16 +484,16 @@ def get_zone_centroid(solver, zone_name: str) -> tuple[float, float, float]:
     raise RuntimeError(f"Unexpected centroid return for zone '{zone_name}': {c}")
 
 
-def classify_four_edge_boundaries(
+def classify_channel_boundaries(
     solver,
     lx_m: float,
     ly_m: float,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     names = get_boundary_zone_names(solver)
 
-    if len(names) != 4:
+    if len(names) < 4:
         raise RuntimeError(
-            f"Expected 4 boundary zones after refined STEP import, got {len(names)}: {names}"
+            f"Expected at least 4 boundary zones after STEP import, got {len(names)}: {names}"
         )
 
     zone_info = []
@@ -465,35 +501,131 @@ def classify_four_edge_boundaries(
         cx, cy, cz = get_zone_centroid(solver, name)
         zone_info.append({"name": name, "cx": cx, "cy": cy, "cz": cz})
 
+    # For channel-like geometries, inlet/outlet are the most-left and most-right boundaries.
     inlet = min(zone_info, key=lambda z: z["cx"])
     outlet = max(zone_info, key=lambda z: z["cx"])
 
     remaining = [z for z in zone_info if z["name"] not in {inlet["name"], outlet["name"]}]
-    if len(remaining) != 2:
-        raise RuntimeError(f"Expected 2 wall zones after inlet/outlet classification, got {remaining}")
+    if len(remaining) < 2:
+        raise RuntimeError(f"Expected at least 2 wall zones after inlet/outlet classification, got {remaining}")
 
-    wall_bottom = min(remaining, key=lambda z: z["cy"])
-    wall_top = max(remaining, key=lambda z: z["cy"])
+    # Connected-trapezoid geometries can create many wall segments.
+    # Split them by centroid y into bottom/top groups.
+    ys = [z["cy"] for z in remaining]
+    y_mid = 0.5 * (min(ys) + max(ys))
+    wall_bottom_zones = [z["name"] for z in remaining if z["cy"] <= y_mid]
+    wall_top_zones = [z["name"] for z in remaining if z["cy"] > y_mid]
+
+    # Fallback if centroids cluster awkwardly.
+    if not wall_bottom_zones or not wall_top_zones:
+        rem_sorted = sorted(remaining, key=lambda z: z["cy"])
+        split_idx = max(1, len(rem_sorted) // 2)
+        wall_bottom_zones = [z["name"] for z in rem_sorted[:split_idx]]
+        wall_top_zones = [z["name"] for z in rem_sorted[split_idx:]]
+        if not wall_top_zones:
+            wall_top_zones = [wall_bottom_zones.pop()]
+
+    wall_bottom = wall_bottom_zones[0]
+    wall_top = wall_top_zones[0]
 
     result = {
         "inlet": inlet["name"],
         "outlet": outlet["name"],
-        "wall_bottom": wall_bottom["name"],
-        "wall_top": wall_top["name"],
+        "wall_bottom": wall_bottom,
+        "wall_top": wall_top,
+        "inlet_zones": [inlet["name"]],
+        "outlet_zones": [outlet["name"]],
+        "wall_bottom_zones": wall_bottom_zones,
+        "wall_top_zones": wall_top_zones,
     }
 
     log(f"[INFO] Classified boundaries: {result}")
     return result
 
 
-def convert_boundary_types(solver, inlet_zone: str, outlet_zone: str) -> None:
+def compute_physics_checks(
+    uin_mps: float,
+    vin_mps: float,
+    vout_mps: float,
+    pin_pa: float,
+    pout_pa: float,
+    inlet_height_m: float | None,
+    outlet_height_m: float | None,
+    density: float = AIR_DENSITY,
+    viscosity: float = AIR_VISCOSITY,
+) -> dict[str, Any]:
+    """
+    Compute real-world physics sanity checks for a converged 2D channel case:
+      - pressure drop sign
+      - mass conservation (volumetric flux per unit depth at inlet vs outlet)
+      - Reynolds number and laminar-model validity
+    """
+    checks: dict[str, Any] = {}
+
+    dp = pin_pa - pout_pa
+    checks["dp_pa"] = dp
+    checks["dp_positive"] = bool(dp > 0.0)
+
+    # Reference velocity for flux/Reynolds: measured inlet velocity magnitude.
+    u_ref = float(vin_mps) if vin_mps else float(uin_mps)
+
+    # Mass conservation: in 2D, flux per unit depth = U_avg * height.
+    if inlet_height_m and outlet_height_m:
+        flux_in = u_ref * inlet_height_m
+        flux_out = float(vout_mps) * outlet_height_m
+        checks["mass_flux_in_per_depth_m2ps"] = flux_in
+        checks["mass_flux_out_per_depth_m2ps"] = flux_out
+        if flux_in != 0.0:
+            rel_err = abs(flux_in - flux_out) / abs(flux_in)
+            checks["mass_conservation_rel_error"] = rel_err
+            checks["mass_conserved"] = bool(rel_err < MASS_CONSERVATION_REL_TOL)
+
+    # Reynolds number based on inlet hydraulic diameter (parallel plates: D_h = 2*h).
+    if inlet_height_m:
+        d_h = 2.0 * inlet_height_m
+        reynolds = density * u_ref * d_h / viscosity
+        checks["reynolds_number"] = reynolds
+        if reynolds < REYNOLDS_LAMINAR_LIMIT:
+            regime = "laminar"
+        elif reynolds < 2.0 * REYNOLDS_LAMINAR_LIMIT:
+            regime = "transitional"
+        else:
+            regime = "turbulent"
+        checks["flow_regime"] = regime
+        checks["laminar_assumption_valid"] = bool(reynolds < REYNOLDS_LAMINAR_LIMIT)
+
+    checks["physics_ok"] = bool(
+        checks.get("dp_positive", False)
+        and checks.get("mass_conserved", True)
+        and checks.get("laminar_assumption_valid", True)
+    )
+
+    log(
+        "[INFO] Physics checks: "
+        f"dp={dp:.6g} Pa (positive={checks['dp_positive']}), "
+        f"Re={checks.get('reynolds_number', float('nan')):.4g} "
+        f"({checks.get('flow_regime', 'n/a')}), "
+        f"mass_err={checks.get('mass_conservation_rel_error', float('nan')):.4g}, "
+        f"physics_ok={checks['physics_ok']}"
+    )
+    return checks
+
+
+def _zone_list(zones: str | list[str]) -> list[str]:
+    return [zones] if isinstance(zones, str) else [str(z) for z in zones]
+
+
+def convert_boundary_types(solver, inlet_zone: str | list[str], outlet_zone: str | list[str]) -> None:
     bc = solver.settings.setup.boundary_conditions
 
-    bc.set_zone_type(zone_list=[inlet_zone], new_type="velocity-inlet")
-    bc.set_zone_type(zone_list=[outlet_zone], new_type="pressure-outlet")
+    inlet_list = _zone_list(inlet_zone)
+    outlet_list = _zone_list(outlet_zone)
 
-    log(f"[INFO] Converted '{inlet_zone}' -> velocity-inlet")
-    log(f"[INFO] Converted '{outlet_zone}' -> pressure-outlet")
+    bc.set_zone_type(zone_list=inlet_list, new_type="velocity-inlet")
+    bc.set_zone_type(zone_list=outlet_list, new_type="pressure-outlet")
+
+    log(f"[INFO] Converted {inlet_list} -> velocity-inlet")
+    log(f"[INFO] Converted {outlet_list} -> pressure-outlet")
 
 def set_residual_targets(
     solver,
@@ -570,7 +702,7 @@ def set_velocity_inlet(
             for y_m, _u in pts:
                 tf.write(f"{y_m:.16e}\n")
             tf.write(")\n")
-            tf.write("(u-velocity\n")
+            tf.write("(velocity-magnitude\n")
             for _y_m, u in pts:
                 tf.write(f"{u:.16e}\n")
             tf.write(")\n")
@@ -594,7 +726,6 @@ def set_velocity_inlet(
         except Exception as e:
             log(f"[WARN] option/profile_name API failed: {e}")
             bind_errors.append(f"option/profile_name API failed: {e}")
-        raise RuntimeError("Stop here")
 
         if not bound:
             try:
@@ -641,14 +772,15 @@ def set_wall_temperature(solver, wall_name: str, temp_K: float = 350.0) -> None:
     _ = (solver, wall_name, temp_K)
     log(f"[INFO] Skipping wall temperature setup for '{wall_name}' (energy equation disabled)")
 
-def initialize_solution(solver) -> None:
+def initialize_solution(solver, inlet_zone_name: str) -> None:
     try:
         solver.tui.solve.initialize.hyb_initialization()
         log("[INFO] Hybrid initialization completed")
-        log(f"[INFO] check inlet velocity: {solver.tui.report.surface_integrals.area_weighted_average(
-            zone_name="inlet",
+        inlet_vel = solver.tui.report.surface_integrals.area_weighted_average(
+            zone_name=inlet_zone_name,
             quantity="velocity-magnitude",
-        )}")
+        )
+        log(f"[INFO] check inlet velocity: {inlet_vel}")
     except Exception:
         solver.tui.solve.initialize.initialize_flow()
         log("[INFO] Standard initialization completed")
@@ -661,7 +793,7 @@ def iterate_solver(solver, n_iter: int) -> None:
 
 def report_area_weighted_quantity(
     solver,
-    zone_name: str,
+    zone_name: str | list[str],
     out_txt: Path,
     report_candidates: list[str],
     quantity_label: str,
@@ -675,10 +807,12 @@ def report_area_weighted_quantity(
     tried = []
     results = solver.results
 
+    zone_names = _zone_list(zone_name)
+
     for report_of in report_candidates:
         try:
             results.report.surface_integrals.area_weighted_avg(
-                surface_names=[zone_name],
+                surface_names=zone_names,
                 report_of=report_of,
                 write_to_file=True,
                 file_name=str(out_txt),
@@ -689,7 +823,7 @@ def report_area_weighted_quantity(
                 raise RuntimeError(f"Could not parse numeric value from {out_txt}")
 
             log(
-                f"[INFO] Wrote area-weighted {quantity_label} for zone '{zone_name}' "
+                f"[INFO] Wrote area-weighted {quantity_label} for zone(s) {zone_names} "
                 f"using report_of='{report_of}' -> {out_txt} : {val:.12e}"
             )
             return val
@@ -698,11 +832,11 @@ def report_area_weighted_quantity(
             tried.append(f"report_of='{report_of}': {e}")
 
     raise RuntimeError(
-        f"Failed {quantity_label} report on zone '{zone_name}'. Tried:\n- "
+        f"Failed {quantity_label} report on zone(s) {zone_names}. Tried:\n- "
         + "\n- ".join(tried)
     )
 
-def report_area_weighted_pressure(solver, zone_name: str, out_txt: Path) -> float:
+def report_area_weighted_pressure(solver, zone_name: str | list[str], out_txt: Path) -> float:
     return report_area_weighted_quantity(
         solver=solver,
         zone_name=zone_name,
@@ -711,7 +845,7 @@ def report_area_weighted_pressure(solver, zone_name: str, out_txt: Path) -> floa
         quantity_label="pressure",
     )
 
-def report_area_weighted_temperature(solver, zone_name: str, out_txt: Path) -> float:
+def report_area_weighted_temperature(solver, zone_name: str | list[str], out_txt: Path) -> float:
     return report_area_weighted_quantity(
         solver=solver,
         zone_name=zone_name,
@@ -720,7 +854,7 @@ def report_area_weighted_temperature(solver, zone_name: str, out_txt: Path) -> f
         quantity_label="temperature",
     )
 
-def report_area_weighted_velocity(solver, zone_name: str, out_txt: Path) -> float:
+def report_area_weighted_velocity(solver, zone_name: str | list[str], out_txt: Path) -> float:
     return report_area_weighted_quantity(
         solver=solver,
         zone_name=zone_name,
@@ -816,6 +950,8 @@ def solve_2d_mesh(
     n_iter: int,
     lx_m: float,
     ly_m: float,
+    inlet_height_m: float | None = None,
+    outlet_height_m: float | None = None,
 ) -> dict[str, Any]:
     ensure_dir(out_dir)
 
@@ -829,7 +965,7 @@ def solve_2d_mesh(
         mesh_check(solver)
         set_models_and_materials(solver)
 
-        boundary_map = classify_four_edge_boundaries(
+        boundary_map = classify_channel_boundaries(
             solver,
             lx_m=lx_m,
             ly_m=ly_m,
@@ -837,8 +973,8 @@ def solve_2d_mesh(
 
         convert_boundary_types(
             solver,
-            inlet_zone=boundary_map["inlet"],
-            outlet_zone=boundary_map["outlet"],
+            inlet_zone=boundary_map["inlet_zones"],
+            outlet_zone=boundary_map["outlet_zones"],
         )
 
         set_velocity_inlet(
@@ -849,7 +985,7 @@ def solve_2d_mesh(
         )
         set_pressure_outlet(solver, outlet_name=boundary_map["outlet"], gauge_pressure_pa=0.0)
 
-        initialize_solution(solver)
+        initialize_solution(solver, inlet_zone_name=boundary_map["inlet"])
         set_residual_targets(
             solver,
             continuity=1e-20,
@@ -870,12 +1006,22 @@ def solve_2d_mesh(
         vout_txt = out_dir / "vout.txt"
         case_data_path = out_dir / "case2d.cas.h5"
 
-        pin = report_area_weighted_pressure(solver, boundary_map["inlet"], pin_txt)
-        pout = report_area_weighted_pressure(solver, boundary_map["outlet"], pout_txt)
+        pin = report_area_weighted_pressure(solver, boundary_map["inlet_zones"], pin_txt)
+        pout = report_area_weighted_pressure(solver, boundary_map["outlet_zones"], pout_txt)
         dp = pin - pout
 
-        vin = report_area_weighted_velocity(solver, boundary_map["inlet"], vin_txt)
-        vout = report_area_weighted_velocity(solver, boundary_map["outlet"], vout_txt)
+        vin = report_area_weighted_velocity(solver, boundary_map["inlet_zones"], vin_txt)
+        vout = report_area_weighted_velocity(solver, boundary_map["outlet_zones"], vout_txt)
+
+        physics_checks = compute_physics_checks(
+            uin_mps=uin_mps,
+            vin_mps=vin,
+            vout_mps=vout,
+            pin_pa=pin,
+            pout_pa=pout,
+            inlet_height_m=inlet_height_m,
+            outlet_height_m=outlet_height_m,
+        )
 
         postprocess_summary = {
             "case": mesh_path.stem.replace(".msh", ""),
@@ -884,6 +1030,10 @@ def solve_2d_mesh(
                 "outlet": boundary_map["outlet"],
                 "wall_top": boundary_map["wall_top"],
                 "wall_bottom": boundary_map["wall_bottom"],
+                "inlet_zones": boundary_map.get("inlet_zones", [boundary_map["inlet"]]),
+                "outlet_zones": boundary_map.get("outlet_zones", [boundary_map["outlet"]]),
+                "wall_top_zones": boundary_map.get("wall_top_zones", [boundary_map["wall_top"]]),
+                "wall_bottom_zones": boundary_map.get("wall_bottom_zones", [boundary_map["wall_bottom"]]),
             },
             "inlet": {
                 "pressure_pa": pin,
@@ -904,6 +1054,7 @@ def solve_2d_mesh(
             "derived": {
                 "dp_pa": dp,
             },
+            "physics_checks": physics_checks,
             "residual_files": {
                 "combined_csv": str(residual_csv),
                 "plot_png": str(residual_png),
@@ -941,6 +1092,10 @@ def solve_2d_mesh(
             "vout_mps": vout,
             "vin_txt": str(vin_txt),
             "vout_txt": str(vout_txt),
+            "reynolds_number": physics_checks.get("reynolds_number", ""),
+            "flow_regime": physics_checks.get("flow_regime", ""),
+            "mass_conservation_rel_error": physics_checks.get("mass_conservation_rel_error", ""),
+            "physics_ok": physics_checks.get("physics_ok", ""),
             "residual_csv": str(residual_csv),
             "residual_png": str(residual_png),
             "postprocess_summary_json": str(post_json),
@@ -982,6 +1137,7 @@ def run_case_2d(
     case = spec_info["case"]
     if uin_mps is None:
         uin_mps = spec_info["uin_mps"]
+    uin_for_run = float(uin_mps if uin_mps is not None else spec_info["uin_mps"])
     inlet_velocity_profile = spec_info.get("inlet_velocity_profile", [])
 
     mesh_path = out_dir / f"{case}.msh.h5"
@@ -1000,12 +1156,14 @@ def run_case_2d(
     solve_result = solve_2d_mesh(
         mesh_path=mesh_path,
         out_dir=out_dir,
-        uin_mps=float(uin_mps),
+        uin_mps=uin_for_run,
         inlet_velocity_profile=inlet_velocity_profile,
         nprocs=nprocs,
         n_iter=n_iter,
         lx_m=spec_info["lx_m"],
         ly_m=spec_info["ly_m"],
+        inlet_height_m=spec_info.get("inlet_height_m"),
+        outlet_height_m=spec_info.get("outlet_height_m"),
     )
 
     result = {
@@ -1013,7 +1171,7 @@ def run_case_2d(
         "status": "ok",
         "spec_json": str(spec_json),
         "step_path": str(step_path),
-        "uin_mps": float(uin_mps),
+        "uin_mps": uin_for_run,
         "inlet_profile_points": len(inlet_velocity_profile),
         "elapsed_sec": time.time() - started,
         **solve_result,
@@ -1155,6 +1313,12 @@ def batch_run_from_csv(
             "pin_pa",
             "pout_pa",
             "dp_pa",
+            "vin_mps",
+            "vout_mps",
+            "reynolds_number",
+            "flow_regime",
+            "mass_conservation_rel_error",
+            "physics_ok",
             "inlet_name",
             "outlet_name",
             "wall_bottom_name",

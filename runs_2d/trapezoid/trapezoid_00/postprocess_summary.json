@@ -1,0 +1,35 @@
+{
+  "case": "trapezoid_00",
+  "boundaries": {
+    "inlet": "open_cascade_step_translator_7.5",
+    "outlet": "open_cascade_step_translator_7.3",
+    "wall_top": "open_cascade_step_translator_7.4",
+    "wall_bottom": "open_cascade_step_translator_7.2"
+  },
+  "inlet": {
+    "pressure_pa": 0.10971585,
+    "velocity_mps": 0.12810527,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/pin.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/vin.txt"
+    }
+  },
+  "outlet": {
+    "pressure_pa": 0.0,
+    "velocity_mps": 0.095387824,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/pout.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/vout.txt"
+    }
+  },
+  "derived": {
+    "dp_pa": 0.10971585
+  },
+  "residual_files": {
+    "combined_csv": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/residuals.csv",
+    "plot_png": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/residuals.png",
+    "pressure_csv": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/pressure.csv",
+    "x_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/x-velocity.csv",
+    "y_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/trapezoid/trapezoid_00/y-velocity.csv"
+  }
+}

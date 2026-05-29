@@ -717,6 +717,483 @@ def iterative_unknown_interface_inference(
         "layout": layout,
         "config": config,
     }
+    
+def _output_mean_std_np(y_normalizer: FeatureNormalizer) -> Tuple[Array, Array]:
+    """Return output mean/std as NumPy arrays with shape (1, 4)."""
+    mean = y_normalizer.mean.detach().cpu().numpy().reshape(1, -1).astype(np.float32)
+    std = y_normalizer.std.detach().cpu().numpy().reshape(1, -1).astype(np.float32)
+    std = np.maximum(std, 1.0e-12)
+    return mean, std
+
+
+def pack_interior_interface_z(
+    branch_inputs: Array,
+    layout: EdgeLayout,
+    y_normalizer: FeatureNormalizer,
+) -> Array:
+    """
+    Pack all interior interface profiles into normalized output space.
+
+    Returns
+    -------
+    z:
+        Shape (n_interfaces, n_interface_points, 4).  Interface i in this
+        packed state corresponds to the shared boundary between subdomain i
+        and subdomain i+1.
+
+    Notes
+    -----
+    If average_sides is True, the packed value is the average of the right edge
+    of the left subdomain and the left edge of the right subdomain.  This makes
+    random initialization produce one shared interface profile before annealing.
+    """
+    branch = np.asarray(branch_inputs, dtype=np.float32)
+    if branch.ndim != 3:
+        raise ValueError(f"branch_inputs must have shape (S,M,C), got {branch.shape}")
+    if branch.shape[0] < 2:
+        return np.zeros((0, int(layout.right.size), int(layout.value_channels.size)), dtype=np.float32)
+
+    profiles = []
+    for interface_id in range(1, branch.shape[0]):
+        right_profile = branch[interface_id - 1][np.ix_(layout.right, layout.value_channels)]
+        left_profile = branch[interface_id][np.ix_(layout.left, layout.value_channels)]
+        if right_profile.shape != left_profile.shape:
+            raise ValueError(
+                f"Interface {interface_id} has mismatched side shapes: "
+                f"right={right_profile.shape}, left={left_profile.shape}"
+            )
+        profile = 0.5 * (right_profile + left_profile)
+        profiles.append(profile.astype(np.float32, copy=False))
+
+    profiles = np.stack(profiles, axis=0).astype(np.float32, copy=False)
+    mean, std = _output_mean_std_np(y_normalizer)
+    
+    return ((profiles - mean.reshape(1, 1, -1)) / std.reshape(1, 1, -1)).astype(np.float32)
+
+
+def apply_interior_interface_z(
+    base_branch: Array,
+    z: Array,
+    layout: EdgeLayout,
+    y_normalizer: FeatureNormalizer,
+) -> Array:
+    """
+    Decode normalized interface profiles and write them to both sides of every
+    interior interface.  Exterior inlet/outlet/wall values are preserved.
+    """
+    branch = np.asarray(base_branch, dtype=np.float32).copy()
+    z = np.asarray(z, dtype=np.float32)
+    expected = (max(branch.shape[0] - 1, 0), int(layout.right.size), int(layout.value_channels.size))
+    if z.shape != expected:
+        raise ValueError(f"z has shape {z.shape}, expected {expected}")
+
+    mean, std = _output_mean_std_np(y_normalizer)
+    for local_i, interface_id in enumerate(range(1, branch.shape[0])):
+        profile_phys = z[local_i] * std + mean
+        profile_phys = profile_phys.astype(np.float32, copy=False)
+        _set_edge_profile(branch[interface_id - 1], layout.right, layout.value_channels, profile_phys)
+        _set_edge_profile(branch[interface_id], layout.left, layout.value_channels, profile_phys)
+        if layout.known_channels is not None:
+            branch[interface_id - 1][np.ix_(layout.right, layout.known_channels)] = 1.0
+            branch[interface_id][np.ix_(layout.left, layout.known_channels)] = 1.0
+    return branch.astype(np.float32, copy=False)
+
+
+def _annealing_objective_from_mse(mse_total: Array, objective: str = "max") -> float:
+    """Convert per-interface MSE values to a scalar annealing energy."""
+    mse = np.asarray(mse_total, dtype=np.float64).reshape(-1)
+    if mse.size == 0:
+        return 0.0
+    objective = str(objective).lower()
+    if objective == "mean":
+        return float(np.mean(mse))
+    if objective == "sum":
+        return float(np.sum(mse))
+    if objective == "max":
+        return float(np.max(mse))
+    raise ValueError("objective must be 'max', 'mean', or 'sum'")
+
+
+@torch.no_grad()
+def simulated_annealing_interface_energy(
+    z: Array,
+    base_branch: Array,
+    model: DeepONet,
+    layout: EdgeLayout,
+    branch_channel_names: Sequence[str],
+    device: Union[str, torch.device],
+    y_normalizer: FeatureNormalizer,
+    local_aspect_mean: Optional[float] = None,
+    local_aspect_std: Optional[float] = None,
+    mse_mode: str = "normalized",
+    objective: str = "max",
+) -> Tuple[float, Dict[str, object], Array]:
+    """
+    Simulated-annealing objective that only minimizes predicted interface mismatch.
+
+    No smoothness penalty, range penalty, or truth penalty is included.  The
+    scalar energy is computed from the existing interface MSE values.
+    """
+    branch = apply_interior_interface_z(
+        base_branch=base_branch,
+        z=z,
+        layout=layout,
+        y_normalizer=y_normalizer,
+    )
+    pred_left, pred_right = predict_edge_profiles_physical(
+        model=model,
+        branch_inputs=branch,
+        layout=layout,
+        branch_channel_names=branch_channel_names,
+        device=device,
+        y_normalizer=y_normalizer,
+        local_aspect_mean=local_aspect_mean,
+        local_aspect_std=local_aspect_std,
+    )
+    mse_total, mse_by_channel = compute_interface_mse_from_edges(
+        pred_left=pred_left,
+        pred_right=pred_right,
+        y_normalizer=y_normalizer,
+        mse_mode=mse_mode,
+    )
+    energy = _annealing_objective_from_mse(mse_total, objective=objective)
+    details: Dict[str, object] = {
+        "energy": float(energy),
+        "mse_total": mse_total,
+        "mse_by_channel": mse_by_channel,
+        "pred_left": pred_left,
+        "pred_right": pred_right,
+    }
+    return float(energy), details, branch
+
+
+def _propose_interface_z(
+    z: Array,
+    rng: np.random.Generator,
+    proposal_sigma: float,
+    proposal_location: str = "channel",
+    sample_mode: str = "fixed",
+    z_clip: Optional[float] = None,
+) -> Array:
+    """
+    Propose a new normalized interface state for simulated annealing.
+
+    proposal_location options:
+        all                : perturb every interface point/channel
+        interface          : perturb one whole interface, all channels
+        channel            : perturb one whole interface, one channel
+        point              : perturb one interface point and one channel
+    
+    sample_mode options:
+        fixed              : sample fixed value for all interface/channel points
+        random             : sample a random value for each interface/channel point
+    """
+    z_new = np.asarray(z, dtype=np.float32).copy()
+    if z_new.size == 0:
+        return z_new
+
+    location = str(proposal_location).lower()
+    mode = str(sample_mode).lower()
+    sigma = float(proposal_sigma)
+    n_if, n_y, n_ch = z_new.shape
+
+    if location == "all":
+        if mode == "random":
+            z_new += rng.normal(0.0, sigma, size=z_new.shape).astype(np.float32)
+        elif mode == "fixed":
+            delta = rng.normal(0.0, sigma, size=(n_ch,))
+            z_new += delta.reshape(1, 1, -1)
+    elif location == "interface":
+        i = int(rng.integers(0, n_if))
+        if mode == "random":
+            z_new[i, :, :] += rng.normal(0.0, sigma, size=(n_y, n_ch)).astype(np.float32, copy=False)
+        elif mode == "fixed":
+            delta = rng.normal(0.0, sigma, size=(n_ch,))
+            z_new[i, :, :] += delta.reshape(1, -1)
+    elif location == "channel":
+        i = int(rng.integers(0, n_if))
+        c = int(rng.integers(0, n_ch))
+        if mode == "random":
+            z_new[i, :, c] += rng.normal(0.0, sigma, size=(n_y,)).astype(np.float32)
+        elif mode == "fixed":
+            z_new[i, :, c] += rng.normal(0.0, sigma)
+    elif location == "point":
+        i = int(rng.integers(0, n_if))
+        j = int(rng.integers(0, n_y))
+        c = int(rng.integers(0, n_ch))
+        z_new[i, j, c] += np.float32(rng.normal(0.0, sigma))
+    else:
+        raise ValueError(
+            "proposal_mode must be 'all', 'interface', 'interface_channel', or 'point_channel'"
+        )
+
+    if z_clip is not None:
+        clip = abs(float(z_clip))
+        z_new = np.clip(z_new, -clip, clip).astype(np.float32, copy=False)
+    return z_new.astype(np.float32, copy=False)
+
+
+def _geometric_schedule(start: float, stop: float, frac: float) -> float:
+    """Geometric interpolation from start to stop for frac in [0,1]."""
+    start = float(start)
+    stop = float(stop)
+    frac = float(np.clip(frac, 0.0, 1.0))
+    if start <= 0.0 or stop <= 0.0:
+        return start + frac * (stop - start)
+    return start * (stop / start) ** frac
+
+
+@torch.no_grad()
+def simulated_annealing_unknown_interface_inference(
+    model: DeepONet,
+    samples_for_ar: Sequence[Mapping[str, Array]],
+    branch_channel_names: Sequence[str],
+    device: Union[str, torch.device],
+    y_normalizer: FeatureNormalizer,
+    local_aspect_mean: Optional[float] = None,
+    local_aspect_std: Optional[float] = None,
+    config: Optional[InterfaceIterationConfig] = None,
+    n_steps: int = 2000,
+    temperature0: Optional[float] = None,
+    temperature_min: float = 1.0e-8,
+    proposal_sigma0: float = 5.0e-2,
+    proposal_sigma_min: float = 1.0e-3,
+    proposal_location: str = "channel",
+    sample_mode: str = "fixed",
+    objective: str = "max",
+    z_clip: Optional[float] = None,
+    verbose_every: int = 50,
+) -> Dict[str, object]:
+    """
+    Simulated annealing inference for unknown interior interfaces.
+
+    Interface states are proposed in normalized output space, decoded back to 
+    physical units, and written to both sides of each shared interface before 
+    model evaluation.
+    """
+    if config is None:
+        config = InterfaceIterationConfig()
+    rng = np.random.default_rng(int(config.random_seed))
+    n_steps = int(n_steps)
+    if n_steps < 0:
+        raise ValueError("n_steps must be >= 0")
+    if proposal_sigma0 < 0.0 or proposal_sigma_min < 0.0:
+        raise ValueError("proposal sigmas must be non-negative")
+
+    branches = np.stack([np.asarray(s["branch"], dtype=np.float32) for s in samples_for_ar], axis=0)
+    layout = infer_edge_layout(branches[0], branch_channel_names)
+
+    if config.init_mode == "dataset_truth":
+        init_branch = branches.copy()
+    else:
+        init_branch = initialize_unknown_interior_interfaces(
+            branches,
+            layout=layout,
+            y_normalizer=y_normalizer,
+            random_seed=config.random_seed,
+            init_mode=config.init_mode,
+            init_std_scale=config.init_std_scale,
+            init_value=config.init_value,
+            init_noise_std=config.init_noise_std,
+            init_gaussian_center_y=config.init_gaussian_center_y,
+            init_gaussian_var_y=config.init_gaussian_var_y,
+            preserve_wall_corners=config.preserve_wall_corners,
+        )
+
+    z = pack_interior_interface_z(
+        init_branch,
+        layout=layout,
+        y_normalizer=y_normalizer,
+    )
+
+    current_energy, current_details, current_branch = simulated_annealing_interface_energy(
+        z=z,
+        base_branch=branches,
+        model=model,
+        layout=layout,
+        branch_channel_names=branch_channel_names,
+        device=device,
+        y_normalizer=y_normalizer,
+        local_aspect_mean=local_aspect_mean,
+        local_aspect_std=local_aspect_std,
+        mse_mode=config.mse_mode,
+        objective=objective,
+    )
+
+    print(f"Initial energy: {current_energy:.6e}")
+    if temperature0 is None:
+        print("Initializing temperature")
+        p_de = []
+        for _ in range(100):
+            z_prop = _propose_interface_z(
+                z=z,
+                rng=rng,
+                proposal_sigma=proposal_sigma0,
+                proposal_location=proposal_location,
+                sample_mode=sample_mode,
+                z_clip=z_clip,
+            )
+            prop_e, _, _, = simulated_annealing_interface_energy(
+                z=z_prop,
+                base_branch=branches,
+                model=model,
+                layout=layout,
+                branch_channel_names=branch_channel_names,
+                device=device,
+                y_normalizer=y_normalizer,
+                local_aspect_mean=local_aspect_mean,
+                local_aspect_std=local_aspect_std,
+                mse_mode=config.mse_mode,
+                objective=objective,
+            )
+            if prop_e > current_energy:
+                p_de.append(prop_e - current_energy)
+                
+        temperature0 = float(-np.mean(p_de) / np.log(0.9))
+        print(f"Initial temperature: {temperature0:.6e}")
+        
+
+    best_z = z.copy()
+    best_energy = float(current_energy)
+    best_branch = current_branch.copy()
+    best_details = dict(current_details)
+
+    energy_history = [float(current_energy)]
+    best_energy_history = [float(best_energy)]
+    accepted_history = [True]
+    temperature_history = [float(temperature0)]
+    proposal_sigma_history = [float(proposal_sigma0)]
+    mse_history = [np.asarray(current_details["mse_total"], dtype=np.float32)]
+    mse_by_channel_history = [np.asarray(current_details["mse_by_channel"], dtype=np.float32)]
+    best_mse_history = [np.asarray(best_details["mse_total"], dtype=np.float32)]
+    converged_history = [np.asarray(current_details["mse_total"], dtype=np.float32) <= float(config.tol)]
+
+    for step in range(1, n_steps + 1):
+        frac = step / max(n_steps, 1)
+        temperature = _geometric_schedule(float(temperature0), float(temperature_min), frac)
+        proposal_sigma = _geometric_schedule(float(proposal_sigma0), float(proposal_sigma_min), frac)
+
+        z_prop = _propose_interface_z(
+            z=z,
+            rng=rng,
+            proposal_sigma=proposal_sigma,
+            proposal_location=proposal_location,
+            sample_mode=sample_mode,
+            z_clip=z_clip,
+        )
+        prop_energy, prop_details, prop_branch = simulated_annealing_interface_energy(
+            z=z_prop,
+            base_branch=branches,
+            model=model,
+            layout=layout,
+            branch_channel_names=branch_channel_names,
+            device=device,
+            y_normalizer=y_normalizer,
+            local_aspect_mean=local_aspect_mean,
+            local_aspect_std=local_aspect_std,
+            mse_mode=config.mse_mode,
+            objective=objective,
+        )
+
+        delta_e = float(prop_energy) - float(current_energy)
+        if delta_e <= 0.0:
+            accepted = True
+        else:
+            p_accept = np.exp(-delta_e / max(float(temperature), 1.0e-30))
+            accepted = bool(rng.random() < p_accept)
+
+        if accepted:
+            z = z_prop
+            current_energy = float(prop_energy)
+            current_details = prop_details
+            current_branch = prop_branch
+
+            if current_energy < best_energy:
+                best_z = z.copy()
+                best_energy = float(current_energy)
+                best_branch = current_branch.copy()
+                best_details = dict(current_details)
+
+        current_mse = np.asarray(current_details["mse_total"], dtype=np.float32)
+        current_mse_by_channel = np.asarray(current_details["mse_by_channel"], dtype=np.float32)
+        is_converged = current_mse <= float(config.tol)
+
+        energy_history.append(float(current_energy))
+        best_energy_history.append(float(best_energy))
+        accepted_history.append(bool(accepted))
+        temperature_history.append(float(temperature))
+        proposal_sigma_history.append(float(proposal_sigma))
+        mse_history.append(current_mse)
+        mse_by_channel_history.append(current_mse_by_channel)
+        best_mse_history.append(np.asarray(best_details["mse_total"], dtype=np.float32))
+        converged_history.append(is_converged)
+
+        if config.verbose and (step % max(int(verbose_every), 1) == 0 or step == n_steps):
+            max_mse = float(np.max(current_mse)) if current_mse.size else 0.0
+            mean_mse = float(np.mean(current_mse)) if current_mse.size else 0.0
+            best_max_mse = float(np.max(best_details["mse_total"])) if len(best_details["mse_total"]) else 0.0
+            print(
+                f"sa_step={step:05d} | E={current_energy:.6e} | "
+                f"best_E={best_energy:.6e} | max_mse={max_mse:.6e} | "
+                f"mean_mse={mean_mse:.6e} | best_max_mse={best_max_mse:.6e} | "
+                f"T={temperature:.3e} | sigma={proposal_sigma:.3e} | accepted={accepted}",
+                flush=True,
+            )
+
+        if bool(np.all(is_converged)):
+            if config.verbose:
+                print(f"Simulated annealing converged at step {step}.", flush=True)
+            break
+
+    pred_samples = predict_cell_samples_physical(
+        model=model,
+        samples=samples_for_ar,
+        branch_inputs=best_branch,
+        branch_channel_names=branch_channel_names,
+        device=device,
+        y_normalizer=y_normalizer,
+        local_aspect_mean=local_aspect_mean,
+        local_aspect_std=local_aspect_std,
+        query_batch_size=config.query_batch_size,
+    )
+
+    best_mse = np.asarray(best_details["mse_total"], dtype=np.float32)
+    converged = bool(np.all(best_mse <= float(config.tol)))
+
+    return {
+        "pred_samples": pred_samples,
+        "branch_initial": init_branch,
+        "branch_initial_random": init_branch,
+        "branch_final": best_branch,
+        "best_z": best_z,
+        "pred_left_interface": best_details["pred_left"],
+        "pred_right_interface": best_details["pred_right"],
+        "interface_mse_history": np.stack(mse_history, axis=0),
+        "interface_mse_by_channel_history": np.stack(mse_by_channel_history, axis=0),
+        "interface_converged_history": np.stack(converged_history, axis=0),
+        "best_interface_mse_history": np.stack(best_mse_history, axis=0),
+        "energy_history": np.asarray(energy_history, dtype=np.float64),
+        "best_energy_history": np.asarray(best_energy_history, dtype=np.float64),
+        "accepted_history": np.asarray(accepted_history, dtype=bool),
+        "temperature_history": np.asarray(temperature_history, dtype=np.float64),
+        "proposal_sigma_history": np.asarray(proposal_sigma_history, dtype=np.float64),
+        "best_energy": float(best_energy),
+        "converged": bool(converged),
+        "n_iter": int(len(energy_history) - 1),
+        "layout": layout,
+        "config": config,
+        "annealing_params": {
+            "n_steps": int(n_steps),
+            "temperature0": float(temperature0),
+            "temperature_min": float(temperature_min),
+            "proposal_sigma0": float(proposal_sigma0),
+            "proposal_sigma_min": float(proposal_sigma_min),
+            "proposal_location": str(proposal_location),
+            "sample_mode": str(sample_mode),
+            "objective": str(objective),
+            "z_clip": None if z_clip is None else float(z_clip),
+        },
+    }
 
 
 def save_iteration_result_npz(path: PathLike, result: Mapping[str, object], sample_indices: Optional[Array] = None) -> None:

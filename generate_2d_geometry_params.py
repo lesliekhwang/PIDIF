@@ -2,7 +2,6 @@
 
 import csv
 import json
-import math
 from pathlib import Path
 
 import numpy as np
@@ -12,9 +11,9 @@ import numpy as np
 # CONFIG
 # =========================================
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-OUT_DIR = BASE_DIR / "2d_geometry_specs" / "trapezoid"
+OUT_DIR = BASE_DIR / "2d_geometry_specs" / "rand_channel"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-STEP_DIR = BASE_DIR / "2d_geometry_step" / "trapezoid"
+STEP_DIR = BASE_DIR / "2d_geometry_step" / "rand_channel"
 CSV_PATH = OUT_DIR / "designs.csv"
 
 # reproducibility
@@ -23,28 +22,45 @@ rng = np.random.default_rng(SEED)
 
 # square side length (200 um = 0.2 mm)
 L = 0.2  # mm
+AR_MIN = 10
+AR_MAX = 50
 
 # number of designs
-N_CASES = 10
+N_CASES = 100
 
 # trapezoid offsets
-DELTA_MIN = -L * 0.2
-DELTA_MAX = L * 0.2
+DELTA_MIN = -L * 0.3
+DELTA_MAX = L * 0.3
 
-# inlet beta-profile settings (symmetric: alpha = beta)
-ALPHA_MIN = 1
-ALPHA_MAX = 3
-UIN_COEFF = 0.1  # m/s
-INLET_PROFILE_NPTS = 201
+# inlet velocity
+UIN_MIN = 0.1  # m/s
+UIN_MAX = 0.5  # m/s
 
 
 def make_case_name(i: int) -> str:
-    return f"trapezoid_{i:02d}"
+    return f"channel_{i:02d}"
 
 
 def validate_inputs(l: float) -> None:
     if l <= 0.0:
         raise ValueError(f"L must be positive, got {l}")
+
+
+def sample_x_breakpoints(l: float, ar: int, rng_obj) -> list[float]:
+    """
+    Build AR+1 x locations over [0, L*AR]:
+      - include 0 and L*AR
+      - sample AR-1 interior points uniformly
+    """
+    if ar < 1:
+        raise ValueError(f"AR must be >= 1, got {ar}")
+
+    ref_len = float(l * ar)
+    if ar == 1:
+        return [0.0, ref_len]
+
+    interior = np.sort(rng_obj.uniform(0.0, ref_len, size=ar - 1))
+    return [0.0, *[float(x) for x in interior], ref_len]
 
 
 def deduplicate_consecutive_points(pts, tol=1e-12):
@@ -74,27 +90,29 @@ def polygon_signed_area(poly):
     return 0.5 * area
 
 
-def make_trapezoid_walls(l: float, delta1: float, delta2: float):
+def make_piecewise_trapezoid_walls(l: float, x_points, deltas):
     """
-    Start from an L by L square and offset y-coordinates:
-      - top-left y    = L - delta1
-      - bottom-left y = 0 + delta1
-      - bottom-right y= 0 + delta2
-      - top-right y   = L - delta2
+    Build a long channel from connected trapezoids.
+    At each x_i:
+      bottom y = -delta_i
+      top y    = L + delta_i
+    so local height is:
+      (L + delta_i) - (-delta_i) = L + 2*delta_i
     """
     validate_inputs(l)
+    if len(x_points) != len(deltas):
+        raise ValueError("x_points and deltas must have same length.")
+    if len(x_points) < 2:
+        raise ValueError("At least two x points are required.")
 
-    bl = (0.0, float(delta1))
-    br = (float(l), float(delta2))
-    tr = (float(l), float(l - delta2))
-    tl = (0.0, float(l - delta1))
+    pts_bot = [(float(x), float(-d)) for x, d in zip(x_points, deltas)]
+    pts_top = [(float(x), float(l + d)) for x, d in zip(x_points, deltas)]
 
-    pts_bot = [bl, br]  # left -> right
-    pts_top = [tl, tr]  # left -> right
-    inlet = [bl, tl]    # bottom -> top
-    outlet = [br, tr]   # bottom -> top
-    fluid_polygon_ccw = [bl, br, tr, tl]
+    inlet = [pts_bot[0], pts_top[0]]      # bottom -> top
+    outlet = [pts_bot[-1], pts_top[-1]]   # bottom -> top
 
+    # Bottom left->right and top right->left forms a CCW loop.
+    fluid_polygon_ccw = pts_bot + list(reversed(pts_top))
     if polygon_signed_area(fluid_polygon_ccw) < 0.0:
         fluid_polygon_ccw = list(reversed(fluid_polygon_ccw))
 
@@ -112,7 +130,7 @@ def validate_geometry(
     inlet,
     outlet,
     fluid_polygon,
-    l: float,
+    channel_length: float,
 ):
     if len(pts_bot) != len(pts_top):
         raise ValueError("Bottom and top wall point counts do not match.")
@@ -133,11 +151,11 @@ def validate_geometry(
         if yt <= yb:
             raise ValueError("Top wall is not above bottom wall at some x.")
 
-    # inlet/outlet should be located at x=0 and x=L
+    # inlet/outlet should be located at x=0 and x=channel_length
     if abs(inlet[0][0] - 0.0) > 1e-9 or abs(inlet[1][0] - 0.0) > 1e-9:
         raise ValueError("Inlet is not located at x=0.")
-    if abs(outlet[0][0] - l) > 1e-9 or abs(outlet[1][0] - l) > 1e-9:
-        raise ValueError(f"Outlet is not located at x={l}.")
+    if abs(outlet[0][0] - channel_length) > 1e-9 or abs(outlet[1][0] - channel_length) > 1e-9:
+        raise ValueError(f"Outlet is not located at x={channel_length}.")
 
     # polygon orientation should be CCW
     area = polygon_signed_area(fluid_polygon)
@@ -147,62 +165,6 @@ def validate_geometry(
 
 def point_list_to_dicts(pts):
     return [{"x": float(x), "y": float(y)} for x, y in pts]
-
-
-def beta_pdf(y_norm: float, alpha: float, beta: float) -> float:
-    """
-    Beta PDF on y_norm in [0, 1].
-    Uses endpoint values consistent with alpha,beta > 1 => zero at both ends.
-    """
-    if not (0.0 <= y_norm <= 1.0):
-        raise ValueError(f"y_norm must be in [0,1], got {y_norm}")
-    if alpha <= 0.0 or beta <= 0.0:
-        raise ValueError(f"alpha and beta must be > 0, got {alpha}, {beta}")
-
-    if y_norm in (0.0, 1.0):
-        if alpha > 1.0 and beta > 1.0:
-            return 0.0
-        # fallback for the mathematically singular endpoint case
-        return 0.0
-
-    beta_fn = math.gamma(alpha) * math.gamma(beta) / math.gamma(alpha + beta)
-    return (y_norm ** (alpha - 1.0)) * ((1.0 - y_norm) ** (beta - 1.0)) / beta_fn
-
-
-def build_inlet_velocity_profile(
-    inlet_bottom_y: float,
-    inlet_top_y: float,
-    alpha: float,
-    beta: float,
-    coeff_mps: float,
-    npts: int,
-):
-    """
-    Build inlet velocity profile using normalized inlet coordinate y_norm.
-    u_norm follows Beta(alpha, beta) PDF; u_mps = coeff_mps * u_norm.
-    """
-    if inlet_top_y <= inlet_bottom_y:
-        raise ValueError("Inlet has non-positive height for profile generation.")
-    if npts < 2:
-        raise ValueError(f"npts must be >= 2, got {npts}")
-
-    ys = np.linspace(inlet_bottom_y, inlet_top_y, npts)
-    inlet_len = float(inlet_top_y - inlet_bottom_y)
-
-    profile = []
-    for y in ys:
-        y_norm = float((y - inlet_bottom_y) / inlet_len)
-        u_norm = float(beta_pdf(y_norm, alpha, beta))
-        u_mps = float(coeff_mps * u_norm)
-        profile.append(
-            {
-                "y_mm": float(y),
-                "y_norm": y_norm,
-                "u_norm": u_norm,
-                "u_mps": u_mps,
-            }
-        )
-    return profile
 
 
 def write_geometry_spec(
@@ -218,7 +180,7 @@ def write_geometry_spec(
     payload = {
         "case": case,
         "units": "mm",
-        "geometry_type": "2d_trapezoid_channel",
+        "geometry_type": "2d_connected_trapezoid_channel",
         "topology": {
             "fluid_region_type": "single_closed_polygon",
             "boundary_order_ccw": [
@@ -251,15 +213,16 @@ def main():
     for i in range(N_CASES):
         case = make_case_name(i)
 
-        delta1 = float(rng.uniform(DELTA_MIN, DELTA_MAX))
-        delta2 = float(rng.uniform(DELTA_MIN, DELTA_MAX))
-        alpha = float(rng.uniform(ALPHA_MIN, ALPHA_MAX))
-        beta = alpha
+        ar = int(rng.integers(AR_MIN, AR_MAX + 1))
+        x_points = sample_x_breakpoints(l=L, ar=ar, rng_obj=rng)
+        deltas = [float(d) for d in rng.uniform(DELTA_MIN, DELTA_MAX, size=ar + 1)]
+        channel_length = float(L * ar)
+        uin = float(rng.uniform(UIN_MIN, UIN_MAX))
 
-        pts_bot, pts_top, inlet, outlet, fluid_polygon = make_trapezoid_walls(
+        pts_bot, pts_top, inlet, outlet, fluid_polygon = make_piecewise_trapezoid_walls(
             l=L,
-            delta1=delta1,
-            delta2=delta2,
+            x_points=x_points,
+            deltas=deltas,
         )
 
         validate_geometry(
@@ -268,39 +231,21 @@ def main():
             inlet=inlet,
             outlet=outlet,
             fluid_polygon=fluid_polygon,
-            l=L,
+            channel_length=channel_length,
         )
 
-        # Normalize velocity magnitude based on left inlet length.
-        left_inlet_len = float(L - 2.0 * delta1)
-        inlet_scale = float(L / left_inlet_len)
-        coeff_scaled = float(UIN_COEFF * inlet_scale)
-
-        inlet_profile = build_inlet_velocity_profile(
-            inlet_bottom_y=inlet[0][1],
-            inlet_top_y=inlet[1][1],
-            alpha=alpha,
-            beta=beta,
-            coeff_mps=coeff_scaled,
-            npts=INLET_PROFILE_NPTS,
-        )
-
-        # Keep scalar Uin_mps for compatibility with downstream scripts:
-        # average of profile over normalized inlet [0,1], where integral(pdf)=1.
-        uin = coeff_scaled
+        inlet_height = float(inlet[1][1] - inlet[0][1])
 
         spec_path = OUT_DIR / f"{case}.json"
 
         meta = {
             "random_seed": SEED,
             "L_mm": L,
-            "delta1_mm": delta1,
-            "delta2_mm": delta2,
-            "alpha": alpha,
-            "beta": beta,
-            "left_inlet_len_mm": left_inlet_len,
-            "inlet_velocity_scale_mps": coeff_scaled,
-            "inlet_velocity_profile": inlet_profile,
+            "AR": ar,
+            "channel_length_mm": channel_length,
+            "x_points_mm": x_points,
+            "deltas_mm": deltas,
+            "inlet_height_mm": inlet_height,
             "Uin_mps": uin,
             "target_geometry_file": str(STEP_DIR / f"{case}.step"),
         }
@@ -321,12 +266,11 @@ def main():
             "geometry_spec": str(spec_path),
             "target_geometry_file": str(STEP_DIR / f"{case}.step"),
             "L_mm": L,
-            "delta1_mm": delta1,
-            "delta2_mm": delta2,
-            "alpha": alpha,
-            "beta": beta,
-            "left_inlet_len_mm": left_inlet_len,
-            "inlet_velocity_scale_mps": coeff_scaled,
+            "AR": ar,
+            "channel_length_mm": channel_length,
+            "x_points_mm": json.dumps(x_points),
+            "deltas_mm": json.dumps(deltas),
+            "inlet_height_mm": inlet_height,
             "Uin_mps": uin,
         })
 
@@ -340,12 +284,11 @@ def main():
                 "geometry_spec",
                 "target_geometry_file",
                 "L_mm",
-                "delta1_mm",
-                "delta2_mm",
-                "alpha",
-                "beta",
-                "left_inlet_len_mm",
-                "inlet_velocity_scale_mps",
+                "AR",
+                "channel_length_mm",
+                "x_points_mm",
+                "deltas_mm",
+                "inlet_height_mm",
                 "Uin_mps",
             ],
         )

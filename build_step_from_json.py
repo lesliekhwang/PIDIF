@@ -15,6 +15,7 @@ from OCC.Core.BRepBuilderAPI import (
     BRepBuilderAPI_MakeWire,
 )
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
+from OCC.Core.GeomAbs import GeomAbs_C0
 from OCC.Core.GeomAPI import GeomAPI_PointsToBSpline
 from OCC.Core.IFSelect import IFSelect_RetDone
 from OCC.Core.Interface import Interface_Static
@@ -72,6 +73,18 @@ def signed_area(poly: list[tuple[float, float]]) -> float:
         x2, y2 = poly[(i + 1) % len(poly)]
         s += x1 * y2 - x2 * y1
     return 0.5 * s
+
+
+def close_polygon_if_needed(
+    pts: list[tuple[float, float]],
+    tol: float = 1e-12,
+) -> list[tuple[float, float]]:
+    pts = deduplicate_consecutive_points(pts, tol=tol)
+    if len(pts) < 3:
+        raise ValueError("Polygon must have at least 3 unique points.")
+    if distance(pts[0], pts[-1]) > tol:
+        pts = pts + [pts[0]]
+    return pts
 
 
 def mm_to_model_units(val_mm: float, units: str) -> float:
@@ -132,6 +145,15 @@ def validate_wall_pair(
                 raise ValueError("Top wall not above bottom wall.")
 
 
+def validate_fluid_polygon(poly: list[tuple[float, float]]) -> None:
+    if len(poly) < 4:
+        raise ValueError("Fluid polygon must contain at least 4 points including closure.")
+    if distance(poly[0], poly[-1]) > 1e-9:
+        raise ValueError("Fluid polygon must be closed (first point equals last point).")
+    if abs(signed_area(poly[:-1])) <= 1e-14:
+        raise ValueError("Fluid polygon has zero or near-zero area.")
+
+
 # ============================================================
 # OCC CURVE / EDGE BUILDERS
 # ============================================================
@@ -139,6 +161,7 @@ def validate_wall_pair(
 def make_bspline_edge(
     pts: list[tuple[float, float]],
     label: str,
+    linear: bool = False,
 ) :
     pts = deduplicate_consecutive_points(pts)
     if len(pts) < 2:
@@ -148,7 +171,11 @@ def make_bspline_edge(
     for i, (x, y) in enumerate(pts, start=1):
         arr.SetValue(i, gp_Pnt(float(x), float(y), 0.0))
 
-    spline_builder = GeomAPI_PointsToBSpline(arr)
+    if linear:
+        # DegMin=DegMax=1, C0 continuity => exact polyline as one curve.
+        spline_builder = GeomAPI_PointsToBSpline(arr, 1, 1, GeomAbs_C0, 1.0e-9)
+    else:
+        spline_builder = GeomAPI_PointsToBSpline(arr)
     curve = spline_builder.Curve()
     if curve is None:
         raise RuntimeError(f"{label}: failed to construct BSpline curve")
@@ -178,6 +205,7 @@ def make_line_edge(
 def build_channel_wire_from_walls(
     bottom_pts: list[tuple[float, float]],
     top_pts: list[tuple[float, float]],
+    linear_walls: bool = True,
 ) -> TopoDS_Wire:
     """
     Build exactly four edges:
@@ -187,7 +215,12 @@ def build_channel_wire_from_walls(
         3) top spline      : right -> left
         4) inlet line      : top-left -> bottom-left
 
-    This is the key refinement that avoids hundreds of tiny STEP edges.
+    Each wall is a single edge, so the mesh gets exactly 4 boundary zones
+    (inlet, outlet, wall_bottom, wall_top) with no per-segment fragmentation.
+
+    `linear_walls=True` represents the walls as degree-1 B-splines so that
+    connected-trapezoid corners stay sharp; straight (2-point) walls are
+    unaffected.
     """
     validate_wall_pair(bottom_pts, top_pts)
 
@@ -203,9 +236,9 @@ def build_channel_wire_from_walls(
     # top edge must run right -> left to keep one closed loop orientation
     top_rev = list(reversed(top_pts))
 
-    e_bottom = make_bspline_edge(bottom_pts, "bottom wall")
+    e_bottom = make_bspline_edge(bottom_pts, "bottom wall", linear=linear_walls)
     e_outlet = make_line_edge(p_br, p_tr, "outlet")
-    e_top = make_bspline_edge(top_rev, "top wall")
+    e_top = make_bspline_edge(top_rev, "top wall", linear=linear_walls)
     e_inlet = make_line_edge(p_tl, p_bl, "inlet")
 
     wire_builder = BRepBuilderAPI_MakeWire()
@@ -225,6 +258,42 @@ def build_channel_wire_from_walls(
     fixer.Perform()
     wire = fixer.Wire()
 
+    return wire
+
+
+def build_channel_wire_from_polygon(
+    fluid_poly_pts: list[tuple[float, float]],
+) -> TopoDS_Wire:
+    """
+    Build a wire from piecewise-linear polygon segments.
+    This preserves connected-trapezoid corner locations from generated JSON.
+    """
+    fluid_poly_pts = close_polygon_if_needed(fluid_poly_pts)
+
+    # OpenCascade builds edges from consecutive points; do not duplicate closure point in loop logic.
+    loop_pts = fluid_poly_pts[:-1]
+    if signed_area(loop_pts) < 0.0:
+        loop_pts = list(reversed(loop_pts))
+
+    loop_pts = close_polygon_if_needed(loop_pts)
+    validate_fluid_polygon(loop_pts)
+
+    wire_builder = BRepBuilderAPI_MakeWire()
+    for i in range(len(loop_pts) - 1):
+        p1 = loop_pts[i]
+        p2 = loop_pts[i + 1]
+        edge = make_line_edge(p1, p2, label=f"poly_seg_{i}")
+        wire_builder.Add(edge)
+
+    if not wire_builder.IsDone():
+        raise RuntimeError("Failed to build wire from fluid polygon segments")
+
+    wire = wire_builder.Wire()
+
+    fixer = ShapeFix_Wire()
+    fixer.Load(wire)
+    fixer.Perform()
+    wire = fixer.Wire()
     return wire
 
 
@@ -274,15 +343,28 @@ def export_step(shape, out_step: Path) -> None:
 def extract_case_geometry(spec: dict[str, Any]):
     case = spec.get("case", "unknown_case")
     units = spec.get("units", "mm")
+    geometry_type = str(spec.get("geometry_type", "")).strip().lower()
     boundaries = spec["boundaries"]
 
-    bottom_pts = load_points(boundaries["wall_bottom"])
-    top_pts = load_points(boundaries["wall_top"])
+    bottom_pts = top_pts = None
+    fluid_poly_pts = None
 
-    bottom_pts = convert_points_units(bottom_pts, units)
-    top_pts = convert_points_units(top_pts, units)
+    if "wall_bottom" in boundaries and "wall_top" in boundaries:
+        bottom_pts = load_points(boundaries["wall_bottom"])
+        top_pts = load_points(boundaries["wall_top"])
+        bottom_pts = convert_points_units(bottom_pts, units)
+        top_pts = convert_points_units(top_pts, units)
 
-    return case, units, bottom_pts, top_pts
+    if "fluid_polygon" in boundaries:
+        fluid_poly_pts = load_points(boundaries["fluid_polygon"])
+        fluid_poly_pts = convert_points_units(fluid_poly_pts, units)
+
+    if bottom_pts is None and fluid_poly_pts is None:
+        raise ValueError(
+            "Spec must provide either wall_bottom/wall_top or fluid_polygon under boundaries."
+        )
+
+    return case, units, geometry_type, bottom_pts, top_pts, fluid_poly_pts
 
 
 # ============================================================
@@ -295,13 +377,29 @@ def build_step_from_json(
     verbose: bool = True,
 ) -> Path:
     spec = load_json(spec_path)
-    case, units, bottom_pts, top_pts = extract_case_geometry(spec)
+    case, units, geometry_type, bottom_pts, top_pts, fluid_poly_pts = extract_case_geometry(spec)
 
     if out_step is None:
         target = spec.get("metadata", {}).get("target_geometry_file")
         out_step = Path(target) if target else spec_path.with_suffix(".step")
 
-    wire = build_channel_wire_from_walls(bottom_pts, top_pts)
+    # Prefer the wall-based 4-edge build whenever wall point lists are present.
+    # Each wall becomes a single (degree-1) edge, so the mesh has exactly 4
+    # boundary zones (inlet, outlet, wall_bottom, wall_top) with sharp corners
+    # preserved. The per-segment polygon builder is only a fallback.
+    if bottom_pts is not None and top_pts is not None:
+        wire = build_channel_wire_from_walls(bottom_pts, top_pts, linear_walls=True)
+        constructed_edges = 4
+        bottom_count = len(bottom_pts)
+        top_count = len(top_pts)
+    elif fluid_poly_pts is not None:
+        wire = build_channel_wire_from_polygon(fluid_poly_pts)
+        constructed_edges = len(close_polygon_if_needed(fluid_poly_pts)) - 1
+        bottom_count = "n/a"
+        top_count = "n/a"
+    else:
+        raise ValueError("Spec must provide wall_bottom/wall_top or fluid_polygon.")
+
     face = build_face_from_wire(wire)
     export_step(face, out_step)
 
@@ -309,9 +407,10 @@ def build_step_from_json(
         log_lines = [
             f"[OK] case={case}",
             f"     units={units}",
-            f"     bottom_points={len(bottom_pts)}",
-            f"     top_points={len(top_pts)}",
-            "     constructed_edges=4",
+            f"     geometry_type={geometry_type or 'unknown'}",
+            f"     bottom_points={bottom_count}",
+            f"     top_points={top_count}",
+            f"     constructed_edges={constructed_edges}",
             f"     wrote STEP: {out_step}",
         ]
         print("\n".join(log_lines))
