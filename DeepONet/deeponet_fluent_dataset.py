@@ -5,6 +5,22 @@ This module intentionally does not create Cartesian grid data.  Each subdomain
 sample keeps the original Fluent cell centers as trunk/query points and the
 original Fluent cell-centered p/T/u/v values as targets.
 
+Channel geometry
+----------------
+In addition to the mesh (.msh.h5) and solution (.dat.h5) files, each case may
+provide a design-config JSON (the ``"design"`` entry in ``case_files``).  The
+channel walls are reconstructed from ``metadata.x_points_mm`` and
+``metadata.deltas_mm`` as piecewise-linear curves:
+
+    y_bottom(x_points) = -deltas
+    y_top(x_points)    =  L_mm + deltas
+
+i.e. the channel is symmetric about ``y = L_mm / 2`` and varies along ``x``.
+When a design config is supplied, every subdomain is normalized between its
+local bottom/top walls, so the curved channel maps to a unit square in
+``(x_local, y_local)``.  When no config is supplied the module falls back to a
+flat rectangular channel defined by the mesh bounding box (legacy behavior).
+
 Branch representation
 ---------------------
 Each sample has boundary/interface sensor points with features:
@@ -21,8 +37,9 @@ Interior interfaces use values interpolated from the global Fluent solution.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import h5py
 import numpy as np
@@ -32,26 +49,28 @@ from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 PathLike = Union[str, Path]
 CaseFiles = Mapping[int, Mapping[str, PathLike]]
 
+# Full field map. Pass a subset (e.g. without "temperature") to build datasets
+# for isothermal runs; the output/branch channels then adapt automatically.
 FIELD_MAP = {"pressure": "SV_P", "temperature": "SV_T", "u": "SV_U", "v": "SV_V"}
-
-CELL_BRANCH_CHANNELS = [
-    "x_local",
-    "y_local",
-    "wall_mask",
-    "interface_mask",
-    "boundary_pressure",
-    "boundary_temperature",
-    "boundary_u",
-    "boundary_v",
-    "known_pressure",
-    "known_temperature",
-    "known_u",
-    "known_v",
-    "local_aspect_ratio",
-]
 
 CELL_TRUNK_CHANNELS = ["x_local", "y_local"]
 CELL_OUTPUT_CHANNELS = ["pressure", "temperature", "u", "v"]
+
+
+def make_cell_branch_channels(output_fields: Sequence[str]) -> List[str]:
+    """Branch-channel layout for a given ordered list of output field names.
+
+    Layout: coordinates, masks, one ``boundary_<field>`` per field, one
+    ``known_<field>`` per field, then ``local_aspect_ratio``.
+    """
+    names = ["x_local", "y_local", "wall_mask", "interface_mask"]
+    names += [f"boundary_{f}" for f in output_fields]
+    names += [f"known_{f}" for f in output_fields]
+    names += ["local_aspect_ratio"]
+    return names
+
+
+CELL_BRANCH_CHANNELS = make_cell_branch_channels(CELL_OUTPUT_CHANNELS)
 
 def _sorted_numeric_keys(group):
     return sorted(group.keys(), key=lambda s: int(s) if str(s).isdigit() else str(s))
@@ -216,6 +235,77 @@ def read_fluent_cell_fields(dat_h5, field_map=FIELD_MAP):
     return fields
 
 
+def load_channel_config(config_path: PathLike) -> Dict[str, object]:
+    """Load a channel design-config JSON and derive the piecewise-linear walls.
+
+    The walls are reconstructed from ``metadata.x_points_mm`` and
+    ``metadata.deltas_mm`` (lengths must match)::
+
+        y_bottom(x_points) = -deltas
+        y_top(x_points)    =  L_mm + deltas
+
+    Returns a dict with the breakpoint x-coordinates, the bottom/top wall
+    y-coordinates at those breakpoints, the reference length ``L_mm``, and a few
+    convenience fields pulled from the config metadata.
+    """
+    config_path = Path(config_path)
+    with open(config_path, "r") as f:
+        cfg = json.load(f)
+
+    meta = cfg.get("metadata", {})
+    for key in ("x_points_mm", "deltas_mm", "L_mm"):
+        if key not in meta:
+            raise KeyError(f"Channel config {config_path} is missing metadata.{key}")
+
+    x_points = np.asarray(meta["x_points_mm"], dtype=np.float64).reshape(-1)
+    deltas = np.asarray(meta["deltas_mm"], dtype=np.float64).reshape(-1)
+    if x_points.shape != deltas.shape:
+        raise ValueError(
+            f"x_points_mm ({x_points.shape}) and deltas_mm ({deltas.shape}) "
+            f"must have the same length in {config_path}"
+        )
+    if x_points.size < 2:
+        raise ValueError(f"x_points_mm must contain at least 2 points in {config_path}")
+
+    order = np.argsort(x_points)
+    x_points = x_points[order]
+    deltas = deltas[order]
+
+    L = float(meta["L_mm"])
+    y_bottom_pts = -deltas
+    y_top_pts = L + deltas
+
+    return {
+        "config_path": str(config_path),
+        "x_points": x_points,
+        "deltas": deltas,
+        "L_mm": L,
+        "y_bottom_pts": y_bottom_pts,
+        "y_top_pts": y_top_pts,
+        "AR": float(meta["AR"]) if "AR" in meta else None,
+        "channel_length_mm": float(meta.get("channel_length_mm", x_points[-1] - x_points[0])),
+        "Uin_mps": float(meta["Uin_mps"]) if "Uin_mps" in meta else None,
+        "raw": cfg,
+    }
+
+
+def make_channel_wall_functions(
+    config: Mapping[str, object],
+) -> Tuple[Callable[[np.ndarray], np.ndarray], Callable[[np.ndarray], np.ndarray]]:
+    """Build piecewise-linear ``y_bottom(x)`` and ``y_top(x)`` wall functions."""
+    x_pts = np.asarray(config["x_points"], dtype=np.float64)
+    yb = np.asarray(config["y_bottom_pts"], dtype=np.float64)
+    yt = np.asarray(config["y_top_pts"], dtype=np.float64)
+
+    def y_bottom(xq) -> np.ndarray:
+        return np.interp(np.asarray(xq, dtype=np.float64), x_pts, yb)
+
+    def y_top(xq) -> np.ndarray:
+        return np.interp(np.asarray(xq, dtype=np.float64), x_pts, yt)
+
+    return y_bottom, y_top
+
+
 def sample_constrained_x_edges(
     xmin: float,
     xmax: float,
@@ -269,11 +359,14 @@ def _expand_n_subdomains(n_subdomains: Union[int, Sequence[int]], ars: Sequence[
     return out
 
 
-def _ordered_values_from_fields(fields: Mapping[str, np.ndarray]) -> np.ndarray:
-    missing = [name for name in CELL_OUTPUT_CHANNELS if name not in fields]
+def _ordered_values_from_fields(
+    fields: Mapping[str, np.ndarray],
+    output_fields: Sequence[str] = CELL_OUTPUT_CHANNELS,
+) -> np.ndarray:
+    missing = [name for name in output_fields if name not in fields]
     if missing:
         raise KeyError(f"Missing required field(s): {missing}. Available: {list(fields.keys())}")
-    return np.column_stack([fields[name] for name in CELL_OUTPUT_CHANNELS]).astype(np.float64)
+    return np.column_stack([fields[name] for name in output_fields]).astype(np.float64)
 
 
 def _make_global_interpolators(x: np.ndarray, y: np.ndarray, values: np.ndarray):
@@ -317,9 +410,9 @@ def _stack_cell_branch_features(
     Stack branch point features.
 
     values shape:
-        (M, 4), ordered [pressure, temperature, u, v].
+        (M, F), ordered by the dataset's output fields.
     known_mask shape:
-        (M, 4), ordered [known_pressure, known_temperature, known_u, known_v].
+        (M, F), one known flag per output field.
     """
     x_local = np.asarray(x_local, dtype=np.float32).reshape(-1)
     y_local = np.asarray(y_local, dtype=np.float32).reshape(-1)
@@ -331,10 +424,10 @@ def _stack_cell_branch_features(
     n = x_local.size
     if y_local.size != n or wall_mask.size != n or interface_mask.size != n:
         raise ValueError("x_local, y_local, wall_mask, and interface_mask must have the same length")
-    if values.shape != (n, 4):
-        raise ValueError(f"values must have shape {(n, 4)}, got {values.shape}")
-    if known_mask.shape != (n, 4):
-        raise ValueError(f"known_mask must have shape {(n, 4)}, got {known_mask.shape}")
+    if values.ndim != 2 or values.shape[0] != n:
+        raise ValueError(f"values must have shape (n, F) with n={n}, got {values.shape}")
+    if known_mask.shape != values.shape:
+        raise ValueError(f"known_mask must have shape {values.shape}, got {known_mask.shape}")
 
     return np.column_stack(
         [
@@ -352,6 +445,7 @@ def _stack_cell_branch_features(
 def make_rect_channel_bc_values(
     side: str,
     n: int,
+    output_fields: Sequence[str] = CELL_OUTPUT_CHANNELS,
     inlet_u: float = 0.1,
     inlet_v: float = 0.0,
     inlet_T: float = 273.0,
@@ -365,42 +459,38 @@ def make_rect_channel_bc_values(
     """
     Return prescribed rectangular-channel boundary values and known masks.
 
-    values order:
-        [pressure, temperature, u, v]
-    known order:
-        [known_pressure, known_temperature, known_u, known_v]
-
-    Unknown fields are set to fill_unknown_with and marked with known=0.
+    Columns follow ``output_fields`` (a subset/order of
+    ["pressure", "temperature", "u", "v"]).  Fields not prescribed on a side
+    (or not present in ``output_fields``) are set to ``fill_unknown_with`` and
+    marked with known=0.
     """
     side = str(side).lower()
     n = int(n)
-    values = np.full((n, 4), float(fill_unknown_with), dtype=np.float32)
-    known = np.zeros((n, 4), dtype=np.float32)
+    fields = list(output_fields)
+    f_idx = {name: i for i, name in enumerate(fields)}
+    values = np.full((n, len(fields)), float(fill_unknown_with), dtype=np.float32)
+    known = np.zeros((n, len(fields)), dtype=np.float32)
+
+    def _set(field: str, value: float) -> None:
+        if field in f_idx:
+            j = f_idx[field]
+            values[:, j] = float(value)
+            known[:, j] = 1.0
 
     if side == "inlet":
-        values[:, 1] = float(inlet_T)
-        values[:, 2] = float(inlet_u)
-        values[:, 3] = float(inlet_v)
-        known[:, 1] = 1.0
-        known[:, 2] = 1.0
-        known[:, 3] = 1.0
+        _set("temperature", inlet_T)
+        _set("u", inlet_u)
+        _set("v", inlet_v)
     elif side == "outlet":
-        values[:, 0] = float(outlet_p)
-        known[:, 0] = 1.0
+        _set("pressure", outlet_p)
     elif side == "top":
-        values[:, 1] = float(top_T)
-        values[:, 2] = float(wall_u)
-        values[:, 3] = float(wall_v)
-        known[:, 1] = 1.0
-        known[:, 2] = 1.0
-        known[:, 3] = 1.0
+        _set("temperature", top_T)
+        _set("u", wall_u)
+        _set("v", wall_v)
     elif side == "bottom":
-        values[:, 1] = float(bottom_T)
-        values[:, 2] = float(wall_u)
-        values[:, 3] = float(wall_v)
-        known[:, 1] = 1.0
-        known[:, 2] = 1.0
-        known[:, 3] = 1.0
+        _set("temperature", bottom_T)
+        _set("u", wall_u)
+        _set("v", wall_v)
     else:
         raise ValueError("side must be inlet, outlet, top, or bottom")
 
@@ -409,8 +499,8 @@ def make_rect_channel_bc_values(
 
 def build_fluent_deeponet_dataset(
     case_files: CaseFiles,
-    ar_list: Sequence[int],
-    n_subdomains: Union[int, Sequence[int]] = 10,
+    case_ids: Optional[Sequence] = None,
+    n_subdomains: Union[int, Sequence[int], str] = 10,
     n_interface_points: int = 256,
     n_boundary_points: int = 256,
     interface_placement: str = "fixed",
@@ -418,9 +508,11 @@ def build_fluent_deeponet_dataset(
     min_subdomain_width: float = 0.01,
     rng: Optional[np.random.Generator] = None,
     field_map=FIELD_MAP,
+    output_fields: Optional[Sequence[str]] = None,
     bc_kwargs: Optional[Mapping[str, float]] = None,
     keep_raw_case_data: bool = False,
     n_realizations: int = 1,
+    ar_list: Optional[Sequence] = None,
 ) -> Dict[str, object]:
     """
     Build a non-grid DeepONet dataset from Fluent HDF5 files.
@@ -428,19 +520,93 @@ def build_fluent_deeponet_dataset(
     No Cartesian grid is constructed.  The trunk/query points are the
     original Fluent cell centers inside each subdomain.
 
+    Each ``case_files[case_id]`` entry may contain a ``"design"`` (or
+    ``"config"``) key pointing to the channel design-config JSON.  When present,
+    the channel walls are reconstructed from ``metadata.x_points_mm`` /
+    ``metadata.deltas_mm`` and every subdomain is normalized between its local
+    bottom/top walls.  When absent, the legacy flat-rectangle behavior (mesh
+    bounding box) is used.
+
     Parameters
     ----------
+    case_ids:
+        Identifiers/keys selecting which entries of ``case_files`` to process.
+        These are just case labels (each channel has its own random aspect
+        ratio coming from its design config); they are not aspect ratios.
+        Defaults to ``list(case_files.keys())`` when omitted.
+    ar_list:
+        Deprecated alias for ``case_ids``, kept for backward compatibility.
+    field_map:
+        Mapping from output field name to Fluent variable name.  Pass a subset
+        (e.g. without ``"temperature"`` for isothermal runs) to build datasets
+        with fewer output channels.
+    output_fields:
+        Ordered output field names.  Defaults to ``list(field_map.keys())``.
+    n_subdomains:
+        Either an int, a per-case sequence of ints, or the string
+        ``"adaptive"`` (alias ``"ar"``).  When adaptive, the number of
+        subdomains is set per case to the channel aspect ratio
+        ``round((xmax - xmin) / reference_length)`` (clamped to >= 1), so each
+        subdomain is roughly square.  Adaptive only affects the ``"fixed"`` and
+        ``"random"`` placements; ``"breakpoints"`` ignores it.
     n_interface_points:
         Number of sensor points per vertical inlet/outlet/interface side.
     n_boundary_points:
         Number of sensor points per boundary side.
+    interface_placement:
+        One of:
+
+        - ``"fixed"``: ``n_subdomains`` equal-width subdomains (optionally
+          jittered with ``interface_jitter``).
+        - ``"random"``: ``n_subdomains`` random-width subdomains subject to
+          ``min_subdomain_width``.
+        - ``"breakpoints"``: ignore ``n_subdomains`` and place interfaces at the
+          interior geometry breakpoints ``x_points_mm[1:-1]`` (requires a design
+          config).  Each subdomain then spans exactly one straight wall segment.
+
+    Notes
+    -----
+    The per-subdomain ``local_aspect_ratio`` is defined as
+    ``subdomain_length / reference_length``, where the reference length is the
+    config ``L_mm`` (or the channel height for the legacy flat case).
     """
     if rng is None:
         rng = np.random.default_rng()
     if bc_kwargs is None:
         bc_kwargs = {}
 
-    sub_counts = _expand_n_subdomains(n_subdomains, ar_list)
+    # Output fields default to the keys of field_map (e.g. drop "temperature"
+    # by passing a field_map without it). Branch/output channels adapt to this.
+    if output_fields is None:
+        output_fields = list(field_map.keys())
+    else:
+        output_fields = list(output_fields)
+        missing = [f for f in output_fields if f not in field_map]
+        if missing:
+            raise ValueError(f"output_fields {missing} are not present in field_map keys {list(field_map.keys())}")
+    if not output_fields:
+        raise ValueError("output_fields must be non-empty")
+    branch_channel_names = make_cell_branch_channels(output_fields)
+
+    # Backward compat: 'ar_list' was the old name for 'case_ids'.
+    if ar_list is not None:
+        if case_ids is not None:
+            raise ValueError("Pass either case_ids or ar_list (deprecated alias), not both.")
+        case_ids = ar_list
+    if case_ids is None:
+        case_ids = list(case_files.keys())
+
+    adaptive_n_sub = isinstance(n_subdomains, str)
+    if adaptive_n_sub:
+        if str(n_subdomains).lower() not in {"adaptive", "ar"}:
+            raise ValueError(
+                f"n_subdomains string must be 'adaptive' or 'ar', got {n_subdomains!r}"
+            )
+        sub_counts: List[Optional[int]] = [None] * len(case_ids)
+    else:
+        sub_counts = list(_expand_n_subdomains(n_subdomains, case_ids))  # type: ignore[arg-type]
+
+    used_sub_counts: List[int] = []
 
     n_interface_points = int(n_interface_points)
     n_boundary_points = int(n_boundary_points)
@@ -452,101 +618,195 @@ def build_fluent_deeponet_dataset(
 
     samples: List[Dict[str, np.ndarray]] = []
     metadata: List[Dict[str, object]] = []
-    raw_cases: Dict[Union[int, Tuple[int, int]], object] = {}
+    raw_cases: Dict[object, object] = {}
 
-    for ar, n_sub in zip(ar_list, sub_counts):
-        if ar not in case_files:
-            print(f"Skipping AR={ar}: not in case_files")
+    for case_id, n_sub in zip(case_ids, sub_counts):
+        if case_id not in case_files:
+            print(f"Skipping case {case_id}: not in case_files")
             continue
-        
-        centers, mesh_info = read_fluent_cell_centers(case_files[ar]["mesh"])
-        fields = read_fluent_cell_fields(case_files[ar]["dat"], field_map=field_map)
-        values_all = _ordered_values_from_fields(fields)
-        
+
+        case = case_files[case_id]
+        centers, mesh_info = read_fluent_cell_centers(case["mesh"])
+        fields = read_fluent_cell_fields(case["dat"], field_map=field_map)
+        values_all = _ordered_values_from_fields(fields, output_fields)
+
         if len(values_all) != len(centers):
             raise ValueError(
-                f"Mesh has {len(centers)} cells but .dat.h5 has {len(values_all)} values for AR={ar}."
+                f"Mesh has {len(centers)} cells but .dat.h5 has {len(values_all)} values for case {case_id}."
             )
 
+        # The channel walls come from the design config when supplied; otherwise
+        # we fall back to a flat rectangle defined by the mesh bounding box.
+        config_path = case.get("design", case.get("config"))
+        config = load_channel_config(config_path) if config_path is not None else None
+
+        def _interp_wall(x_pts: np.ndarray, y_pts: np.ndarray) -> Callable[..., np.ndarray]:
+            def _fn(xq):
+                return np.interp(np.asarray(xq, dtype=np.float64), x_pts, y_pts)
+            return _fn
+
+        def _flat_wall(value: float) -> Callable[..., np.ndarray]:
+            def _fn(xq):
+                return np.full(np.shape(np.asarray(xq, dtype=np.float64)), value, dtype=np.float64)
+            return _fn
+
+        # Effective BC kwargs: config-derived defaults overridden by user bc_kwargs.
+        case_bc_kwargs = dict(bc_kwargs)
+        if config is not None and config.get("Uin_mps") is not None:
+            case_bc_kwargs.setdefault("inlet_u", float(config["Uin_mps"]))  # type: ignore
+
+        config_x_edges: Optional[np.ndarray] = None
+        if config is not None:
+            # The design config is in mm while the mesh may be stored in a
+            # different unit (e.g. um).  Auto-scale the config geometry into the
+            # mesh coordinate frame so cell masking / interpolation stay in the
+            # mesh's native units (the scale is 1.0 when units already match).
+            mesh_xmin = float(mesh_info["x_min_mm"])
+            mesh_xmax = float(mesh_info["x_max_mm"])
+            cfg_x = np.asarray(config["x_points"], dtype=np.float64)
+            cfg_yb = np.asarray(config["y_bottom_pts"], dtype=np.float64)
+            cfg_yt = np.asarray(config["y_top_pts"], dtype=np.float64)
+            cfg_L = float(config["L_mm"])  # type: ignore
+            cfg_xspan = float(cfg_x[-1] - cfg_x[0])
+            geom_scale = (mesh_xmax - mesh_xmin) / cfg_xspan if cfg_xspan > 0 else 1.0
+
+            # Generated channels share the coordinate origin (x=0, y=0 centered
+            # at L/2), so an isotropic scale aligns config and mesh frames.
+            x_pts_mesh = mesh_xmin + (cfg_x - cfg_x[0]) * geom_scale
+            y_bottom_fn = _interp_wall(x_pts_mesh, cfg_yb * geom_scale)
+            y_top_fn = _interp_wall(x_pts_mesh, cfg_yt * geom_scale)
+
+            config_x_edges = x_pts_mesh
+            xmin = mesh_xmin
+            xmax = mesh_xmax
+            ref_length = max(cfg_L * geom_scale, 1.0e-12)
+            ref_length_mm = cfg_L
+            channel_ar = int(config["AR"]) if config.get("AR") is not None else int(case_id)  # type: ignore
+        else:
+            ymin0 = float(mesh_info["y_min_mm"])
+            ymax0 = float(mesh_info["y_max_mm"])
+            y_bottom_fn = _flat_wall(ymin0)
+            y_top_fn = _flat_wall(ymax0)
+
+            xmin = float(mesh_info["x_min_mm"])
+            xmax = float(mesh_info["x_max_mm"])
+            ref_length = max(ymax0 - ymin0, 1.0e-12)
+            ref_length_mm = float(ref_length)
+            channel_ar = int(case_id)
+
+        # Resolve the per-case subdomain count (adaptive == channel aspect ratio).
+        if adaptive_n_sub:
+            n_sub = max(1, int(round((xmax - xmin) / ref_length)))
+        else:
+            n_sub = int(n_sub)  # type: ignore[arg-type]
+        if n_sub <= 0:
+            raise ValueError("n_subdomains must be positive")
+        used_sub_counts.append(int(n_sub))
+
         for realization_id in range(n_realizations):
-            print(f"Processing AR={ar} realization={realization_id}", flush=True)
+            print(
+                f"Processing case {case_id} realization={realization_id} (n_subdomains={n_sub})",
+                flush=True,
+            )
 
             valid = np.all(np.isfinite(centers), axis=1) & np.all(np.isfinite(values_all), axis=1)
             x = centers[valid, 0].astype(np.float64)
             y = centers[valid, 1].astype(np.float64)
             values = values_all[valid].astype(np.float64)
 
-            xmin = float(mesh_info["x_min_mm"])
-            xmax = float(mesh_info["x_max_mm"])
-            ymin = float(mesh_info["y_min_mm"])
-            ymax = float(mesh_info["y_max_mm"])
-            height = ymax - ymin
-
-            n_sub = int(n_sub)
-            if n_sub <= 0:
-                raise ValueError("n_subdomains must be positive")
-
             if interface_placement == "fixed":
-                x_edges = np.linspace(xmin, xmax, n_sub + 1, dtype=np.float64)
+                n_sub_eff = n_sub
+                x_edges = np.linspace(xmin, xmax, n_sub_eff + 1, dtype=np.float64)
                 if float(interface_jitter) > 0.0:
-                    base_dx = (xmax - xmin) / float(n_sub)
+                    base_dx = (xmax - xmin) / float(n_sub_eff)
                     jitter_dx = float(interface_jitter) * base_dx
-                    noise = rng.uniform(-jitter_dx, jitter_dx, size=n_sub - 1)
+                    noise = rng.uniform(-jitter_dx, jitter_dx, size=n_sub_eff - 1)
                     x_edges[1:-1] += noise
                     if np.any(np.diff(x_edges) <= 0):
                         raise RuntimeError("Jittered interfaces crossed. Reduce interface_jitter.")
             elif interface_placement == "random":
+                n_sub_eff = n_sub
                 x_edges = sample_constrained_x_edges(
                     xmin=xmin,
                     xmax=xmax,
-                    n_subdomains=n_sub,
+                    n_subdomains=n_sub_eff,
                     min_subdomain_width=min_subdomain_width,
                     rng=rng,
                 )
+            elif interface_placement == "breakpoints":
+                if config is None or config_x_edges is None:
+                    raise ValueError(
+                        "interface_placement='breakpoints' requires a design config "
+                        "(case_files[case_id]['design']) with metadata.x_points_mm."
+                    )
+                # Ignore n_subdomains; one subdomain per straight wall segment.
+                x_edges = np.asarray(config_x_edges, dtype=np.float64)
+                n_sub_eff = int(x_edges.size - 1)
             else:
                 raise ValueError(f"Invalid interface_placement argument: {interface_placement}")
 
             linear, nearest = _make_global_interpolators(x, y, values)
 
-            y_interface_phys = np.linspace(ymin, ymax, n_interface_points + 2, dtype=np.float64)[1:-1]
-            y_interface_local = ((y_interface_phys - ymin) / max(height, 1.0e-12)).astype(np.float32)
-            x_wall_local = np.linspace(0.0, 1.0, n_boundary_points, dtype=np.float32)
+            # Fractional sampling positions: across the local channel height in
+            # (0, 1) for the interfaces, and across the subdomain width in
+            # [0, 1] for the (polyline) top/bottom walls.
+            y_interface_frac = np.linspace(0.0, 1.0, n_interface_points + 2, dtype=np.float64)[1:-1]
+            x_wall_frac = np.linspace(0.0, 1.0, n_boundary_points, dtype=np.float64)
 
-            for s in range(n_sub):
+            for s in range(n_sub_eff):
                 x0 = float(x_edges[s])
                 x1 = float(x_edges[s + 1])
                 width = x1 - x0
-                local_aspect = width / max(height, 1.0e-12)
+                local_aspect = width / ref_length
+                inv_ref = 1.0 / ref_length
+                inv_width = 1.0 / max(width, 1.0e-12)
 
-                if s == n_sub - 1:
+                # Subdomain-local frame: x is normalized to [0, 1] across the
+                # subdomain width (its physical extent is encoded by the
+                # local_aspect_ratio = width / reference_length feature), while y
+                # is scaled by the reference length about the channel centerline.
+                # Scaling y by a fixed reference length (instead of the local
+                # gap) keeps the scale uniform across samples and preserves the
+                # true (polyline) wall shape in local coordinates.
+                xc = 0.5 * (x0 + x1)
+                y_center = 0.5 * (float(y_bottom_fn(xc)) + float(y_top_fn(xc)))
+
+                if s == n_sub_eff - 1:
                     cell_mask = (x >= x0) & (x <= x1)
                 else:
                     cell_mask = (x >= x0) & (x < x1)
                 if not np.any(cell_mask):
-                    raise ValueError(f"No cell centers in AR={ar}, subdomain={s}.")
+                    raise ValueError(f"No cell centers in case {case_id}, subdomain={s}.")
 
                 x_cell = x[cell_mask]
                 y_cell = y[cell_mask]
                 target = values[cell_mask].astype(np.float32)
+
                 query = np.column_stack(
                     [
-                        ((x_cell - x0) / max(width, 1.0e-12)).astype(np.float32),
-                        ((y_cell - ymin) / max(height, 1.0e-12)).astype(np.float32),
+                        ((x_cell - x0) * inv_width).astype(np.float32),
+                        ((y_cell - y_center) * inv_ref).astype(np.float32),
                     ]
                 ).astype(np.float32, copy=False)
 
                 branch_parts: List[np.ndarray] = []
 
+                # Left side (inlet for the first subdomain, interface otherwise).
+                yb_left = float(y_bottom_fn(x0))
+                yt_left = float(y_top_fn(x0))
+                y_left_phys = yb_left + y_interface_frac * (yt_left - yb_left)
                 x_left_phys = np.full(n_interface_points, x0, dtype=np.float64)
+                x_left_local = np.zeros(n_interface_points, dtype=np.float32)
+                y_left_local = ((y_left_phys - y_center) * inv_ref).astype(np.float32)
                 if s == 0:
-                    vals, known = make_rect_channel_bc_values("inlet", n_interface_points, **bc_kwargs)
+                    vals, known = make_rect_channel_bc_values("inlet", n_interface_points, output_fields, **case_bc_kwargs)
                 else:
-                    vals = _interp_fields(linear, nearest, x_left_phys, y_interface_phys)
-                    known = np.ones((n_interface_points, 4), dtype=np.float32)
+                    vals = _interp_fields(linear, nearest, x_left_phys, y_left_phys)
+                    known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
                 branch_parts.append(
                     _stack_cell_branch_features(
-                        x_local=np.zeros(n_interface_points, dtype=np.float32),
-                        y_local=y_interface_local,
+                        x_local=x_left_local,
+                        y_local=y_left_local,
                         wall_mask=np.zeros(n_interface_points, dtype=np.float32),
                         interface_mask=np.ones(n_interface_points, dtype=np.float32),
                         values=vals,
@@ -555,16 +815,22 @@ def build_fluent_deeponet_dataset(
                     )
                 )
 
+                # Right side (outlet for the last subdomain, interface otherwise).
+                yb_right = float(y_bottom_fn(x1))
+                yt_right = float(y_top_fn(x1))
+                y_right_phys = yb_right + y_interface_frac * (yt_right - yb_right)
                 x_right_phys = np.full(n_interface_points, x1, dtype=np.float64)
-                if s == n_sub - 1:
-                    vals, known = make_rect_channel_bc_values("outlet", n_interface_points, **bc_kwargs)
+                x_right_local = np.ones(n_interface_points, dtype=np.float32)
+                y_right_local = ((y_right_phys - y_center) * inv_ref).astype(np.float32)
+                if s == n_sub_eff - 1:
+                    vals, known = make_rect_channel_bc_values("outlet", n_interface_points, output_fields, **case_bc_kwargs)
                 else:
-                    vals = _interp_fields(linear, nearest, x_right_phys, y_interface_phys)
-                    known = np.ones((n_interface_points, 4), dtype=np.float32)
+                    vals = _interp_fields(linear, nearest, x_right_phys, y_right_phys)
+                    known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
                 branch_parts.append(
                     _stack_cell_branch_features(
-                        x_local=np.ones(n_interface_points, dtype=np.float32),
-                        y_local=y_interface_local,
+                        x_local=x_right_local,
+                        y_local=y_right_local,
                         wall_mask=np.zeros(n_interface_points, dtype=np.float32),
                         interface_mask=np.ones(n_interface_points, dtype=np.float32),
                         values=vals,
@@ -573,11 +839,18 @@ def build_fluent_deeponet_dataset(
                     )
                 )
 
-                vals, known = make_rect_channel_bc_values("bottom", n_boundary_points, **bc_kwargs)
+                # Top/bottom walls follow the actual polyline, sampled across the
+                # subdomain width and mapped into the shared local frame.
+                x_wall_phys = x0 + x_wall_frac * width
+                x_wall_local = x_wall_frac.astype(np.float32)
+
+                yb_wall_phys = np.asarray(y_bottom_fn(x_wall_phys), dtype=np.float64)
+                y_bottom_local = ((yb_wall_phys - y_center) * inv_ref).astype(np.float32)
+                vals, known = make_rect_channel_bc_values("bottom", n_boundary_points, output_fields, **case_bc_kwargs)
                 branch_parts.append(
                     _stack_cell_branch_features(
                         x_local=x_wall_local,
-                        y_local=np.zeros(n_boundary_points, dtype=np.float32),
+                        y_local=y_bottom_local,
                         wall_mask=np.ones(n_boundary_points, dtype=np.float32),
                         interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
                         values=vals,
@@ -586,11 +859,13 @@ def build_fluent_deeponet_dataset(
                     )
                 )
 
-                vals, known = make_rect_channel_bc_values("top", n_boundary_points, **bc_kwargs)
+                yt_wall_phys = np.asarray(y_top_fn(x_wall_phys), dtype=np.float64)
+                y_top_local = ((yt_wall_phys - y_center) * inv_ref).astype(np.float32)
+                vals, known = make_rect_channel_bc_values("top", n_boundary_points, output_fields, **case_bc_kwargs)
                 branch_parts.append(
                     _stack_cell_branch_features(
                         x_local=x_wall_local,
-                        y_local=np.ones(n_boundary_points, dtype=np.float32),
+                        y_local=y_top_local,
                         wall_mask=np.ones(n_boundary_points, dtype=np.float32),
                         interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
                         values=vals,
@@ -603,28 +878,41 @@ def build_fluent_deeponet_dataset(
                 samples.append({"branch": branch, "query": query, "target": target})
                 metadata.append(
                     {
-                        "aspect_ratio": float(ar),
+                        "case_id": case_id,
+                        "aspect_ratio": float(channel_ar),
                         "subdomain_id": int(s),
                         "realization_id": int(realization_id),
                         "x_left_mm": float(x0),
                         "x_right_mm": float(x1),
-                        "y_bottom_mm": float(ymin),
-                        "y_top_mm": float(ymax),
+                        "y_center_mm": float(y_center),
+                        "y_bottom_left_mm": float(yb_left),
+                        "y_top_left_mm": float(yt_left),
+                        "y_bottom_right_mm": float(yb_right),
+                        "y_top_right_mm": float(yt_right),
+                        "reference_length_mm": float(ref_length_mm),
+                        "reference_length": float(ref_length),
                         "local_aspect_ratio": float(local_aspect),
                         "n_cells": int(query.shape[0]),
                     }
                 )
 
             if keep_raw_case_data:
-                raw_key: Union[int, Tuple[int, int]] = int(ar) if n_realizations == 1 else (int(ar), int(realization_id))
-                raw_cases[raw_key] = {
+                raw_key: object = case_id if n_realizations == 1 else (case_id, int(realization_id))
+                raw_entry = {
                     "x": x.astype(np.float32),
                     "y": y.astype(np.float32),
                     "values": values.astype(np.float32),
                     "mesh_info": mesh_info,
                     "x_edges_mm": x_edges.astype(np.float32),
-                    "output_channel_names": list(CELL_OUTPUT_CHANNELS),
+                    "reference_length_mm": float(ref_length_mm),
+                    "output_channel_names": list(output_fields),
                 }
+                if config is not None:
+                    raw_entry["wall_x_points_mm"] = np.asarray(config["x_points"], dtype=np.float32)
+                    raw_entry["wall_y_bottom_mm"] = np.asarray(config["y_bottom_pts"], dtype=np.float32)
+                    raw_entry["wall_y_top_mm"] = np.asarray(config["y_top_pts"], dtype=np.float32)
+                    raw_entry["config_path"] = config["config_path"]
+                raw_cases[raw_key] = raw_entry
 
     if not samples:
         raise ValueError("No samples were processed. Check case_files and AR range.")
@@ -632,15 +920,21 @@ def build_fluent_deeponet_dataset(
     return {
         "samples": samples,
         "metadata": metadata,
-        "branch_channel_names": list(CELL_BRANCH_CHANNELS),
+        "branch_channel_names": list(branch_channel_names),
         "trunk_channel_names": list(CELL_TRUNK_CHANNELS),
-        "output_channel_names": list(CELL_OUTPUT_CHANNELS),
+        "output_channel_names": list(output_fields),
+        "case_ids": [m["case_id"] for m in metadata],
         "ars": np.asarray([m["aspect_ratio"] for m in metadata], dtype=np.float32),
         "subdomain_id": np.asarray([m["subdomain_id"] for m in metadata], dtype=np.int32),
         "realization_id": np.asarray([m["realization_id"] for m in metadata], dtype=np.int32),
         "local_aspect_ratio": np.asarray([m["local_aspect_ratio"] for m in metadata], dtype=np.float32),
         "n_cells": np.asarray([m["n_cells"] for m in metadata], dtype=np.int64),
-        "n_subdomains": sub_counts if len(set(sub_counts)) > 1 else int(sub_counts[0]),
+        "n_subdomains": (
+            "adaptive"
+            if adaptive_n_sub
+            else (used_sub_counts if len(set(used_sub_counts)) > 1 else int(used_sub_counts[0]))
+        ),
+        "n_subdomains_per_case": list(used_sub_counts),
         "n_interface_points": int(n_interface_points),
         "n_boundary_points": int(n_boundary_points),
         "interface_placement": str(interface_placement),
@@ -667,20 +961,18 @@ def normalize_cell_branch_with_y(
     """
     names = list(branch_channel_names)
     out = np.asarray(branch, dtype=np.float32).copy()
-    value_idx = [
-        names.index("boundary_pressure"),
-        names.index("boundary_temperature"),
-        names.index("boundary_u"),
-        names.index("boundary_v"),
-    ]
+    # Output field order is inferred from the boundary_<field> channels.
+    output_fields = [c[len("boundary_") :] for c in names if c.startswith("boundary_")]
+    value_idx = [names.index(f"boundary_{f}") for f in output_fields]
+    nf = len(output_fields)
 
     if target_y_normalizer is not None:
         mean = target_y_normalizer.mean.detach().cpu().numpy().reshape(-1).astype(np.float32)
         std = target_y_normalizer.std.detach().cpu().numpy().reshape(-1).astype(np.float32)
         std = np.maximum(std, 1.0e-12)
-        norm_values = (out[:, value_idx] - mean.reshape(1, 4)) / std.reshape(1, 4)
+        norm_values = (out[:, value_idx] - mean.reshape(1, nf)) / std.reshape(1, nf)
 
-        known_names = ["known_pressure", "known_temperature", "known_u", "known_v"]
+        known_names = [f"known_{f}" for f in output_fields]
         if zero_unknown_values and all(k in names for k in known_names):
             known_idx = [names.index(k) for k in known_names]
             norm_values = norm_values * out[:, known_idx]

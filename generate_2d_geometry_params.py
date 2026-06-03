@@ -10,31 +10,30 @@ import numpy as np
 # =========================================
 # CONFIG
 # =========================================
+AR = 10
+
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-OUT_DIR = BASE_DIR / "2d_geometry_specs" / "rand_channel"
+OUT_DIR = BASE_DIR / "2d_geometry_specs" / "rand_channel_smooth"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-STEP_DIR = BASE_DIR / "2d_geometry_step" / "rand_channel"
+STEP_DIR = BASE_DIR / "2d_geometry_step" / "rand_channel_smooth"
 CSV_PATH = OUT_DIR / "designs.csv"
 
 # reproducibility
 SEED = 42
 rng = np.random.default_rng(SEED)
 
-# square side length (200 um = 0.2 mm)
-L = 0.2  # mm
-AR_MIN = 10
-AR_MAX = 50
+# square side length
+L = 150  # mm
+MIN_SUBDOMAIN_WIDTH = 0.2 * L
 
 # number of designs
 N_CASES = 100
 
 # trapezoid offsets
-DELTA_MIN = -L * 0.3
-DELTA_MAX = L * 0.3
+DELTA = L * 0.1
 
 # inlet velocity
-UIN_MIN = 0.1  # m/s
-UIN_MAX = 0.5  # m/s
+UIN = 0.1 # m/s
 
 
 def make_case_name(i: int) -> str:
@@ -46,7 +45,7 @@ def validate_inputs(l: float) -> None:
         raise ValueError(f"L must be positive, got {l}")
 
 
-def sample_x_breakpoints(l: float, ar: int, rng_obj) -> list[float]:
+def sample_x_breakpoints(l: float, ar: int, min_width: float, rng_obj) -> list[float]:
     """
     Build AR+1 x locations over [0, L*AR]:
       - include 0 and L*AR
@@ -59,8 +58,18 @@ def sample_x_breakpoints(l: float, ar: int, rng_obj) -> list[float]:
     if ar == 1:
         return [0.0, ref_len]
 
-    interior = np.sort(rng_obj.uniform(0.0, ref_len, size=ar - 1))
-    return [0.0, *[float(x) for x in interior], ref_len]
+    min_total = ar * min_width
+    if min_total > ref_len:
+        raise ValueError(
+            "Infeasible subdomain constraints: "
+            "ar * min_subdomain_width must be <= total length."
+        )
+    slack = ref_len - min_total
+    extras = rng_obj.dirichlet(np.ones(ar, dtype=np.float64))
+    widths = min_width + slack * extras
+    edges = np.concatenate([[0.0], np.cumsum(widths)])
+    edges[-1] = ref_len
+    return edges.astype(np.float64).tolist()
 
 
 def deduplicate_consecutive_points(pts, tol=1e-12):
@@ -213,11 +222,11 @@ def main():
     for i in range(N_CASES):
         case = make_case_name(i)
 
-        ar = int(rng.integers(AR_MIN, AR_MAX + 1))
-        x_points = sample_x_breakpoints(l=L, ar=ar, rng_obj=rng)
-        deltas = [float(d) for d in rng.uniform(DELTA_MIN, DELTA_MAX, size=ar + 1)]
+        ar = AR
+        x_points = sample_x_breakpoints(l=L, ar=ar, min_width=MIN_SUBDOMAIN_WIDTH, rng_obj=rng)
+        deltas = [float(d) for d in rng.uniform(-DELTA, DELTA, size=ar + 1)]
         channel_length = float(L * ar)
-        uin = float(rng.uniform(UIN_MIN, UIN_MAX))
+        uin = UIN
 
         pts_bot, pts_top, inlet, outlet, fluid_polygon = make_piecewise_trapezoid_walls(
             l=L,
@@ -235,6 +244,7 @@ def main():
         )
 
         inlet_height = float(inlet[1][1] - inlet[0][1])
+        outlet_height = float(outlet[1][1] - outlet[0][1])
 
         spec_path = OUT_DIR / f"{case}.json"
 
@@ -246,6 +256,7 @@ def main():
             "x_points_mm": x_points,
             "deltas_mm": deltas,
             "inlet_height_mm": inlet_height,
+            "outlet_height_mm": outlet_height,
             "Uin_mps": uin,
             "target_geometry_file": str(STEP_DIR / f"{case}.step"),
         }

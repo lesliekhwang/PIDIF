@@ -173,14 +173,12 @@ def infer_edge_layout(branch_template: Array, branch_channel_names: Sequence[str
     y_ch = names.index("y_local")
     wall_ch = names.index("wall_mask")
     interface_ch = names.index("interface_mask")
-    value_channels = np.asarray([
-        names.index("boundary_pressure"),
-        names.index("boundary_temperature"),
-        names.index("boundary_u"),
-        names.index("boundary_v"),
-    ], dtype=np.int64)
+    # Output fields are inferred from the boundary_<field> channels so this
+    # works for any subset/order (e.g. isothermal runs without temperature).
+    output_fields = [c[len("boundary_"):] for c in names if c.startswith("boundary_")]
+    value_channels = np.asarray([names.index(f"boundary_{f}") for f in output_fields], dtype=np.int64)
     known_channels = None
-    known_names = ["known_pressure", "known_temperature", "known_u", "known_v"]
+    known_names = [f"known_{f}" for f in output_fields]
     if all(k in names for k in known_names):
         known_channels = np.asarray([names.index(k) for k in known_names], dtype=np.int64)
 
@@ -189,10 +187,18 @@ def infer_edge_layout(branch_template: Array, branch_channel_names: Sequence[str
     wall = branch[:, wall_ch]
     interface = branch[:, interface_ch]
 
-    left = np.flatnonzero((np.abs(x - 0.0) <= tol) & (interface > 0.5))
-    right = np.flatnonzero((np.abs(x - 1.0) <= tol) & (interface > 0.5))
-    bottom = np.flatnonzero((np.abs(y - 0.0) <= tol) & (wall > 0.5))
-    top = np.flatnonzero((np.abs(y - 1.0) <= tol) & (wall > 0.5))
+    # Local coordinates are no longer pinned to a unit square: interfaces are
+    # the vertical sides (min/max x) and the walls are the bottom/top polylines
+    # (sign of y relative to the channel centerline at y_local = 0).
+    interface_pts = interface > 0.5
+    wall_pts = wall > 0.5
+    x_left_val = float(np.min(x[interface_pts])) if np.any(interface_pts) else 0.0
+    x_right_val = float(np.max(x[interface_pts])) if np.any(interface_pts) else 0.0
+
+    left = np.flatnonzero((np.abs(x - x_left_val) <= tol) & interface_pts)
+    right = np.flatnonzero((np.abs(x - x_right_val) <= tol) & interface_pts)
+    bottom = np.flatnonzero((y < 0.0) & wall_pts)
+    top = np.flatnonzero((y > 0.0) & wall_pts)
 
     left = left[np.argsort(y[left], kind="stable")]
     right = right[np.argsort(y[right], kind="stable")]

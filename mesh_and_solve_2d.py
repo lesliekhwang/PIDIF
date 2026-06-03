@@ -20,8 +20,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # DEFAULTS
 # ============================================================
 
-DEFAULT_NPROCS = 4
-DEFAULT_NITER = 10000
+DEFAULT_NPROCS = 10
+DEFAULT_NITER = 1000
 DEFAULT_PRECISION = "double"
 DEFAULT_UI_MODE = "hidden_gui"
 
@@ -34,7 +34,7 @@ MASS_CONSERVATION_REL_TOL = 0.02   # 2% mismatch between inlet/outlet flux
 REYNOLDS_LAMINAR_LIMIT = 2300.0    # below this the laminar model is appropriate
 
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "rand_channel"
+DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "rand_channel_smooth"
 
 
 # ============================================================
@@ -311,6 +311,39 @@ def define_global_sizing(
 
     raise RuntimeError(f"Failed to define global sizing. Last error: {last_err}")
 
+def add_boundary_layers(meshing, 
+                        name: str = "inflation-1",
+                        n_layers: int = 5,
+                        growth_rate: float | None = 1.2,
+                        offset_method: str = "smooth-transition"
+                        ) -> None:
+    workflow = meshing.workflow
+    task = get_task(workflow, "Add 2D Boundary Layers")
+
+    candidate_states = [
+        {
+            "AddChild": "yes",
+            "BLControlName": name,
+            "NumberOfLayers": n_layers,
+            "OffsetMethodType": offset_method,
+        }
+    ]
+    
+    if growth_rate is not None:
+        for state in candidate_states:
+            state["GrowthRate"] = growth_rate
+        
+    last_err = None
+    for state in candidate_states:
+        try:
+            set_task_state(task, state)
+            task.AddChildAndUpdate(DeferUpdate=True)
+            log(f"[INFO] Added 2D boundary layers: {name} with {n_layers} layers, growth rate={growth_rate}, offset method={offset_method}")
+            return
+        except Exception as e:
+            last_err = e
+
+    raise RuntimeError(f"Failed to add 2D boundary layers. Last error: {last_err}")
 
 def generate_surface_mesh_2d(meshing) -> None:
     workflow = meshing.workflow
@@ -371,6 +404,7 @@ def mesh_2d_from_step(
     nprocs: int,
     max_size_mm: float,
     min_size_mm: float,
+    boundary_layers: list[dict[str, Any]] = [],
 ) -> None:
     meshing = None
     try:
@@ -384,6 +418,18 @@ def mesh_2d_from_step(
             max_size_mm=max_size_mm,
             min_size_mm=min_size_mm,
         )
+        # for boundary_layer in boundary_layers:
+        #     add_boundary_layers(meshing, **boundary_layer)
+        # face_zone_id_list = meshing.meshing_utilities.get_face_zones(filter="*")
+        # cell_zone_id_list = meshing.meshing_utilities.get_cell_zones(filter="*")
+        # edge_zone_id_list = meshing.meshing_utilities.get_edge_zones(filter="*")
+        # for id in edge_zone_id_list:
+        #     print(f"[INFO] Edge zone {id} type: {meshing.meshing_utilities.get_zone_type(zone_id=id)}")
+        # for id in face_zone_id_list:
+        #     print(f"[INFO] Face zone {id} type: {meshing.meshing_utilities.get_zone_type(zone_id=id)}")
+        # for id in cell_zone_id_list:
+        #     print(f"[INFO] Cell zone {id} type: {meshing.meshing_utilities.get_zone_type(zone_id=id)}")
+
         generate_surface_mesh_2d(meshing)
         export_fluent_2d_mesh(meshing, mesh_path=mesh_path)
     finally:
@@ -442,12 +488,12 @@ def set_models_and_materials(solver) -> None:
     except Exception as e:
         log(f"[WARN] Could not set laminar model explicitly: {e}")
     
-    try:
-        flow_scheme = solver.settings.solution.methods.p_v_coupling.flow_scheme
-        flow_scheme.set_state("SIMPLE")
-        log("[INFO] Set flow scheme = SIMPLE")
-    except Exception as e:
-        log(f"[WARN] Could not set flow scheme explicitly: {e}")
+    # try:
+    #     flow_scheme = solver.settings.solution.methods.p_v_coupling.flow_scheme
+    #     flow_scheme.set_state("SIMPLE")
+    #     log("[INFO] Set flow scheme = SIMPLE")
+    # except Exception as e:
+    #     log(f"[WARN] Could not set flow scheme explicitly: {e}")
 
     try:
         fluid_zones = list(solver.settings.setup.cell_zone_conditions.fluid.keys())
@@ -863,6 +909,24 @@ def report_area_weighted_velocity(solver, zone_name: str | list[str], out_txt: P
         quantity_label="velocity",
     )
 
+def report_area_weighted_x_velocity(solver, zone_name: str | list[str], out_txt: Path) -> float:
+    return report_area_weighted_quantity(
+        solver=solver,
+        zone_name=zone_name,
+        out_txt=out_txt,
+        report_candidates=["x-velocity"],
+        quantity_label="x-velocity",
+    )
+
+def report_area_weighted_y_velocity(solver, zone_name: str | list[str], out_txt: Path) -> float:
+    return report_area_weighted_quantity(
+        solver=solver,
+        zone_name=zone_name,
+        out_txt=out_txt,
+        report_candidates=["y-velocity"],
+        quantity_label="y-velocity",
+    )
+    
 def write_residual_csv_from_monitor(solver, out_csv: Path):
     ensure_dir(out_csv.parent)
 
@@ -885,7 +949,7 @@ def write_individual_residual_csvs(solver, out_dir: Path):
     ensure_dir(out_dir)
 
     try:
-        history = solver.monitor.get_monitor_set_data("residual")
+        history = solver.monitors.get_monitor_set_data("residual")
     except Exception as e:
         log(f"[WARN] Could not access residual monitor history: {e}")
         return
@@ -1004,6 +1068,10 @@ def solve_2d_mesh(
         pout_txt = out_dir / "pout.txt"
         vin_txt = out_dir / "vin.txt"
         vout_txt = out_dir / "vout.txt"
+        vout_x_txt = out_dir / "vout_x.txt"
+        vout_y_txt = out_dir / "vout_y.txt"
+        vin_x_txt = out_dir / "vin_x.txt"
+        vin_y_txt = out_dir / "vin_y.txt"
         case_data_path = out_dir / "case2d.cas.h5"
 
         pin = report_area_weighted_pressure(solver, boundary_map["inlet_zones"], pin_txt)
@@ -1011,12 +1079,16 @@ def solve_2d_mesh(
         dp = pin - pout
 
         vin = report_area_weighted_velocity(solver, boundary_map["inlet_zones"], vin_txt)
+        vin_x = report_area_weighted_x_velocity(solver, boundary_map["inlet_zones"], vin_x_txt)
+        vin_y = report_area_weighted_y_velocity(solver, boundary_map["inlet_zones"], vin_y_txt)
         vout = report_area_weighted_velocity(solver, boundary_map["outlet_zones"], vout_txt)
+        vout_x = report_area_weighted_x_velocity(solver, boundary_map["outlet_zones"], vout_x_txt)
+        vout_y = report_area_weighted_y_velocity(solver, boundary_map["outlet_zones"], vout_y_txt)
 
         physics_checks = compute_physics_checks(
             uin_mps=uin_mps,
-            vin_mps=vin,
-            vout_mps=vout,
+            vin_mps=vin_x,
+            vout_mps=vout_x,
             pin_pa=pin,
             pout_pa=pout,
             inlet_height_m=inlet_height_m,
@@ -1041,6 +1113,8 @@ def solve_2d_mesh(
                 "txt_files": {
                     "pressure": str(pin_txt),
                     "velocity": str(vin_txt),
+                    "x-velocity": str(vin_x_txt),
+                    "y-velocity": str(vin_y_txt),
                 },
             },
             "outlet": {
@@ -1049,6 +1123,8 @@ def solve_2d_mesh(
                 "txt_files": {
                     "pressure": str(pout_txt),
                     "velocity": str(vout_txt),
+                    "x-velocity": str(vout_x_txt),
+                    "y-velocity": str(vout_y_txt),
                 },
             },
             "derived": {
@@ -1089,7 +1165,11 @@ def solve_2d_mesh(
             "wall_bottom_name": boundary_map["wall_bottom"],
             "wall_top_name": boundary_map["wall_top"],
             "vin_mps": vin,
+            "vin_x_mps": vin_x,
+            "vin_y_mps": vin_y,
             "vout_mps": vout,
+            "vout_x_mps": vout_x,
+            "vout_y_mps": vout_y,
             "vin_txt": str(vin_txt),
             "vout_txt": str(vout_txt),
             "reynolds_number": physics_checks.get("reynolds_number", ""),
@@ -1144,6 +1224,15 @@ def run_case_2d(
     summary_json = out_dir / "run_summary.json"
 
     started = time.time()
+    
+    boundary_layers = [
+        {
+            "name": "inflation",
+            "n_layers": 5,
+            "growth_rate": 1.2,
+            "offset_method": "smooth-transition",
+        }
+    ]
 
     mesh_2d_from_step(
         step_path=step_path,
@@ -1151,6 +1240,7 @@ def run_case_2d(
         nprocs=nprocs,
         max_size_mm=global_max_size_mm,
         min_size_mm=global_min_size_mm,
+        boundary_layers=boundary_layers,
     )
 
     solve_result = solve_2d_mesh(
@@ -1352,8 +1442,8 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--total-cores", type=int, default=72, help="Total CPU cores available on the machine. Used to choose how many cases to run in parallel.")
     p.add_argument("--max-parallel-cases", type=int, default=None, help="Optional hard cap on number of concurrent Fluent jobs.")
     p.add_argument("--niter", type=int, default=DEFAULT_NITER)
-    p.add_argument("--max-size-mm", type=float, default=0.005, help="Maximum global mesh element size in mm. Smaller values produce finer meshes (more elements). Default: 0.5 mm.")
-    p.add_argument("--min-size-mm", type=float, default=0.001, help="Minimum mesh element size in mm used for curvature/feature refinement. Must be smaller than --max-size-mm. Default: 0.1 mm.")
+    p.add_argument("--max-size-mm", type=float, default=0.2, help="Maximum global mesh element size in mm. Smaller values produce finer meshes (more elements). Default: 0.2 mm.")
+    p.add_argument("--min-size-mm", type=float, default=0.02, help="Minimum mesh element size in mm used for curvature/feature refinement. Must be smaller than --max-size-mm. Default: 0.02 mm.")
 
     return p
 

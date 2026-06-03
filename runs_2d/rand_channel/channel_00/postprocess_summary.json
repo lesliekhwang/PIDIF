@@ -19,32 +19,36 @@
     ]
   },
   "inlet": {
-    "pressure_pa": 3.138466,
-    "velocity_mps": 0.11752151,
+    "pressure_pa": 0.014550076,
+    "velocity_mps": 0.099999998,
     "txt_files": {
       "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/pin.txt",
-      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vin.txt"
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vin.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vin_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vin_y.txt"
     }
   },
   "outlet": {
-    "pressure_pa": 0.0,
-    "velocity_mps": 0.17054593,
+    "pressure_pa": -1.5639609e-05,
+    "velocity_mps": 0.071321642,
     "txt_files": {
       "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/pout.txt",
-      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vout.txt"
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vout.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vout_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel/channel_00/vout_y.txt"
     }
   },
   "derived": {
-    "dp_pa": 3.138466
+    "dp_pa": 0.014565715609
   },
   "physics_checks": {
-    "dp_pa": 3.138466,
+    "dp_pa": 0.014565715609,
     "dp_positive": true,
-    "mass_flux_in_per_depth_m2ps": 3.260784571878976e-05,
-    "mass_flux_out_per_depth_m2ps": 3.274704263147853e-05,
-    "mass_conservation_rel_error": 0.004268816587553984,
+    "mass_flux_in_per_depth_m2ps": 0.012674364182699176,
+    "mass_flux_out_per_depth_m2ps": 0.01267220020202751,
+    "mass_conservation_rel_error": 0.00017073682280794488,
     "mass_conserved": true,
-    "reynolds_number": 4.4645815363269765,
+    "reynolds_number": 1735.3410219969257,
     "flow_regime": "laminar",
     "laminar_assumption_valid": true,
     "physics_ok": true

@@ -384,6 +384,7 @@ def boundary_loss(
     model: nn.Module,
     branch: torch.Tensor,
     branch_channel_names: Sequence[str],
+    output_channel_names: Sequence[str],
     known_masked: bool = True,
 ) -> torch.Tensor:
     """
@@ -401,22 +402,19 @@ def boundary_loss(
     x_ch = names.index("x_local")
     y_ch = names.index("y_local")
     value_ch = [
-        names.index("boundary_pressure"),
-        names.index("boundary_temperature"),
-        names.index("boundary_u"),
-        names.index("boundary_v"),
+        names.index(f"boundary_{f}") for f in output_channel_names
+    ]
+    known_names = [
+        f"known_{f}" for f in output_channel_names
     ]
 
     query_bc = branch[..., [x_ch, y_ch]]
     target_bc = branch[..., value_ch]
     pred_bc = model(branch, query_bc)
 
-    if known_masked and all(k in names for k in ["known_pressure", "known_temperature", "known_u", "known_v"]):
+    if known_masked and all(k in names for k in known_names):
         known_ch = [
-            names.index("known_pressure"),
-            names.index("known_temperature"),
-            names.index("known_u"),
-            names.index("known_v"),
+            names.index(f"known_{f}") for f in output_channel_names
         ]
         known = branch[..., known_ch]
         denom = known.sum().clamp_min(1.0)
@@ -433,6 +431,7 @@ def train_deeponet_one_epoch(
     loss_type: str = "mse",
     lambda_bc: float = 0.0,
     branch_channel_names: Optional[Sequence[str]] = None,
+    output_channel_names: Optional[Sequence[str]] = None,
 ) -> tuple[float, float]:
     """Train for one epoch and return average loss."""
     model.train()
@@ -461,11 +460,12 @@ def train_deeponet_one_epoch(
         loss = field_loss
         if lambda_bc > 0.0:
             if branch_channel_names is None:
-                raise ValueError("branch_channel_names is required when lambda_bc > 0")
+                raise ValueError("branch_channel_names is required when boundary loss is active")
             bc_loss = float(lambda_bc) * boundary_loss(
                 model=model,
                 branch=branch,
                 branch_channel_names=branch_channel_names,
+                output_channel_names=output_channel_names,
             )
             total_bc_loss += float(bc_loss.item()) * bs
             loss = loss + bc_loss

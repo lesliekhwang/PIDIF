@@ -1,0 +1,63 @@
+{
+  "case": "channel_23",
+  "boundaries": {
+    "inlet": "open_cascade_step_translator_7.5",
+    "outlet": "open_cascade_step_translator_7.3",
+    "wall_top": "open_cascade_step_translator_7.4",
+    "wall_bottom": "open_cascade_step_translator_7.2",
+    "inlet_zones": [
+      "open_cascade_step_translator_7.5"
+    ],
+    "outlet_zones": [
+      "open_cascade_step_translator_7.3"
+    ],
+    "wall_top_zones": [
+      "open_cascade_step_translator_7.4"
+    ],
+    "wall_bottom_zones": [
+      "open_cascade_step_translator_7.2"
+    ]
+  },
+  "inlet": {
+    "pressure_pa": 0.0061763105,
+    "velocity_mps": 0.1,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/pin.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/vin.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/vin_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/vin_y.txt"
+    }
+  },
+  "outlet": {
+    "pressure_pa": 0.0,
+    "velocity_mps": 0.11888464,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/pout.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/vout.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/vout_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/vout_y.txt"
+    }
+  },
+  "derived": {
+    "dp_pa": 0.0061763105
+  },
+  "physics_checks": {
+    "dp_pa": 0.0061763105,
+    "dp_positive": true,
+    "mass_flux_in_per_depth_m2ps": 0.01507643546764055,
+    "mass_flux_out_per_depth_m2ps": 0.015089125167246715,
+    "mass_conservation_rel_error": 0.00084169097087976,
+    "mass_conserved": true,
+    "reynolds_number": 2064.2263829059657,
+    "flow_regime": "laminar",
+    "laminar_assumption_valid": true,
+    "physics_ok": true
+  },
+  "residual_files": {
+    "combined_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/residuals.csv",
+    "plot_png": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/residuals.png",
+    "pressure_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/pressure.csv",
+    "x_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/x-velocity.csv",
+    "y_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_23/y-velocity.csv"
+  }
+}

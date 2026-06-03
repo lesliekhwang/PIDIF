@@ -3,4 +3,4 @@
            Area-Weighted Average
                  Static Pressure                 [Pa]
 -------------------------------- --------------------
-open_cascade_step_translator_7.5            11.546059
+open_cascade_step_translator_7.5         0.0092524943
