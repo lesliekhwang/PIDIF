@@ -16,10 +16,10 @@ channel walls are reconstructed from ``metadata.x_points_mm`` and
     y_top(x_points)    =  L_mm + deltas
 
 i.e. the channel is symmetric about ``y = L_mm / 2`` and varies along ``x``.
-When a design config is supplied, every subdomain is normalized between its
-local bottom/top walls, so the curved channel maps to a unit square in
-``(x_local, y_local)``.  When no config is supplied the module falls back to a
-flat rectangular channel defined by the mesh bounding box (legacy behavior).
+When a design config is supplied, subdomain coordinates use ``x_local`` in
+``[0, 1]`` across the subdomain width and ``y_local = y / reference_length``.
+When no config is supplied the module falls back to a flat rectangular channel
+defined by the mesh bounding box (legacy behavior).
 
 Branch representation
 ---------------------
@@ -523,8 +523,9 @@ def build_fluent_deeponet_dataset(
     Each ``case_files[case_id]`` entry may contain a ``"design"`` (or
     ``"config"``) key pointing to the channel design-config JSON.  When present,
     the channel walls are reconstructed from ``metadata.x_points_mm`` /
-    ``metadata.deltas_mm`` and every subdomain is normalized between its local
-    bottom/top walls.  When absent, the legacy flat-rectangle behavior (mesh
+    ``metadata.deltas_mm`` and subdomain coordinates use ``x_local`` in
+    ``[0, 1]`` and ``y_local = y / reference_length``.  When absent, the legacy
+    flat-rectangle behavior (mesh
     bounding box) is used.
 
     Parameters
@@ -763,18 +764,12 @@ def build_fluent_deeponet_dataset(
 
                 # Subdomain-local frame: x is normalized to [0, 1] across the
                 # subdomain width (its physical extent is encoded by the
-                # local_aspect_ratio = width / reference_length feature), while y
-                # is scaled by the reference length about the channel centerline.
-                # Scaling y by a fixed reference length (instead of the local
-                # gap) keeps the scale uniform across samples and preserves the
-                # true (polyline) wall shape in local coordinates.
+                # local_aspect_ratio = width / reference_length feature), while
+                # y_local = y / reference_length.
                 xc = 0.5 * (x0 + x1)
-                y_center = 0.5 * (float(y_bottom_fn(xc)) + float(y_top_fn(xc)))
+                y_center = round(0.5 * (float(y_bottom_fn(xc)) + float(y_top_fn(xc))), 6)
 
-                if s == n_sub_eff - 1:
-                    cell_mask = (x >= x0) & (x <= x1)
-                else:
-                    cell_mask = (x >= x0) & (x < x1)
+                cell_mask = (x >= x0) & (x <= x1)
                 if not np.any(cell_mask):
                     raise ValueError(f"No cell centers in case {case_id}, subdomain={s}.")
 
@@ -785,7 +780,7 @@ def build_fluent_deeponet_dataset(
                 query = np.column_stack(
                     [
                         ((x_cell - x0) * inv_width).astype(np.float32),
-                        ((y_cell - y_center) * inv_ref).astype(np.float32),
+                        (y_cell * inv_ref).astype(np.float32),
                     ]
                 ).astype(np.float32, copy=False)
 
@@ -797,7 +792,7 @@ def build_fluent_deeponet_dataset(
                 y_left_phys = yb_left + y_interface_frac * (yt_left - yb_left)
                 x_left_phys = np.full(n_interface_points, x0, dtype=np.float64)
                 x_left_local = np.zeros(n_interface_points, dtype=np.float32)
-                y_left_local = ((y_left_phys - y_center) * inv_ref).astype(np.float32)
+                y_left_local = (y_left_phys * inv_ref).astype(np.float32)
                 if s == 0:
                     vals, known = make_rect_channel_bc_values("inlet", n_interface_points, output_fields, **case_bc_kwargs)
                 else:
@@ -821,7 +816,7 @@ def build_fluent_deeponet_dataset(
                 y_right_phys = yb_right + y_interface_frac * (yt_right - yb_right)
                 x_right_phys = np.full(n_interface_points, x1, dtype=np.float64)
                 x_right_local = np.ones(n_interface_points, dtype=np.float32)
-                y_right_local = ((y_right_phys - y_center) * inv_ref).astype(np.float32)
+                y_right_local = (y_right_phys * inv_ref).astype(np.float32)
                 if s == n_sub_eff - 1:
                     vals, known = make_rect_channel_bc_values("outlet", n_interface_points, output_fields, **case_bc_kwargs)
                 else:
@@ -845,7 +840,7 @@ def build_fluent_deeponet_dataset(
                 x_wall_local = x_wall_frac.astype(np.float32)
 
                 yb_wall_phys = np.asarray(y_bottom_fn(x_wall_phys), dtype=np.float64)
-                y_bottom_local = ((yb_wall_phys - y_center) * inv_ref).astype(np.float32)
+                y_bottom_local = (yb_wall_phys * inv_ref).astype(np.float32)
                 vals, known = make_rect_channel_bc_values("bottom", n_boundary_points, output_fields, **case_bc_kwargs)
                 branch_parts.append(
                     _stack_cell_branch_features(
@@ -860,7 +855,7 @@ def build_fluent_deeponet_dataset(
                 )
 
                 yt_wall_phys = np.asarray(y_top_fn(x_wall_phys), dtype=np.float64)
-                y_top_local = ((yt_wall_phys - y_center) * inv_ref).astype(np.float32)
+                y_top_local = (yt_wall_phys * inv_ref).astype(np.float32)
                 vals, known = make_rect_channel_bc_values("top", n_boundary_points, output_fields, **case_bc_kwargs)
                 branch_parts.append(
                     _stack_cell_branch_features(

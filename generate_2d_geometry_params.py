@@ -23,14 +23,14 @@ SEED = 42
 rng = np.random.default_rng(SEED)
 
 # square side length
-L = 15  # mm
+L = 0.1  # mm
 MIN_SUBDOMAIN_WIDTH = 0.2 * L
 
 # number of designs
 N_CASES = 100
 
 # trapezoid offsets
-DELTA = L * 0.2
+DELTA = L * 0.05
 
 # inlet velocity
 UIN = 0.1 # m/s

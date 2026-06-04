@@ -18,15 +18,13 @@ def local_query_to_physical(query_local, metadata):
     """
     query_local = np.asarray(query_local, dtype=np.float32)
 
-    # x_local is normalized to [0, 1] across the subdomain width; y_local is
-    # scaled by the reference length about the channel centerline.
+    # x_local is normalized to [0, 1] across the subdomain width; y_local = y / reference_length.
     x_left = float(metadata["x_left_mm"])
     x_right = float(metadata["x_right_mm"])
-    y_center = float(metadata["y_center_mm"])
     ref_length = float(metadata["reference_length"])
 
     x_phys = x_left + query_local[:, 0] * (x_right - x_left)
-    y_phys = y_center + query_local[:, 1] * ref_length
+    y_phys = query_local[:, 1] * ref_length
 
     return x_phys, y_phys
 

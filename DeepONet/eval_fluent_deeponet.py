@@ -187,9 +187,8 @@ def infer_edge_layout(branch_template: Array, branch_channel_names: Sequence[str
     wall = branch[:, wall_ch]
     interface = branch[:, interface_ch]
 
-    # Local coordinates are no longer pinned to a unit square: interfaces are
-    # the vertical sides (min/max x) and the walls are the bottom/top polylines
-    # (sign of y relative to the channel centerline at y_local = 0).
+    # Interfaces are the vertical sides (min/max x); walls are bottom/top
+    # polylines (smaller vs larger y_local, since y_local = y / reference_length).
     interface_pts = interface > 0.5
     wall_pts = wall > 0.5
     x_left_val = float(np.min(x[interface_pts])) if np.any(interface_pts) else 0.0
@@ -197,8 +196,10 @@ def infer_edge_layout(branch_template: Array, branch_channel_names: Sequence[str
 
     left = np.flatnonzero((np.abs(x - x_left_val) <= tol) & interface_pts)
     right = np.flatnonzero((np.abs(x - x_right_val) <= tol) & interface_pts)
-    bottom = np.flatnonzero((y < 0.0) & wall_pts)
-    top = np.flatnonzero((y > 0.0) & wall_pts)
+    y_wall = y[wall_pts]
+    y_split = float(np.median(y_wall)) if y_wall.size else 0.0
+    bottom = np.flatnonzero(wall_pts & (y <= y_split))
+    top = np.flatnonzero(wall_pts & (y > y_split))
 
     left = left[np.argsort(y[left], kind="stable")]
     right = right[np.argsort(y[right], kind="stable")]
