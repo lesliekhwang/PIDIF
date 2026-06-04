@@ -762,13 +762,6 @@ def build_fluent_deeponet_dataset(
                 inv_ref = 1.0 / ref_length
                 inv_width = 1.0 / max(width, 1.0e-12)
 
-                # Subdomain-local frame: x is normalized to [0, 1] across the
-                # subdomain width (its physical extent is encoded by the
-                # local_aspect_ratio = width / reference_length feature), while
-                # y_local = y / reference_length.
-                xc = 0.5 * (x0 + x1)
-                y_center = round(0.5 * (float(y_bottom_fn(xc)) + float(y_top_fn(xc))), 6)
-
                 cell_mask = (x >= x0) & (x <= x1)
                 if not np.any(cell_mask):
                     raise ValueError(f"No cell centers in case {case_id}, subdomain={s}.")
@@ -879,13 +872,11 @@ def build_fluent_deeponet_dataset(
                         "realization_id": int(realization_id),
                         "x_left_mm": float(x0),
                         "x_right_mm": float(x1),
-                        "y_center_mm": float(y_center),
                         "y_bottom_left_mm": float(yb_left),
                         "y_top_left_mm": float(yt_left),
                         "y_bottom_right_mm": float(yb_right),
                         "y_top_right_mm": float(yt_right),
                         "reference_length_mm": float(ref_length_mm),
-                        "reference_length": float(ref_length),
                         "local_aspect_ratio": float(local_aspect),
                         "n_cells": int(query.shape[0]),
                     }

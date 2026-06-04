@@ -1356,7 +1356,7 @@ def batch_run_from_csv(
     for row in rows:
         case = row["case"]
         out_dir = runs_root / case
-        if out_dir.isdir() and (out_dir / "run_summary.json").exists():
+        if out_dir.is_dir() and (out_dir / "run_summary.json").exists():
             log(f"[INFO] case={case} exists")
             continue
         try:
