@@ -21,7 +21,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # ============================================================
 
 DEFAULT_NPROCS = 10
-DEFAULT_NITER = 1000
+DEFAULT_NITER = 5000
 DEFAULT_PRECISION = "double"
 DEFAULT_UI_MODE = "hidden_gui"
 
@@ -34,7 +34,7 @@ MASS_CONSERVATION_REL_TOL = 0.02   # 2% mismatch between inlet/outlet flux
 REYNOLDS_LAMINAR_LIMIT = 2300.0    # below this the laminar model is appropriate
 
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "rand_channel_smooth"
+DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "rand_channel_small"
 
 
 # ============================================================
@@ -487,13 +487,6 @@ def set_models_and_materials(solver) -> None:
         log("[INFO] Set viscous model = laminar")
     except Exception as e:
         log(f"[WARN] Could not set laminar model explicitly: {e}")
-    
-    # try:
-    #     flow_scheme = solver.settings.solution.methods.p_v_coupling.flow_scheme
-    #     flow_scheme.set_state("SIMPLE")
-    #     log("[INFO] Set flow scheme = SIMPLE")
-    # except Exception as e:
-    #     log(f"[WARN] Could not set flow scheme explicitly: {e}")
 
     try:
         fluid_zones = list(solver.settings.setup.cell_zone_conditions.fluid.keys())
@@ -820,6 +813,7 @@ def set_wall_temperature(solver, wall_name: str, temp_K: float = 350.0) -> None:
 
 def initialize_solution(solver, inlet_zone_name: str) -> None:
     try:
+        solver.settings.solution.initialization.hybrid_init_options.general_settings.iter_count = 20
         solver.tui.solve.initialize.hyb_initialization()
         log("[INFO] Hybrid initialization completed")
         inlet_vel = solver.tui.report.surface_integrals.area_weighted_average(
@@ -833,6 +827,7 @@ def initialize_solution(solver, inlet_zone_name: str) -> None:
 
 
 def iterate_solver(solver, n_iter: int) -> None:
+    solver.settings.solution.run_calculation.pseudo_time_settings.time_step_method.time_step_size_scale_factor = 0.1
     solver.tui.solve.iterate(int(n_iter))
     log(f"[INFO] Solver iterated for {n_iter} steps")
 
@@ -1234,14 +1229,17 @@ def run_case_2d(
         }
     ]
 
-    mesh_2d_from_step(
-        step_path=step_path,
-        mesh_path=mesh_path,
-        nprocs=nprocs,
-        max_size_mm=global_max_size_mm,
-        min_size_mm=global_min_size_mm,
-        boundary_layers=boundary_layers,
-    )
+    if not mesh_path.exists():
+        mesh_2d_from_step(
+            step_path=step_path,
+            mesh_path=mesh_path,
+            nprocs=nprocs,
+            max_size_mm=global_max_size_mm,
+            min_size_mm=global_min_size_mm,
+            boundary_layers=boundary_layers,
+        )
+    else:
+        log(f"[INFO] Mesh already exists: {mesh_path}")
 
     solve_result = solve_2d_mesh(
         mesh_path=mesh_path,
@@ -1355,36 +1353,33 @@ def batch_run_from_csv(
 
     results: list[dict[str, Any]] = []
 
-    with ProcessPoolExecutor(max_workers=max_workers) as ex:
-        future_map = {
-            ex.submit(
-                _run_one_case_from_row,
+    for row in rows:
+        case = row["case"]
+        out_dir = runs_root / case
+        if out_dir.isdir() and (out_dir / "run_summary.json").exists():
+            log(f"[INFO] case={case} exists")
+            continue
+        try:
+            res = _run_one_case_from_row(
                 row,
                 str(runs_root),
                 nprocs,
                 n_iter,
                 global_max_size_mm,
                 global_min_size_mm,
-            ): row["case"]
-            for row in rows
-        }
-
-        for fut in as_completed(future_map):
-            case = future_map[fut]
-            try:
-                res = fut.result()
-                results.append(res)
-                if str(res.get("status", "")).startswith("failed:"):
-                    log(f"[FAIL] case={case} reason={res['status']}")
-                else:
-                    log(f"[DONE] case={case} dp={res.get('dp_pa', '')}")
-            except Exception as e:
-                fail = {
-                    "case": case,
-                    "status": f"failed: {e}",
-                }
-                results.append(fail)
-                log(f"[FAIL] case={case} reason={e}")
+            )
+            results.append(res)
+            if str(res.get("status", "")).startswith("failed:"):
+                log(f"[FAIL] case={case} reason={res['status']}")
+            else:
+                log(f"[DONE] case={case} dp={res.get('dp_pa', '')}")
+        except Exception as e:
+            fail = {
+                "case": case,
+                "status": f"failed: {e}",
+            }
+            results.append(fail)
+            log(f"[FAIL] case={case} reason={e}")
 
     results.sort(key=lambda r: r.get("case", ""))
 

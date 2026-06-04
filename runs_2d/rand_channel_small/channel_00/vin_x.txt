@@ -1,0 +1,31 @@
+                         "Surface Integral Report"
+
+           Area-Weighted Average
+                      X Velocity                [m/s]
+-------------------------------- --------------------
+open_cascade_step_translator_7.5                  0.1
+
+           Area-Weighted Average
+                      X Velocity                [m/s]
+-------------------------------- --------------------
+open_cascade_step_translator_7.5                  0.1
+
+           Area-Weighted Average
+                      X Velocity                [m/s]
+-------------------------------- --------------------
+open_cascade_step_translator_7.5                  0.1
+
+           Area-Weighted Average
+                      X Velocity                [m/s]
+-------------------------------- --------------------
+open_cascade_step_translator_7.5                  0.1
+
+           Area-Weighted Average
+                      X Velocity                [m/s]
+-------------------------------- --------------------
+open_cascade_step_translator_7.5                  0.1
+
+           Area-Weighted Average
+                      X Velocity                [m/s]
+-------------------------------- --------------------
+open_cascade_step_translator_7.5                  0.1
