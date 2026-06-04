@@ -1,0 +1,6 @@
+                         "Surface Integral Report"
+
+           Area-Weighted Average
+                 Static Pressure                 [Pa]
+-------------------------------- --------------------
+open_cascade_step_translator_7.3       -4.5516478e-09
