@@ -13,9 +13,9 @@ import numpy as np
 AR = 10
 
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-OUT_DIR = BASE_DIR / "2d_geometry_specs" / "rand_channel_smooth"
+OUT_DIR = BASE_DIR / "2d_geometry_specs" / "rand_channel_small"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-STEP_DIR = BASE_DIR / "2d_geometry_step" / "rand_channel_smooth"
+STEP_DIR = BASE_DIR / "2d_geometry_step" / "rand_channel_small"
 CSV_PATH = OUT_DIR / "designs.csv"
 
 # reproducibility
@@ -23,14 +23,14 @@ SEED = 42
 rng = np.random.default_rng(SEED)
 
 # square side length
-L = 150  # mm
+L = 15  # mm
 MIN_SUBDOMAIN_WIDTH = 0.2 * L
 
 # number of designs
 N_CASES = 100
 
 # trapezoid offsets
-DELTA = L * 0.1
+DELTA = L * 0.2
 
 # inlet velocity
 UIN = 0.1 # m/s
