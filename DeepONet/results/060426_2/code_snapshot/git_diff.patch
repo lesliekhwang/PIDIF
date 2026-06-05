@@ -1,0 +1,28 @@
+diff --git a/DeepONet/train_deeponet.ipynb b/DeepONet/train_deeponet.ipynb
+index 3b4a7a1..1b3decf 100644
+--- a/DeepONet/train_deeponet.ipynb
++++ b/DeepONet/train_deeponet.ipynb
+@@ -74,12 +74,12 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 2,
++      "execution_count": null,
+       "id": "584f6752",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+-        "comment = \"Large smooth channels random interface placement\""
++        "comment = \"Large smooth channels random interface placement, removed bad samples\""
+       ]
+     },
+     {
+@@ -231,7 +231,7 @@
+         "INTERFACE_PLACEMENT = \"random\"\n",
+         "INTERFACE_JITTER = 0.0\n",
+         "MIN_SUBDOMAIN_WIDTH = 0.01\n",
+-        "N_REALIZATIONS_TRAIN = 5 \n",
++        "N_REALIZATIONS_TRAIN = 10 \n",
+         "\n",
+         "N_QUERY_TRAIN = None\n",
+         "N_QUERY_VALID = None\n",
