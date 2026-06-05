@@ -21,20 +21,22 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # ============================================================
 
 DEFAULT_NPROCS = 10
-DEFAULT_NITER = 5000
+DEFAULT_NITER = 2000
 DEFAULT_PRECISION = "double"
 DEFAULT_UI_MODE = "hidden_gui"
 
-# Fluent default air material properties (used for physics sanity checks).
+# Fluent default material properties (used for physics sanity checks).
 AIR_DENSITY = 1.225          # kg/m^3
-AIR_VISCOSITY = 1.7894e-5    # Pa*s
+AIR_VISCOSITY = 1.7894e-5    # kg/(m s)
+WATER_DENSITY = 998.2        # kg/m^3
+WATER_VISCOSITY = 1.003E-3   # kg/(m s)
 
 # Physics-check thresholds.
 MASS_CONSERVATION_REL_TOL = 0.02   # 2% mismatch between inlet/outlet flux
 REYNOLDS_LAMINAR_LIMIT = 2300.0    # below this the laminar model is appropriate
 
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "rand_channel_small"
+DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "channel_water"
 
 
 # ============================================================
@@ -494,8 +496,8 @@ def set_models_and_materials(solver) -> None:
 
         if fluid_zones:
             fluid_zone = fluid_zones[0]
-            solver.settings.setup.cell_zone_conditions.fluid[fluid_zone].general.material = "air"
-            log(f"[INFO] Assigned material 'air' to fluid zone '{fluid_zone}'")
+            solver.settings.setup.cell_zone_conditions.fluid[fluid_zone].general.material = "water-liquid"
+            log(f"[INFO] Assigned material 'water' to fluid zone '{fluid_zone}'")
     except Exception as e:
         log(f"[WARN] Could not inspect/assign fluid cell zone material: {e}")
 

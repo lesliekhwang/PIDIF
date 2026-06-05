@@ -13,13 +13,13 @@ import numpy as np
 AR = 10
 
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-OUT_DIR = BASE_DIR / "2d_geometry_specs" / "rand_channel_small"
+OUT_DIR = BASE_DIR / "2d_geometry_specs" / "channel_water"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-STEP_DIR = BASE_DIR / "2d_geometry_step" / "rand_channel_small"
+STEP_DIR = BASE_DIR / "2d_geometry_step" / "channel_water"
 CSV_PATH = OUT_DIR / "designs.csv"
 
 # reproducibility
-SEED = 42
+SEED = 64
 rng = np.random.default_rng(SEED)
 
 # square side length
@@ -27,13 +27,14 @@ L = 0.1  # mm
 MIN_SUBDOMAIN_WIDTH = 0.2 * L
 
 # number of designs
+START_CASE = 0
 N_CASES = 100
 
 # trapezoid offsets
 DELTA = L * 0.05
 
 # inlet velocity
-UIN = 0.1 # m/s
+UIN = 1.0 # m/s
 
 
 def make_case_name(i: int) -> str:
@@ -102,7 +103,7 @@ def polygon_signed_area(poly):
 def make_piecewise_trapezoid_walls(l: float, x_points, deltas):
     """
     Build a long channel from connected trapezoids.
-    At each x_i:
+    At each x_i except for inlet and outlet:
       bottom y = -delta_i
       top y    = L + delta_i
     so local height is:
@@ -219,12 +220,13 @@ def write_geometry_spec(
 def main():
     rows = []
 
-    for i in range(N_CASES):
+    for i in range(START_CASE, N_CASES+START_CASE):
         case = make_case_name(i)
 
         ar = AR
         x_points = sample_x_breakpoints(l=L, ar=ar, min_width=MIN_SUBDOMAIN_WIDTH, rng_obj=rng)
-        deltas = [float(d) for d in rng.uniform(-DELTA, DELTA, size=ar + 1)]
+        deltas = [float(d) for d in rng.uniform(-DELTA, DELTA, size=ar - 1)]
+        deltas = [0.0] + deltas + [0.0]
         channel_length = float(L * ar)
         uin = UIN
 
