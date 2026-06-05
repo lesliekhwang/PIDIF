@@ -5,7 +5,7 @@
   "step_path": "/home/hantianl/Documents/PIDIF/2d_geometry_step/rand_channel_smooth/channel_24.step",
   "uin_mps": 0.1,
   "inlet_profile_points": 0,
-  "elapsed_sec": 224.2881395816803,
+  "elapsed_sec": 333.8654384613037,
   "mesh_path": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_24/channel_24.msh.h5",
   "case_data_path": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_24/case2d.cas.h5",
   "pin_txt": "/home/hantianl/Documents/PIDIF/runs_2d/rand_channel_smooth/channel_24/pin.txt",

@@ -1,10 +1,20 @@
 import os
-import numpy as np
+from pathlib import Path
+from typing import List, Optional, Sequence, Tuple, Union
+
+import h5py
 import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
+import numpy as np
 import torch
+from matplotlib.collections import LineCollection
+from matplotlib.path import Path as MplPath
 from scipy.interpolate import griddata
+
 from deeponet_fluent_dataset import DeepONetCellDataset
 from fluent_deeponet import predict_cell_sample
+
+PathLike = Union[str, Path]
 
 def local_query_to_physical(query_local, metadata):
     """
@@ -21,12 +31,195 @@ def local_query_to_physical(query_local, metadata):
     # x_local is normalized to [0, 1] across the subdomain width; y_local = y / reference_length.
     x_left = float(metadata["x_left_mm"])
     x_right = float(metadata["x_right_mm"])
-    ref_length = float(metadata["reference_length"])
+    ref_length = float(metadata["reference_length_mm"])
 
     x_phys = x_left + query_local[:, 0] * (x_right - x_left)
     y_phys = query_local[:, 1] * ref_length
 
     return x_phys, y_phys
+
+
+def _zone_keys(h5: h5py.File) -> List[str]:
+    return sorted(h5["meshes/1/faces/nodes"].keys(), key=lambda s: int(s))
+
+
+def _read_zone_face_nodes(h5: h5py.File, zone_key: str) -> List[np.ndarray]:
+    base = f"meshes/1/faces/nodes/{zone_key}"
+    nnodes = h5[f"{base}/nnodes"][:]
+    nodes_flat = h5[f"{base}/nodes"][:] - 1  # Fluent node ids are 1-based
+
+    faces: List[np.ndarray] = []
+    offset = 0
+    for n in nnodes:
+        faces.append(nodes_flat[offset : offset + int(n)])
+        offset += int(n)
+    return faces
+
+
+def _order_cell_nodes(edges: List[Tuple[int, int]]) -> Optional[List[int]]:
+    """Order a 2D cell's nodes into a closed polygon loop from its boundary edges."""
+    if not edges:
+        return None
+
+    adjacency: dict[int, List[int]] = {}
+    for a, b in edges:
+        adjacency.setdefault(a, []).append(b)
+        adjacency.setdefault(b, []).append(a)
+
+    if any(len(neighbors) != 2 for neighbors in adjacency.values()):
+        return None
+
+    start = next(iter(adjacency))
+    ordered = [start]
+    prev, current = None, start
+    while True:
+        n0, n1 = adjacency[current]
+        nxt = n0 if n0 != prev else n1
+        if nxt == start:
+            break
+        ordered.append(nxt)
+        prev, current = current, nxt
+        if len(ordered) > len(adjacency):
+            return None
+
+    return ordered if len(ordered) == len(adjacency) else None
+
+
+def reconstruct_triangles_and_boundary_edges(mesh_h5: PathLike):
+    """Return coords, triangles, tri_to_cell, boundary edges from a Fluent HDF5 mesh."""
+    with h5py.File(mesh_h5, "r") as h5:
+        coords = h5["meshes/1/nodes/coords/1"][:]
+        n_cells = int(h5["meshes/1/cells/zoneTopology/maxId"][:].max())
+        cell_edges: List[List[Tuple[int, int]]] = [[] for _ in range(n_cells)]
+        boundary_edges: List[Tuple[int, int]] = []
+
+        for zone_key in _zone_keys(h5):
+            faces = _read_zone_face_nodes(h5, zone_key)
+            c0 = h5[f"meshes/1/faces/c0/{zone_key}"][:].astype(int)
+            c1 = h5[f"meshes/1/faces/c1/{zone_key}"][:].astype(int)
+
+            is_boundary_zone = np.all(c0 == 0) or np.all(c1 == 0)
+
+            for face_nodes, left_cell, right_cell in zip(faces, c0, c1):
+                if len(face_nodes) != 2:
+                    raise ValueError("This script expects a 2D face to have exactly 2 nodes.")
+
+                edge = (int(face_nodes[0]), int(face_nodes[1]))
+
+                if is_boundary_zone:
+                    boundary_edges.append(edge)
+
+                for cell_id in (left_cell, right_cell):
+                    if cell_id > 0:
+                        cell_edges[cell_id - 1].append(edge)
+
+        triangles: List[List[int]] = []
+        tri_to_cell: List[int] = []
+        bad: List[Tuple[int, int]] = []
+
+        for cell_idx, edges in enumerate(cell_edges):
+            ordered = _order_cell_nodes(edges)
+
+            if ordered is None or len(ordered) not in (3, 4):
+                bad.append((cell_idx + 1, 0 if ordered is None else len(ordered)))
+                continue
+
+            if len(ordered) == 3:
+                triangles.append(ordered)
+                tri_to_cell.append(cell_idx)
+            else:
+                a, b, c, d = ordered
+                triangles.append([a, b, c])
+                triangles.append([a, c, d])
+                tri_to_cell.extend([cell_idx, cell_idx])
+
+        if bad:
+            sample = bad[:10]
+            raise ValueError(
+                "Expected triangular or convex quadrilateral cells, but found cells "
+                f"whose faces do not form a 3- or 4-node loop. "
+                f"First bad cells (id, n_nodes): {sample}"
+            )
+
+        triangles_arr = np.array(triangles, dtype=int)
+        tri_to_cell_arr = np.array(tri_to_cell, dtype=int)
+
+    return coords, triangles_arr, tri_to_cell_arr, boundary_edges
+
+
+def wall_polyline_segments(
+    wall_x: Sequence[float],
+    wall_y_bottom: Sequence[float],
+    wall_y_top: Sequence[float],
+    coord_scale: float = 1.0,
+    xlim: Optional[Tuple[float, float]] = None,
+) -> List[Tuple[np.ndarray, np.ndarray]]:
+    """Build bottom/top wall line segments for a piecewise-linear channel."""
+    x_pts = np.asarray(wall_x, dtype=np.float64) * coord_scale
+    yb = np.asarray(wall_y_bottom, dtype=np.float64) * coord_scale
+    yt = np.asarray(wall_y_top, dtype=np.float64) * coord_scale
+
+    if xlim is not None:
+        xmin, xmax = float(xlim[0]), float(xlim[1])
+        keep = (x_pts >= xmin) & (x_pts <= xmax)
+        if np.count_nonzero(keep) < 2:
+            keep = np.ones_like(x_pts, dtype=bool)
+        x_pts = x_pts[keep]
+        yb = yb[keep]
+        yt = yt[keep]
+
+    segments: List[Tuple[np.ndarray, np.ndarray]] = []
+    for xs, ys in ((x_pts, yb), (x_pts, yt)):
+        for i in range(len(xs) - 1):
+            segments.append((np.array([xs[i], xs[i + 1]]), np.array([ys[i], ys[i + 1]])))
+    return segments
+
+
+def _mesh_inside_mask(
+    X: np.ndarray,
+    Y: np.ndarray,
+    mesh_h5: PathLike,
+    coord_scale: float,
+) -> Tuple[np.ndarray, List[Tuple[np.ndarray, np.ndarray]]]:
+    coords, triangles, _, boundary_edges = reconstruct_triangles_and_boundary_edges(mesh_h5)
+    coords = coords * coord_scale
+    tri = mtri.Triangulation(coords[:, 0], coords[:, 1], triangles=triangles)
+    inside = tri.get_trifinder()(X, Y) >= 0
+    segments = [(coords[i], coords[j]) for i, j in boundary_edges]
+    return inside, segments
+
+
+def _polyline_inside_mask(
+    X: np.ndarray,
+    Y: np.ndarray,
+    wall_x: Sequence[float],
+    wall_y_bottom: Sequence[float],
+    wall_y_top: Sequence[float],
+    coord_scale: float,
+    xlim: Optional[Tuple[float, float]] = None,
+) -> Tuple[np.ndarray, List[Tuple[np.ndarray, np.ndarray]]]:
+    x_pts = np.asarray(wall_x, dtype=np.float64) * coord_scale
+    yb = np.asarray(wall_y_bottom, dtype=np.float64) * coord_scale
+    yt = np.asarray(wall_y_top, dtype=np.float64) * coord_scale
+
+    if xlim is not None:
+        xmin, xmax = float(xlim[0]), float(xlim[1])
+        keep = (x_pts >= xmin) & (x_pts <= xmax)
+        if np.count_nonzero(keep) < 2:
+            keep = np.ones_like(x_pts, dtype=bool)
+        x_pts = x_pts[keep]
+        yb = yb[keep]
+        yt = yt[keep]
+
+    poly_x = np.concatenate([x_pts, x_pts[::-1]])
+    poly_y = np.concatenate([yb, yt[::-1]])
+    inside = MplPath(np.column_stack([poly_x, poly_y])).contains_points(
+        np.column_stack([X.ravel(), Y.ravel()])
+    ).reshape(X.shape)
+    segments = wall_polyline_segments(
+        wall_x, wall_y_bottom, wall_y_top, coord_scale=coord_scale, xlim=xlim
+    )
+    return inside, segments
 
 
 def interpolate_to_plot_grid(
@@ -36,46 +229,65 @@ def interpolate_to_plot_grid(
     n_x_plot=None,
     n_y_plot=100,
     method="linear",
+    mesh_h5: Optional[PathLike] = None,
+    wall_x: Optional[Sequence[float]] = None,
+    wall_y_bottom: Optional[Sequence[float]] = None,
+    wall_y_top: Optional[Sequence[float]] = None,
+    coord_scale: float = 1.0,
+    xlim: Optional[Tuple[float, float]] = None,
+    ylim: Optional[Tuple[float, float]] = None,
 ):
     """
     Interpolate scattered cell-center values to a regular plot grid.
 
-    This is only for visualization, not for training.
+    When ``mesh_h5`` or wall polyline coordinates are supplied, pixels outside the
+    channel are masked to NaN so imshow respects the true (polyline) boundary.
     """
     x = np.asarray(x, dtype=np.float64).reshape(-1)
     y = np.asarray(y, dtype=np.float64).reshape(-1)
     z = np.asarray(z, dtype=np.float64).reshape(-1)
 
-    x_min, x_max = float(np.min(x)), float(np.max(x))
-    y_min, y_max = float(np.min(y)), float(np.max(y))
+    if xlim is not None:
+        xmin, xmax = float(xlim[0]), float(xlim[1])
+    else:
+        xmin, xmax = float(np.min(x)), float(np.max(x))
+    if ylim is not None:
+        ymin, ymax = float(ylim[0]), float(ylim[1])
+    else:
+        ymin, ymax = float(np.min(y)), float(np.max(y))
 
     if n_x_plot is None:
-        ar_plot = (x_max - x_min) / max(y_max - y_min, 1.0e-12)
+        ar_plot = round((xmax - xmin) / (ymax - ymin), 1)
         n_x_plot = max(100, int(round(n_y_plot * ar_plot)))
 
-    xi = np.linspace(x_min, x_max, int(n_x_plot))
-    yi = np.linspace(y_min, y_max, int(n_y_plot))
+    xi = np.linspace(xmin, xmax, int(n_x_plot))
+    yi = np.linspace(ymin, ymax, int(n_y_plot))
     Xi, Yi = np.meshgrid(xi, yi)
 
-    Zi = griddata(
-        (x, y),
-        z,
-        (Xi, Yi),
-        method=method,
-    )
+    Zi = griddata((x, y), z, (Xi, Yi), method=method)
 
-    # Linear interpolation can produce NaNs near boundaries.
-    # Fill those with nearest-neighbor interpolation for plotting.
     if np.any(np.isnan(Zi)):
-        Zi_nearest = griddata(
-            (x, y),
-            z,
-            (Xi, Yi),
-            method="nearest",
-        )
+        Zi_nearest = griddata((x, y), z, (Xi, Yi), method="nearest")
         Zi = np.where(np.isnan(Zi), Zi_nearest, Zi)
 
-    return Xi, Yi, Zi
+    boundary_segments: List[Tuple[np.ndarray, np.ndarray]] = []
+    if mesh_h5 is not None:
+        inside, boundary_segments = _mesh_inside_mask(Xi, Yi, mesh_h5, coord_scale)
+        Zi = np.where(inside, Zi, np.nan)
+    elif wall_x is not None and wall_y_bottom is not None and wall_y_top is not None:
+        inside, boundary_segments = _polyline_inside_mask(
+            Xi,
+            Yi,
+            wall_x,
+            wall_y_bottom,
+            wall_y_top,
+            coord_scale=coord_scale,
+            xlim=xlim,
+        )
+        Zi = np.where(inside, Zi, np.nan)
+
+    extent = (xmin, xmax, ymin, ymax)
+    return Xi, Yi, Zi, extent, boundary_segments
 
 
 def plot_prediction_imshow_from_points(
@@ -91,87 +303,103 @@ def plot_prediction_imshow_from_points(
     output_dir=None,
     filename_prefix="prediction",
     show=True,
+    mesh_h5: Optional[PathLike] = None,
+    wall_x: Optional[Sequence[float]] = None,
+    wall_y_bottom: Optional[Sequence[float]] = None,
+    wall_y_top: Optional[Sequence[float]] = None,
+    draw_boundary: bool = True,
+    coord_scale: float = 1.0,
+    coord_unit: str = "",
+    xlim: Optional[Tuple[float, float]] = None,
+    ylim: Optional[Tuple[float, float]] = None,
 ):
     """
     Plot predicted field, CFD/truth field, and absolute error using griddata + imshow.
+
+    When ``mesh_h5`` or wall polyline coordinates are provided, pixels outside the
+    channel are masked and the true (polyline) boundary is drawn with
+    ``LineCollection``, following the style of ``plot_imshow`` in ``foo.ipynb``.
     """
     x = np.asarray(x)
     y = np.asarray(y)
     pred = np.asarray(pred)
     truth = np.asarray(truth)
 
-    _, _, z_pred = interpolate_to_plot_grid(
-        x,
-        y,
-        pred[:, field_idx],
-        n_x_plot=n_x_plot,
-        n_y_plot=n_y_plot,
-        method="linear",
-    )
-
-    _, _, z_truth = interpolate_to_plot_grid(
+    _, _, z_truth, extent, boundary_segments = interpolate_to_plot_grid(
         x,
         y,
         truth[:, field_idx],
         n_x_plot=n_x_plot,
         n_y_plot=n_y_plot,
         method="linear",
+        mesh_h5=mesh_h5,
+        wall_x=wall_x,
+        wall_y_bottom=wall_y_bottom,
+        wall_y_top=wall_y_top,
+        coord_scale=coord_scale,
+        xlim=xlim,
+        ylim=ylim,
+    )
+    _, _, z_pred, _, _ = interpolate_to_plot_grid(
+        x,
+        y,
+        pred[:, field_idx],
+        n_x_plot=n_x_plot,
+        n_y_plot=n_y_plot,
+        method="linear",
+        mesh_h5=mesh_h5,
+        wall_x=wall_x,
+        wall_y_bottom=wall_y_bottom,
+        wall_y_top=wall_y_top,
+        coord_scale=coord_scale,
+        xlim=xlim,
+        ylim=ylim,
     )
 
     z_error = np.abs(z_truth - z_pred)
 
-    x_min, x_max = float(np.min(x)), float(np.max(x))
-    y_min, y_max = float(np.min(y)), float(np.max(y))
+    cmap_mask = np.isfinite(z_truth)
+    cmap_vals = z_truth[cmap_mask]
+    if cmap_vals.size == 0:
+        vmin = float(np.nanmin(truth[:, field_idx]))
+        vmax = float(np.nanmax(truth[:, field_idx]))
+    else:
+        vmin = float(cmap_vals.min())
+        vmax = float(cmap_vals.max())
 
-    vmin = float(np.nanmin(truth[:, field_idx]))
-    vmax = float(np.nanmax(truth[:, field_idx]))
+    x_label = f"x [{coord_unit}]" if coord_unit else "x"
+    y_label = f"y [{coord_unit}]" if coord_unit else "y"
 
-    fig, axes = plt.subplots(
-        1,
-        3,
-        figsize=figsize,
-        constrained_layout=True,
-    )
+    fig, axes = plt.subplots(1, 3, figsize=figsize, constrained_layout=True)
 
-    im1 = axes[0].imshow(
-        z_truth,
-        extent=[x_min, x_max, y_min, y_max],
-        origin="lower",
-        cmap="jet",
-        aspect="auto",
-        vmin=vmin,
-        vmax=vmax,
-    )
-    axes[0].set_title(f"CFD truth {field_name}", fontsize=16)
-    axes[0].set_xlabel("x")
-    axes[0].set_ylabel("y")
-    fig.colorbar(im1, ax=axes[0])
-
-    im2 = axes[1].imshow(
-        z_pred,
-        extent=[x_min, x_max, y_min, y_max],
-        origin="lower",
-        cmap="jet",
-        aspect="auto",
-        vmin=vmin,
-        vmax=vmax,
-    )
-    axes[1].set_title(f"Prediction {field_name}", fontsize=16)
-    axes[1].set_xlabel("x")
-    axes[1].set_ylabel("y")
-    fig.colorbar(im2, ax=axes[1])
-
-    im3 = axes[2].imshow(
-        z_error,
-        extent=[x_min, x_max, y_min, y_max],
-        origin="lower",
-        cmap="jet",
-        aspect="auto",
-    )
-    axes[2].set_title(f"{field_name} absolute error", fontsize=16)
-    axes[2].set_xlabel("x")
-    axes[2].set_ylabel("y")
-    fig.colorbar(im3, ax=axes[2])
+    for ax, z_plot, title, use_shared_scale in zip(
+        axes,
+        [z_truth, z_pred, z_error],
+        [f"CFD truth {field_name}", f"Prediction {field_name}", f"{field_name} absolute error"],
+        [True, True, False],
+    ):
+        im = ax.imshow(
+            np.ma.masked_invalid(z_plot),
+            extent=extent,
+            origin="lower",
+            cmap="jet",
+            aspect="auto",
+            interpolation="bilinear",
+            vmin=vmin if use_shared_scale else None,
+            vmax=vmax if use_shared_scale else None,
+        )
+        ax.set_title(title, fontsize=16)
+        ax.set_xlabel(x_label, fontsize=14)
+        ax.set_ylabel(y_label, fontsize=14)
+        ax.xaxis.set_tick_params(labelsize=12)
+        ax.yaxis.set_tick_params(labelsize=12)
+        if draw_boundary and boundary_segments:
+            ax.add_collection(LineCollection(boundary_segments, linewidths=0.8, colors="k"))
+        if xlim is not None:
+            ax.set_xlim(*xlim)
+        if ylim is not None:
+            ax.set_ylim(*ylim)
+        fig.colorbar(im, ax=ax, pad=0.02)
 
     if output_dir is not None:
         os.makedirs(output_dir, exist_ok=True)

@@ -244,8 +244,8 @@ def load_channel_config(config_path: PathLike) -> Dict[str, object]:
         y_bottom(x_points) = -deltas
         y_top(x_points)    =  L_mm + deltas
 
-    Returns a dict with the breakpoint x-coordinates, the bottom/top wall
-    y-coordinates at those breakpoints, the reference length ``L_mm``, and a few
+    Returns a dict with the control points x-coordinates, the bottom/top wall
+    y-coordinates at those control points, the reference length ``L_mm``, and a few
     convenience fields pulled from the config metadata.
     """
     config_path = Path(config_path)
@@ -549,7 +549,7 @@ def build_fluent_deeponet_dataset(
         subdomains is set per case to the channel aspect ratio
         ``round((xmax - xmin) / reference_length)`` (clamped to >= 1), so each
         subdomain is roughly square.  Adaptive only affects the ``"fixed"`` and
-        ``"random"`` placements; ``"breakpoints"`` ignores it.
+        ``"random"`` placements; ``"control_points"`` ignores it.
     n_interface_points:
         Number of sensor points per vertical inlet/outlet/interface side.
     n_boundary_points:
@@ -561,8 +561,8 @@ def build_fluent_deeponet_dataset(
           jittered with ``interface_jitter``).
         - ``"random"``: ``n_subdomains`` random-width subdomains subject to
           ``min_subdomain_width``.
-        - ``"breakpoints"``: ignore ``n_subdomains`` and place interfaces at the
-          interior geometry breakpoints ``x_points_mm[1:-1]`` (requires a design
+        - ``"control_points"``: ignore ``n_subdomains`` and place interfaces at the
+          interior geometry control points ``x_points_mm[1:-1]`` (requires a design
           config).  Each subdomain then spans exactly one straight wall segment.
 
     Notes
@@ -734,10 +734,10 @@ def build_fluent_deeponet_dataset(
                     min_subdomain_width=min_subdomain_width,
                     rng=rng,
                 )
-            elif interface_placement == "breakpoints":
+            elif interface_placement == "control_points":
                 if config is None or config_x_edges is None:
                     raise ValueError(
-                        "interface_placement='breakpoints' requires a design config "
+                        "interface_placement='control_points' requires a design config "
                         "(case_files[case_id]['design']) with metadata.x_points_mm."
                     )
                 # Ignore n_subdomains; one subdomain per straight wall segment.

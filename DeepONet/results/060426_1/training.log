@@ -1,0 +1,222 @@
+2026-06-04 15:03:03 - pino - INFO - Training comment
+2026-06-04 15:03:03 - pino - INFO - Large smooth channels random interface placement
+2026-06-04 15:03:03 - pino - INFO - Available cases (100): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+2026-06-04 15:03:03 - pino - INFO - Train cases (80): [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 32, 34, 35, 36, 37, 39, 40, 42, 43, 44, 45, 46, 47, 49, 50, 51, 52, 53, 55, 57, 58, 60, 61, 62, 64, 65, 66, 67, 68, 70, 71, 72, 74, 75, 80, 81, 82, 83, 84, 85, 86, 87, 90, 91, 92, 93, 94, 96, 97, 98, 99]
+2026-06-04 15:03:03 - pino - INFO - Valid cases (10): [7, 31, 38, 48, 63, 73, 76, 77, 88, 89]
+2026-06-04 15:03:03 - pino - INFO - Test  cases (10): [29, 33, 41, 54, 56, 59, 69, 78, 79, 95]
+2026-06-04 15:42:50 - pino - INFO - Train samples: 4000
+2026-06-04 15:42:50 - pino - INFO - Valid samples: 100
+2026-06-04 15:42:50 - pino - INFO - Train branch channels: ['x_local', 'y_local', 'wall_mask', 'interface_mask', 'boundary_pressure', 'boundary_u', 'boundary_v', 'known_pressure', 'known_u', 'known_v', 'local_aspect_ratio']
+2026-06-04 15:42:50 - pino - INFO - Train trunk channels: ['x_local', 'y_local']
+2026-06-04 15:42:50 - pino - INFO - Output channels: ['pressure', 'u', 'v']
+2026-06-04 15:42:50 - pino - INFO - Example train sample:
+2026-06-04 15:42:50 - pino - INFO - branch: (1024, 11)
+2026-06-04 15:42:50 - pino - INFO - query: (6845, 2)
+2026-06-04 15:42:50 - pino - INFO - target: (6845, 3)
+2026-06-04 15:42:50 - pino - INFO - Train cases: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 32, 34, 35, 36, 37, 39, 40, 42, 43, 44, 45, 46, 47, 49, 50, 51, 52, 53, 55, 57, 58, 60, 61, 62, 64, 65, 66, 67, 68, 70, 71, 72, 74, 75, 80, 81, 82, 83, 84, 85, 86, 87, 90, 91, 92, 93, 94, 96, 97, 98, 99]
+2026-06-04 15:42:50 - pino - INFO - Valid cases: [7, 31, 38, 48, 63, 73, 76, 77, 88, 89]
+2026-06-04 15:42:51 - pino - INFO - Y mean: tensor([ 1.9386e-03,  1.0181e-01, -4.2453e-07])
+2026-06-04 15:42:51 - pino - INFO - Y std: tensor([0.0022, 0.0391, 0.0024])
+2026-06-04 15:42:51 - pino - INFO - local_aspect_mean: 1.0
+2026-06-04 15:42:51 - pino - INFO - local_aspect_std: 0.8242246508598328
+2026-06-04 15:42:52 - pino - INFO - branch batch: torch.Size([50, 1024, 11])
+2026-06-04 15:42:52 - pino - INFO - query batch: torch.Size([490658, 2])
+2026-06-04 15:42:52 - pino - INFO - target batch: torch.Size([490658, 3])
+2026-06-04 15:42:52 - pino - INFO - query batch id: tensor(0) tensor(49)
+2026-06-04 15:42:52 - pino - INFO - sample indices: tensor([3226,  772, 1401, 2580, 2497, 3991,  351,  221, 2792, 3381, 1441, 2140,
+        1514,  812, 2219, 3973, 2755, 3452, 3243,  499,  648,   64, 2203, 3346,
+        3411, 2659, 3856, 3747,  675, 3995, 1226, 2933,  727, 3785, 1450, 1757,
+        1519, 2738,  627, 2887, 1231, 2912,  474,  760,  135, 2873, 2290, 2839,
+        3688, 3505])
+2026-06-04 15:42:53 - pino - INFO - {'branch_input_dim': 11, 'trunk_input_dim': 2, 'output_channels': 3, 'latent_dim': 128, 'branch_point_hidden_dim': 128, 'branch_point_depth': 3, 'branch_global_hidden_dim': 128, 'branch_global_depth': 3, 'trunk_hidden_dim': 128, 'trunk_depth': 4, 'aggregation': 'mean', 'activation': 'gelu', 'layer_norm': False}
+2026-06-04 15:43:16 - pino - INFO - Epoch 0001 | data loss=9.013e-01 | bc loss=1.073e+00 | valid MSE=2.037e-04 | valid rel L2=2.154e-01 | pressure=3.229e-01, u=2.299e-01, v=9.543e-01 | Time: 0:00:22.063019
+2026-06-04 15:45:09 - pino - INFO - Epoch 0010 | data loss=2.678e-01 | bc loss=2.264e-01 | valid MSE=8.339e-05 | valid rel L2=1.416e-01 | pressure=2.369e-01, u=1.461e-01, v=7.899e-01 | Time: 0:02:15.760716
+2026-06-04 15:47:24 - pino - INFO - Epoch 0020 | data loss=1.870e-01 | bc loss=1.208e-01 | valid MSE=4.924e-05 | valid rel L2=1.034e-01 | pressure=1.668e-01, u=1.115e-01, v=6.788e-01 | Time: 0:04:30.052449
+2026-06-04 15:49:33 - pino - INFO - Epoch 0030 | data loss=1.567e-01 | bc loss=9.847e-02 | valid MSE=4.196e-05 | valid rel L2=9.110e-02 | pressure=1.653e-01, u=1.006e-01, v=5.666e-01 | Time: 0:06:39.167067
+2026-06-04 15:51:44 - pino - INFO - Epoch 0040 | data loss=1.200e-01 | bc loss=6.524e-02 | valid MSE=2.356e-05 | valid rel L2=6.786e-02 | pressure=1.717e-01, u=7.661e-02, v=5.228e-01 | Time: 0:08:50.638476
+2026-06-04 15:54:00 - pino - INFO - Epoch 0050 | data loss=1.054e-01 | bc loss=5.526e-02 | valid MSE=3.731e-05 | valid rel L2=9.050e-02 | pressure=1.456e-01, u=9.901e-02, v=5.178e-01 | Time: 0:11:07.007680
+2026-06-04 15:56:12 - pino - INFO - Epoch 0060 | data loss=9.866e-02 | bc loss=5.009e-02 | valid MSE=1.756e-05 | valid rel L2=5.754e-02 | pressure=1.440e-01, u=6.804e-02, v=5.386e-01 | Time: 0:13:18.637942
+2026-06-04 15:58:24 - pino - INFO - Epoch 0070 | data loss=1.011e-01 | bc loss=5.864e-02 | valid MSE=1.849e-05 | valid rel L2=6.077e-02 | pressure=1.733e-01, u=7.462e-02, v=4.953e-01 | Time: 0:15:30.033462
+2026-06-04 16:00:38 - pino - INFO - Epoch 0080 | data loss=1.025e-01 | bc loss=5.064e-02 | valid MSE=1.607e-05 | valid rel L2=5.737e-02 | pressure=1.511e-01, u=6.677e-02, v=4.828e-01 | Time: 0:17:44.191239
+2026-06-04 16:02:47 - pino - INFO - Epoch 0090 | data loss=8.392e-02 | bc loss=4.430e-02 | valid MSE=2.105e-05 | valid rel L2=6.745e-02 | pressure=1.733e-01, u=7.800e-02, v=4.602e-01 | Time: 0:19:53.861638
+2026-06-04 16:04:58 - pino - INFO - Epoch 0100 | data loss=8.849e-02 | bc loss=5.167e-02 | valid MSE=1.689e-05 | valid rel L2=5.871e-02 | pressure=1.565e-01, u=6.926e-02, v=4.743e-01 | Time: 0:22:04.098728
+2026-06-04 16:07:12 - pino - INFO - Epoch 0110 | data loss=8.758e-02 | bc loss=4.470e-02 | valid MSE=1.570e-05 | valid rel L2=5.824e-02 | pressure=1.373e-01, u=6.337e-02, v=4.469e-01 | Time: 0:24:18.503978
+2026-06-04 16:09:26 - pino - INFO - Epoch 0120 | data loss=7.752e-02 | bc loss=4.224e-02 | valid MSE=1.316e-05 | valid rel L2=5.093e-02 | pressure=1.296e-01, u=6.123e-02, v=4.356e-01 | Time: 0:26:32.869911
+2026-06-04 16:11:42 - pino - INFO - Epoch 0130 | data loss=7.059e-02 | bc loss=3.285e-02 | valid MSE=1.214e-05 | valid rel L2=4.839e-02 | pressure=1.357e-01, u=5.932e-02, v=4.286e-01 | Time: 0:28:48.314560
+2026-06-04 16:14:03 - pino - INFO - Epoch 0140 | data loss=8.315e-02 | bc loss=4.914e-02 | valid MSE=1.371e-05 | valid rel L2=5.261e-02 | pressure=1.408e-01, u=6.267e-02, v=4.435e-01 | Time: 0:31:09.490743
+2026-06-04 16:16:17 - pino - INFO - Epoch 0150 | data loss=6.850e-02 | bc loss=3.712e-02 | valid MSE=1.341e-05 | valid rel L2=5.092e-02 | pressure=1.273e-01, u=6.372e-02, v=4.239e-01 | Time: 0:33:23.416562
+2026-06-04 16:18:30 - pino - INFO - Epoch 0160 | data loss=6.644e-02 | bc loss=3.824e-02 | valid MSE=1.315e-05 | valid rel L2=5.317e-02 | pressure=1.345e-01, u=6.141e-02, v=4.147e-01 | Time: 0:35:36.065417
+2026-06-04 16:20:45 - pino - INFO - Epoch 0170 | data loss=6.302e-02 | bc loss=3.186e-02 | valid MSE=1.275e-05 | valid rel L2=5.271e-02 | pressure=1.331e-01, u=6.325e-02, v=4.197e-01 | Time: 0:37:51.501832
+2026-06-04 16:22:57 - pino - INFO - Epoch 0180 | data loss=7.247e-02 | bc loss=4.293e-02 | valid MSE=1.482e-05 | valid rel L2=5.139e-02 | pressure=1.286e-01, u=6.545e-02, v=4.552e-01 | Time: 0:40:03.752674
+2026-06-04 16:25:15 - pino - INFO - Epoch 0190 | data loss=5.772e-02 | bc loss=2.956e-02 | valid MSE=1.009e-05 | valid rel L2=4.364e-02 | pressure=1.275e-01, u=5.607e-02, v=3.963e-01 | Time: 0:42:21.057954
+2026-06-04 16:27:29 - pino - INFO - Epoch 0200 | data loss=6.292e-02 | bc loss=3.900e-02 | valid MSE=1.389e-05 | valid rel L2=5.426e-02 | pressure=1.398e-01, u=6.239e-02, v=4.332e-01 | Time: 0:44:35.179756
+2026-06-04 16:29:44 - pino - INFO - Epoch 0210 | data loss=5.441e-02 | bc loss=2.803e-02 | valid MSE=1.206e-05 | valid rel L2=4.881e-02 | pressure=1.378e-01, u=5.847e-02, v=3.956e-01 | Time: 0:46:50.473120
+2026-06-04 16:31:58 - pino - INFO - Epoch 0220 | data loss=4.924e-02 | bc loss=2.255e-02 | valid MSE=9.191e-06 | valid rel L2=4.214e-02 | pressure=1.360e-01, u=5.328e-02, v=3.972e-01 | Time: 0:49:04.112690
+2026-06-04 16:34:10 - pino - INFO - Epoch 0230 | data loss=4.776e-02 | bc loss=2.292e-02 | valid MSE=9.569e-06 | valid rel L2=4.303e-02 | pressure=1.337e-01, u=5.423e-02, v=4.011e-01 | Time: 0:51:16.985481
+2026-06-04 16:36:22 - pino - INFO - Epoch 0240 | data loss=5.077e-02 | bc loss=3.056e-02 | valid MSE=1.963e-05 | valid rel L2=6.724e-02 | pressure=1.263e-01, u=7.727e-02, v=4.115e-01 | Time: 0:53:28.963032
+2026-06-04 16:38:37 - pino - INFO - Epoch 0250 | data loss=4.523e-02 | bc loss=2.366e-02 | valid MSE=8.417e-06 | valid rel L2=4.064e-02 | pressure=1.172e-01, u=5.179e-02, v=3.762e-01 | Time: 0:55:43.453962
+2026-06-04 16:40:48 - pino - INFO - Epoch 0260 | data loss=4.474e-02 | bc loss=2.527e-02 | valid MSE=1.023e-05 | valid rel L2=4.384e-02 | pressure=1.150e-01, u=5.351e-02, v=3.681e-01 | Time: 0:57:54.837930
+2026-06-04 16:43:03 - pino - INFO - Epoch 0270 | data loss=4.348e-02 | bc loss=2.253e-02 | valid MSE=8.877e-06 | valid rel L2=4.023e-02 | pressure=1.122e-01, u=5.167e-02, v=3.711e-01 | Time: 1:00:09.263946
+2026-06-04 16:45:31 - pino - INFO - Epoch 0280 | data loss=4.440e-02 | bc loss=2.500e-02 | valid MSE=9.125e-06 | valid rel L2=4.373e-02 | pressure=1.182e-01, u=5.096e-02, v=3.750e-01 | Time: 1:02:37.052517
+2026-06-04 16:47:57 - pino - INFO - Epoch 0290 | data loss=3.844e-02 | bc loss=1.903e-02 | valid MSE=9.847e-06 | valid rel L2=4.505e-02 | pressure=1.050e-01, u=5.570e-02, v=3.697e-01 | Time: 1:05:03.629430
+2026-06-04 16:50:21 - pino - INFO - Epoch 0300 | data loss=3.828e-02 | bc loss=1.956e-02 | valid MSE=1.021e-05 | valid rel L2=4.506e-02 | pressure=1.215e-01, u=5.744e-02, v=4.022e-01 | Time: 1:07:27.598852
+2026-06-04 16:52:38 - pino - INFO - Epoch 0310 | data loss=3.815e-02 | bc loss=2.038e-02 | valid MSE=1.010e-05 | valid rel L2=4.644e-02 | pressure=1.051e-01, u=5.375e-02, v=3.685e-01 | Time: 1:09:44.865832
+2026-06-04 16:55:06 - pino - INFO - Epoch 0320 | data loss=4.420e-02 | bc loss=2.789e-02 | valid MSE=8.744e-06 | valid rel L2=4.089e-02 | pressure=1.116e-01, u=5.269e-02, v=3.762e-01 | Time: 1:12:12.486383
+2026-06-04 16:57:24 - pino - INFO - Epoch 0330 | data loss=4.066e-02 | bc loss=2.417e-02 | valid MSE=1.082e-05 | valid rel L2=4.652e-02 | pressure=1.006e-01, u=5.840e-02, v=3.756e-01 | Time: 1:14:30.864940
+2026-06-04 16:59:43 - pino - INFO - Epoch 0340 | data loss=3.451e-02 | bc loss=1.876e-02 | valid MSE=9.664e-06 | valid rel L2=4.306e-02 | pressure=1.018e-01, u=5.796e-02, v=3.681e-01 | Time: 1:16:49.897025
+2026-06-04 17:02:05 - pino - INFO - Epoch 0350 | data loss=3.309e-02 | bc loss=1.691e-02 | valid MSE=1.138e-05 | valid rel L2=5.182e-02 | pressure=1.096e-01, u=5.768e-02, v=3.641e-01 | Time: 1:19:11.806511
+2026-06-04 17:04:21 - pino - INFO - Epoch 0360 | data loss=3.836e-02 | bc loss=2.565e-02 | valid MSE=8.998e-06 | valid rel L2=4.129e-02 | pressure=9.661e-02, u=5.355e-02, v=3.696e-01 | Time: 1:21:27.249406
+2026-06-04 17:06:40 - pino - INFO - Epoch 0370 | data loss=3.069e-02 | bc loss=1.576e-02 | valid MSE=8.957e-06 | valid rel L2=4.137e-02 | pressure=1.040e-01, u=5.350e-02, v=3.497e-01 | Time: 1:23:46.465373
+2026-06-04 17:08:58 - pino - INFO - Epoch 0380 | data loss=3.683e-02 | bc loss=2.483e-02 | valid MSE=1.111e-05 | valid rel L2=4.575e-02 | pressure=1.109e-01, u=5.696e-02, v=3.681e-01 | Time: 1:26:04.320959
+2026-06-04 17:11:15 - pino - INFO - Epoch 0390 | data loss=3.271e-02 | bc loss=1.962e-02 | valid MSE=7.633e-06 | valid rel L2=3.785e-02 | pressure=9.922e-02, u=4.899e-02, v=3.484e-01 | Time: 1:28:21.654729
+2026-06-04 17:13:32 - pino - INFO - Epoch 0400 | data loss=3.262e-02 | bc loss=1.818e-02 | valid MSE=7.419e-06 | valid rel L2=3.734e-02 | pressure=1.024e-01, u=4.990e-02, v=3.480e-01 | Time: 1:30:38.987799
+2026-06-04 17:15:55 - pino - INFO - Epoch 0410 | data loss=3.314e-02 | bc loss=2.146e-02 | valid MSE=8.862e-06 | valid rel L2=4.118e-02 | pressure=1.030e-01, u=5.359e-02, v=3.698e-01 | Time: 1:33:01.226681
+2026-06-04 17:18:07 - pino - INFO - Epoch 0420 | data loss=3.054e-02 | bc loss=1.516e-02 | valid MSE=7.068e-06 | valid rel L2=3.577e-02 | pressure=9.862e-02, u=4.947e-02, v=3.424e-01 | Time: 1:35:13.195536
+2026-06-04 17:20:29 - pino - INFO - Epoch 0430 | data loss=2.733e-02 | bc loss=1.255e-02 | valid MSE=7.597e-06 | valid rel L2=3.643e-02 | pressure=1.010e-01, u=5.296e-02, v=3.483e-01 | Time: 1:37:35.656028
+2026-06-04 17:22:51 - pino - INFO - Epoch 0440 | data loss=2.919e-02 | bc loss=1.719e-02 | valid MSE=8.382e-06 | valid rel L2=3.933e-02 | pressure=9.867e-02, u=5.161e-02, v=3.534e-01 | Time: 1:39:57.865802
+2026-06-04 17:25:12 - pino - INFO - Epoch 0450 | data loss=2.701e-02 | bc loss=1.285e-02 | valid MSE=7.744e-06 | valid rel L2=3.650e-02 | pressure=9.655e-02, u=5.127e-02, v=3.497e-01 | Time: 1:42:18.338194
+2026-06-04 17:27:36 - pino - INFO - Epoch 0460 | data loss=2.594e-02 | bc loss=1.253e-02 | valid MSE=7.957e-06 | valid rel L2=3.830e-02 | pressure=1.057e-01, u=4.990e-02, v=3.451e-01 | Time: 1:44:42.045854
+2026-06-04 17:29:55 - pino - INFO - Epoch 0470 | data loss=3.193e-02 | bc loss=1.962e-02 | valid MSE=7.325e-06 | valid rel L2=3.676e-02 | pressure=9.478e-02, u=4.883e-02, v=3.514e-01 | Time: 1:47:01.087587
+2026-06-04 17:32:13 - pino - INFO - Epoch 0480 | data loss=2.546e-02 | bc loss=1.392e-02 | valid MSE=6.673e-06 | valid rel L2=3.407e-02 | pressure=9.690e-02, u=4.967e-02, v=3.457e-01 | Time: 1:49:19.563080
+2026-06-04 17:34:30 - pino - INFO - Epoch 0490 | data loss=2.675e-02 | bc loss=1.513e-02 | valid MSE=7.572e-06 | valid rel L2=3.619e-02 | pressure=1.015e-01, u=5.080e-02, v=3.443e-01 | Time: 1:51:36.317467
+2026-06-04 17:36:50 - pino - INFO - Epoch 0500 | data loss=2.686e-02 | bc loss=1.630e-02 | valid MSE=9.012e-06 | valid rel L2=4.329e-02 | pressure=1.074e-01, u=5.534e-02, v=3.583e-01 | Time: 1:53:56.126521
+2026-06-04 17:39:09 - pino - INFO - Epoch 0510 | data loss=2.515e-02 | bc loss=1.281e-02 | valid MSE=7.032e-06 | valid rel L2=3.493e-02 | pressure=9.381e-02, u=5.058e-02, v=3.409e-01 | Time: 1:56:15.813789
+2026-06-04 17:41:32 - pino - INFO - Epoch 0520 | data loss=2.531e-02 | bc loss=1.496e-02 | valid MSE=7.576e-06 | valid rel L2=3.604e-02 | pressure=9.908e-02, u=5.160e-02, v=3.425e-01 | Time: 1:58:38.527351
+2026-06-04 17:43:58 - pino - INFO - Epoch 0530 | data loss=2.340e-02 | bc loss=1.141e-02 | valid MSE=6.322e-06 | valid rel L2=3.257e-02 | pressure=9.467e-02, u=4.720e-02, v=3.351e-01 | Time: 2:01:04.520098
+2026-06-04 17:46:21 - pino - INFO - Epoch 0540 | data loss=2.454e-02 | bc loss=1.340e-02 | valid MSE=7.460e-06 | valid rel L2=3.604e-02 | pressure=9.763e-02, u=5.128e-02, v=3.400e-01 | Time: 2:03:27.328489
+2026-06-04 17:48:39 - pino - INFO - Epoch 0550 | data loss=2.225e-02 | bc loss=1.158e-02 | valid MSE=5.855e-06 | valid rel L2=3.141e-02 | pressure=9.155e-02, u=4.599e-02, v=3.309e-01 | Time: 2:05:45.205262
+2026-06-04 17:50:55 - pino - INFO - Epoch 0560 | data loss=2.331e-02 | bc loss=1.405e-02 | valid MSE=6.596e-06 | valid rel L2=3.560e-02 | pressure=1.017e-01, u=4.768e-02, v=3.267e-01 | Time: 2:08:01.980289
+2026-06-04 17:53:15 - pino - INFO - Epoch 0570 | data loss=2.403e-02 | bc loss=1.552e-02 | valid MSE=6.714e-06 | valid rel L2=3.567e-02 | pressure=1.036e-01, u=4.811e-02, v=3.358e-01 | Time: 2:10:21.871951
+2026-06-04 17:55:28 - pino - INFO - Epoch 0580 | data loss=2.201e-02 | bc loss=1.110e-02 | valid MSE=6.656e-06 | valid rel L2=3.525e-02 | pressure=9.782e-02, u=4.805e-02, v=3.371e-01 | Time: 2:12:34.199742
+2026-06-04 17:57:41 - pino - INFO - Epoch 0590 | data loss=2.324e-02 | bc loss=1.479e-02 | valid MSE=6.186e-06 | valid rel L2=3.365e-02 | pressure=1.017e-01, u=4.725e-02, v=3.351e-01 | Time: 2:14:47.224274
+2026-06-04 17:59:56 - pino - INFO - Epoch 0600 | data loss=2.193e-02 | bc loss=1.270e-02 | valid MSE=5.415e-06 | valid rel L2=3.012e-02 | pressure=9.492e-02, u=4.349e-02, v=3.313e-01 | Time: 2:17:02.511067
+2026-06-04 18:02:12 - pino - INFO - Epoch 0610 | data loss=1.990e-02 | bc loss=9.577e-03 | valid MSE=6.480e-06 | valid rel L2=3.409e-02 | pressure=9.895e-02, u=4.645e-02, v=3.327e-01 | Time: 2:19:18.767052
+2026-06-04 18:04:33 - pino - INFO - Epoch 0620 | data loss=2.061e-02 | bc loss=1.160e-02 | valid MSE=6.083e-06 | valid rel L2=3.324e-02 | pressure=1.040e-01, u=4.594e-02, v=3.350e-01 | Time: 2:21:39.021990
+2026-06-04 18:06:54 - pino - INFO - Epoch 0630 | data loss=2.186e-02 | bc loss=1.475e-02 | valid MSE=6.080e-06 | valid rel L2=3.178e-02 | pressure=1.059e-01, u=4.642e-02, v=3.354e-01 | Time: 2:24:00.181631
+2026-06-04 18:09:13 - pino - INFO - Epoch 0640 | data loss=1.991e-02 | bc loss=1.080e-02 | valid MSE=6.396e-06 | valid rel L2=3.253e-02 | pressure=1.040e-01, u=4.701e-02, v=3.308e-01 | Time: 2:26:19.097859
+2026-06-04 18:11:34 - pino - INFO - Epoch 0650 | data loss=1.868e-02 | bc loss=8.681e-03 | valid MSE=5.962e-06 | valid rel L2=3.103e-02 | pressure=1.031e-01, u=4.682e-02, v=3.329e-01 | Time: 2:28:40.532214
+2026-06-04 18:13:52 - pino - INFO - Epoch 0660 | data loss=1.918e-02 | bc loss=9.803e-03 | valid MSE=6.278e-06 | valid rel L2=3.432e-02 | pressure=1.051e-01, u=4.682e-02, v=3.351e-01 | Time: 2:30:58.396004
+2026-06-04 18:16:10 - pino - INFO - Epoch 0670 | data loss=1.903e-02 | bc loss=9.419e-03 | valid MSE=5.735e-06 | valid rel L2=3.239e-02 | pressure=1.071e-01, u=4.574e-02, v=3.313e-01 | Time: 2:33:16.631456
+2026-06-04 18:18:25 - pino - INFO - Epoch 0680 | data loss=1.872e-02 | bc loss=1.064e-02 | valid MSE=7.123e-06 | valid rel L2=3.564e-02 | pressure=1.061e-01, u=4.884e-02, v=3.343e-01 | Time: 2:35:31.736229
+2026-06-04 18:20:45 - pino - INFO - Epoch 0690 | data loss=1.836e-02 | bc loss=9.366e-03 | valid MSE=5.607e-06 | valid rel L2=3.038e-02 | pressure=1.087e-01, u=4.570e-02, v=3.324e-01 | Time: 2:37:51.463437
+2026-06-04 18:23:03 - pino - INFO - Epoch 0700 | data loss=1.822e-02 | bc loss=9.323e-03 | valid MSE=5.341e-06 | valid rel L2=2.942e-02 | pressure=1.057e-01, u=4.493e-02, v=3.281e-01 | Time: 2:40:09.827501
+2026-06-04 18:25:15 - pino - INFO - Epoch 0710 | data loss=1.795e-02 | bc loss=9.022e-03 | valid MSE=5.518e-06 | valid rel L2=2.970e-02 | pressure=1.056e-01, u=4.591e-02, v=3.361e-01 | Time: 2:42:21.857981
+2026-06-04 18:27:31 - pino - INFO - Epoch 0720 | data loss=1.856e-02 | bc loss=1.208e-02 | valid MSE=6.058e-06 | valid rel L2=3.198e-02 | pressure=1.088e-01, u=4.739e-02, v=3.356e-01 | Time: 2:44:37.893600
+2026-06-04 18:29:46 - pino - INFO - Epoch 0730 | data loss=1.777e-02 | bc loss=9.603e-03 | valid MSE=5.614e-06 | valid rel L2=3.009e-02 | pressure=1.074e-01, u=4.531e-02, v=3.310e-01 | Time: 2:46:52.423527
+2026-06-04 18:31:58 - pino - INFO - Epoch 0740 | data loss=1.777e-02 | bc loss=1.058e-02 | valid MSE=5.778e-06 | valid rel L2=3.231e-02 | pressure=1.126e-01, u=4.601e-02, v=3.342e-01 | Time: 2:49:04.013654
+2026-06-04 18:34:12 - pino - INFO - Epoch 0750 | data loss=1.686e-02 | bc loss=8.191e-03 | valid MSE=5.674e-06 | valid rel L2=3.043e-02 | pressure=1.087e-01, u=4.497e-02, v=3.331e-01 | Time: 2:51:18.150165
+2026-06-04 18:36:25 - pino - INFO - Epoch 0760 | data loss=1.667e-02 | bc loss=8.064e-03 | valid MSE=5.511e-06 | valid rel L2=2.986e-02 | pressure=1.086e-01, u=4.597e-02, v=3.341e-01 | Time: 2:53:31.208442
+2026-06-04 18:38:35 - pino - INFO - Epoch 0770 | data loss=1.666e-02 | bc loss=8.705e-03 | valid MSE=5.407e-06 | valid rel L2=2.918e-02 | pressure=1.084e-01, u=4.463e-02, v=3.292e-01 | Time: 2:55:41.477593
+2026-06-04 18:40:49 - pino - INFO - Epoch 0780 | data loss=1.626e-02 | bc loss=7.502e-03 | valid MSE=5.294e-06 | valid rel L2=2.878e-02 | pressure=1.103e-01, u=4.473e-02, v=3.316e-01 | Time: 2:57:55.466015
+2026-06-04 18:43:01 - pino - INFO - Epoch 0790 | data loss=1.617e-02 | bc loss=7.509e-03 | valid MSE=5.319e-06 | valid rel L2=2.901e-02 | pressure=1.119e-01, u=4.466e-02, v=3.326e-01 | Time: 3:00:07.757753
+2026-06-04 18:45:15 - pino - INFO - Epoch 0800 | data loss=1.602e-02 | bc loss=7.469e-03 | valid MSE=5.225e-06 | valid rel L2=2.842e-02 | pressure=1.122e-01, u=4.474e-02, v=3.337e-01 | Time: 3:02:21.150353
+2026-06-04 18:47:29 - pino - INFO - Epoch 0810 | data loss=1.593e-02 | bc loss=7.449e-03 | valid MSE=5.160e-06 | valid rel L2=2.827e-02 | pressure=1.130e-01, u=4.438e-02, v=3.317e-01 | Time: 3:04:35.143090
+2026-06-04 18:49:37 - pino - INFO - Epoch 0820 | data loss=1.580e-02 | bc loss=7.366e-03 | valid MSE=5.191e-06 | valid rel L2=2.847e-02 | pressure=1.128e-01, u=4.446e-02, v=3.313e-01 | Time: 3:06:43.956713
+2026-06-04 18:51:48 - pino - INFO - Epoch 0830 | data loss=1.568e-02 | bc loss=7.536e-03 | valid MSE=5.424e-06 | valid rel L2=2.920e-02 | pressure=1.137e-01, u=4.506e-02, v=3.346e-01 | Time: 3:08:54.207034
+2026-06-04 18:53:59 - pino - INFO - Epoch 0840 | data loss=1.591e-02 | bc loss=8.864e-03 | valid MSE=5.530e-06 | valid rel L2=2.954e-02 | pressure=1.114e-01, u=4.553e-02, v=3.345e-01 | Time: 3:11:05.438671
+2026-06-04 18:56:11 - pino - INFO - Epoch 0850 | data loss=1.557e-02 | bc loss=7.431e-03 | valid MSE=4.821e-06 | valid rel L2=2.750e-02 | pressure=1.127e-01, u=4.355e-02, v=3.307e-01 | Time: 3:13:17.137473
+2026-06-04 18:58:22 - pino - INFO - Epoch 0860 | data loss=1.539e-02 | bc loss=7.128e-03 | valid MSE=5.041e-06 | valid rel L2=2.797e-02 | pressure=1.136e-01, u=4.401e-02, v=3.334e-01 | Time: 3:15:28.655650
+2026-06-04 19:00:35 - pino - INFO - Epoch 0870 | data loss=1.533e-02 | bc loss=7.243e-03 | valid MSE=5.099e-06 | valid rel L2=2.804e-02 | pressure=1.148e-01, u=4.431e-02, v=3.336e-01 | Time: 3:17:41.679360
+2026-06-04 19:02:49 - pino - INFO - Epoch 0880 | data loss=1.528e-02 | bc loss=7.345e-03 | valid MSE=5.136e-06 | valid rel L2=2.816e-02 | pressure=1.139e-01, u=4.434e-02, v=3.324e-01 | Time: 3:19:55.329764
+2026-06-04 19:05:05 - pino - INFO - Epoch 0890 | data loss=1.518e-02 | bc loss=7.031e-03 | valid MSE=5.060e-06 | valid rel L2=2.788e-02 | pressure=1.134e-01, u=4.418e-02, v=3.329e-01 | Time: 3:22:11.152825
+2026-06-04 19:07:17 - pino - INFO - Epoch 0900 | data loss=1.516e-02 | bc loss=7.040e-03 | valid MSE=5.072e-06 | valid rel L2=2.791e-02 | pressure=1.142e-01, u=4.422e-02, v=3.334e-01 | Time: 3:24:23.171293
+2026-06-04 19:09:27 - pino - INFO - Epoch 0910 | data loss=1.509e-02 | bc loss=7.002e-03 | valid MSE=5.101e-06 | valid rel L2=2.801e-02 | pressure=1.150e-01, u=4.428e-02, v=3.331e-01 | Time: 3:26:33.108153
+2026-06-04 19:11:39 - pino - INFO - Epoch 0920 | data loss=1.506e-02 | bc loss=6.948e-03 | valid MSE=5.078e-06 | valid rel L2=2.788e-02 | pressure=1.154e-01, u=4.427e-02, v=3.340e-01 | Time: 3:28:45.109692
+2026-06-04 19:13:56 - pino - INFO - Epoch 0930 | data loss=1.501e-02 | bc loss=6.953e-03 | valid MSE=5.098e-06 | valid rel L2=2.798e-02 | pressure=1.147e-01, u=4.424e-02, v=3.340e-01 | Time: 3:31:02.077763
+2026-06-04 19:16:10 - pino - INFO - Epoch 0940 | data loss=1.498e-02 | bc loss=6.943e-03 | valid MSE=5.083e-06 | valid rel L2=2.793e-02 | pressure=1.150e-01, u=4.421e-02, v=3.336e-01 | Time: 3:33:16.938467
+2026-06-04 19:18:24 - pino - INFO - Epoch 0950 | data loss=1.496e-02 | bc loss=6.922e-03 | valid MSE=5.049e-06 | valid rel L2=2.788e-02 | pressure=1.148e-01, u=4.415e-02, v=3.332e-01 | Time: 3:35:30.484219
+2026-06-04 19:20:36 - pino - INFO - Epoch 0960 | data loss=1.495e-02 | bc loss=6.910e-03 | valid MSE=5.055e-06 | valid rel L2=2.788e-02 | pressure=1.150e-01, u=4.415e-02, v=3.333e-01 | Time: 3:37:42.639892
+2026-06-04 19:22:49 - pino - INFO - Epoch 0970 | data loss=1.494e-02 | bc loss=6.904e-03 | valid MSE=5.058e-06 | valid rel L2=2.790e-02 | pressure=1.149e-01, u=4.415e-02, v=3.333e-01 | Time: 3:39:55.217439
+2026-06-04 19:25:01 - pino - INFO - Epoch 0980 | data loss=1.493e-02 | bc loss=6.905e-03 | valid MSE=5.057e-06 | valid rel L2=2.787e-02 | pressure=1.150e-01, u=4.415e-02, v=3.334e-01 | Time: 3:42:07.528621
+2026-06-04 19:27:14 - pino - INFO - Epoch 0990 | data loss=1.492e-02 | bc loss=6.897e-03 | valid MSE=5.058e-06 | valid rel L2=2.788e-02 | pressure=1.150e-01, u=4.415e-02, v=3.334e-01 | Time: 3:44:20.226568
+2026-06-04 19:29:27 - pino - INFO - Epoch 1000 | data loss=1.492e-02 | bc loss=6.895e-03 | valid MSE=5.060e-06 | valid rel L2=2.789e-02 | pressure=1.150e-01, u=4.416e-02, v=3.334e-01 | Time: 3:46:33.711292
+2026-06-04 19:29:27 - pino - INFO - Best validation relative L2: 0.027499260380864143
+2026-06-04 19:29:27 - pino - INFO - Saved: results/060426_1/checkpoint.pt
+2026-06-04 19:29:29 - pino - INFO - Loaded: results/060426_1/checkpoint.pt
+2026-06-04 20:01:26 - pino - INFO - Total plotted points: 130420
+2026-06-04 20:01:26 - pino - INFO - x range: 0.5217617 1499.5232
+2026-06-04 20:01:26 - pino - INFO - y range: -11.844161 161.80336
+2026-06-04 20:06:03 - pino - INFO - Total plotted points: 130420
+2026-06-04 20:06:03 - pino - INFO - x range: 0.5217617 1499.5232
+2026-06-04 20:06:03 - pino - INFO - y range: -11.844161 161.80336
+2026-06-04 20:07:45 - pino - INFO - Total plotted points: 130420
+2026-06-04 20:07:45 - pino - INFO - x range: 0.5217617 1499.5232
+2026-06-04 20:07:45 - pino - INFO - y range: -11.844161 161.80336
+2026-06-04 20:10:02 - pino - INFO - Total plotted points: 130420
+2026-06-04 20:10:02 - pino - INFO - x range: 0.5217617 1499.5232
+2026-06-04 20:10:02 - pino - INFO - y range: -11.844161 161.80336
+2026-06-04 22:15:50 - pino - INFO - Test samples: 100
+2026-06-04 22:15:50 - pino - INFO - Test cases: [29, 33, 41, 54, 56, 59, 69, 78, 79, 95]
+2026-06-04 22:15:59 - pino - INFO - Total plotted points: 129802
+2026-06-04 22:15:59 - pino - INFO - x range: 0.5177064 1499.4655
+2026-06-04 22:15:59 - pino - INFO - y range: -12.175907 162.1532
+2026-06-04 22:23:28 - pino - INFO - Test samples: 100
+2026-06-04 22:23:28 - pino - INFO - Test cases: [29, 33, 41, 54, 56, 59, 69, 78, 79, 95]
+2026-06-04 22:23:35 - pino - INFO - Total plotted points: 129802
+2026-06-04 22:23:35 - pino - INFO - x range: 0.5177064 1499.4656
+2026-06-04 22:23:35 - pino - INFO - y range: -12.175907 162.1532
+2026-06-04 23:12:07 - pino - INFO - Test samples: 100
+2026-06-04 23:12:07 - pino - INFO - Test cases: [29, 33, 41, 54, 56, 59, 69, 78, 79, 95]
+2026-06-04 23:12:14 - pino - INFO - Total plotted points: 129802
+2026-06-04 23:12:14 - pino - INFO - x range: 0.5177064 1499.4655
+2026-06-04 23:12:14 - pino - INFO - y range: -12.175907 162.1532
+2026-06-04 23:15:43 - pino - INFO - Total plotted points: 129802
+2026-06-04 23:15:43 - pino - INFO - x range: 0.5177064 1499.4655
+2026-06-04 23:15:43 - pino - INFO - y range: -12.175907 162.1532
+2026-06-04 23:16:12 - pino - INFO - Total plotted points: 122754
+2026-06-04 23:16:12 - pino - INFO - x range: 0.51921827 1499.4724
+2026-06-04 23:16:12 - pino - INFO - y range: -13.061268 163.10059
+2026-06-04 23:16:40 - pino - INFO - Total plotted points: 124219
+2026-06-04 23:16:40 - pino - INFO - x range: 0.5323179 1499.5037
+2026-06-04 23:16:40 - pino - INFO - y range: -12.926371 162.89456
+2026-06-04 23:17:08 - pino - INFO - Total plotted points: 128771
+2026-06-04 23:17:08 - pino - INFO - x range: 0.516621 1499.5321
+2026-06-04 23:17:08 - pino - INFO - y range: -10.2581415 160.23286
+2026-06-04 23:17:37 - pino - INFO - Total plotted points: 128646
+2026-06-04 23:17:37 - pino - INFO - x range: 0.52389157 1499.4886
+2026-06-04 23:17:37 - pino - INFO - y range: -9.192306 159.20416
+2026-06-04 23:18:06 - pino - INFO - Total plotted points: 125694
+2026-06-04 23:18:06 - pino - INFO - x range: 0.49380285 1499.5012
+2026-06-04 23:18:06 - pino - INFO - y range: -13.248488 163.26027
+2026-06-04 23:18:36 - pino - INFO - Total plotted points: 134066
+2026-06-04 23:18:36 - pino - INFO - x range: 0.4880383 1499.4592
+2026-06-04 23:18:36 - pino - INFO - y range: -13.662997 163.74352
+2026-06-04 23:19:07 - pino - INFO - Total plotted points: 136499
+2026-06-04 23:19:07 - pino - INFO - x range: 0.5037642 1499.4736
+2026-06-04 23:19:07 - pino - INFO - y range: -12.572839 162.55254
+2026-06-04 23:19:42 - pino - INFO - Total plotted points: 145341
+2026-06-04 23:19:42 - pino - INFO - x range: 0.5376634 1499.4445
+2026-06-04 23:19:42 - pino - INFO - y range: -13.943932 163.95926
+2026-06-04 23:20:18 - pino - INFO - Total plotted points: 137598
+2026-06-04 23:20:18 - pino - INFO - x range: 0.47674653 1499.5122
+2026-06-04 23:20:18 - pino - INFO - y range: -13.857688 163.80327
+2026-06-04 23:29:56 - pino - INFO - Total plotted points: 129802
+2026-06-04 23:29:56 - pino - INFO - x range: 0.5177064 1499.4655
+2026-06-04 23:29:56 - pino - INFO - y range: -12.175907 162.1532
+2026-06-04 23:30:35 - pino - INFO - Total plotted points: 122754
+2026-06-04 23:30:35 - pino - INFO - x range: 0.51921827 1499.4724
+2026-06-04 23:30:35 - pino - INFO - y range: -13.061268 163.10059
+2026-06-04 23:31:10 - pino - INFO - Total plotted points: 124219
+2026-06-04 23:31:10 - pino - INFO - x range: 0.5323179 1499.5037
+2026-06-04 23:31:10 - pino - INFO - y range: -12.926371 162.89456
+2026-06-04 23:31:43 - pino - INFO - Total plotted points: 128771
+2026-06-04 23:31:43 - pino - INFO - x range: 0.516621 1499.5321
+2026-06-04 23:31:43 - pino - INFO - y range: -10.2581415 160.23286
+2026-06-04 23:32:17 - pino - INFO - Total plotted points: 128646
+2026-06-04 23:32:17 - pino - INFO - x range: 0.52389157 1499.4886
+2026-06-04 23:32:17 - pino - INFO - y range: -9.192306 159.20416
+2026-06-04 23:32:52 - pino - INFO - Total plotted points: 125694
+2026-06-04 23:32:52 - pino - INFO - x range: 0.49380285 1499.5012
+2026-06-04 23:32:52 - pino - INFO - y range: -13.248488 163.26027
+2026-06-04 23:33:25 - pino - INFO - Total plotted points: 134066
+2026-06-04 23:33:25 - pino - INFO - x range: 0.4880383 1499.4592
+2026-06-04 23:33:25 - pino - INFO - y range: -13.662997 163.74352
+2026-06-04 23:34:01 - pino - INFO - Total plotted points: 136499
+2026-06-04 23:34:01 - pino - INFO - x range: 0.5037642 1499.4736
+2026-06-04 23:34:01 - pino - INFO - y range: -12.572839 162.55254
+2026-06-04 23:34:37 - pino - INFO - Total plotted points: 145341
+2026-06-04 23:34:37 - pino - INFO - x range: 0.5376634 1499.4445
+2026-06-04 23:34:37 - pino - INFO - y range: -13.943932 163.95926
+2026-06-04 23:35:18 - pino - INFO - Total plotted points: 137598
+2026-06-04 23:35:18 - pino - INFO - x range: 0.47674653 1499.5122
+2026-06-04 23:35:18 - pino - INFO - y range: -13.857688 163.80327

@@ -1,0 +1,367 @@
+diff --git a/DeepONet/deeponet_fluent_dataset.py b/DeepONet/deeponet_fluent_dataset.py
+index 6cfc40b..2a07128 100644
+--- a/DeepONet/deeponet_fluent_dataset.py
++++ b/DeepONet/deeponet_fluent_dataset.py
+@@ -762,13 +762,6 @@ def build_fluent_deeponet_dataset(
+                 inv_ref = 1.0 / ref_length
+                 inv_width = 1.0 / max(width, 1.0e-12)
+ 
+-                # Subdomain-local frame: x is normalized to [0, 1] across the
+-                # subdomain width (its physical extent is encoded by the
+-                # local_aspect_ratio = width / reference_length feature), while
+-                # y_local = y / reference_length.
+-                xc = 0.5 * (x0 + x1)
+-                y_center = round(0.5 * (float(y_bottom_fn(xc)) + float(y_top_fn(xc))), 6)
+-
+                 cell_mask = (x >= x0) & (x <= x1)
+                 if not np.any(cell_mask):
+                     raise ValueError(f"No cell centers in case {case_id}, subdomain={s}.")
+@@ -879,13 +872,11 @@ def build_fluent_deeponet_dataset(
+                         "realization_id": int(realization_id),
+                         "x_left_mm": float(x0),
+                         "x_right_mm": float(x1),
+-                        "y_center_mm": float(y_center),
+                         "y_bottom_left_mm": float(yb_left),
+                         "y_top_left_mm": float(yt_left),
+                         "y_bottom_right_mm": float(yb_right),
+                         "y_top_right_mm": float(yt_right),
+                         "reference_length_mm": float(ref_length_mm),
+-                        "reference_length": float(ref_length),
+                         "local_aspect_ratio": float(local_aspect),
+                         "n_cells": int(query.shape[0]),
+                     }
+diff --git a/DeepONet/train_deeponet.ipynb b/DeepONet/train_deeponet.ipynb
+index 9cb686f..3024155 100644
+--- a/DeepONet/train_deeponet.ipynb
++++ b/DeepONet/train_deeponet.ipynb
+@@ -12,20 +12,10 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 15,
++      "execution_count": null,
+       "id": "4d97fe36",
+       "metadata": {},
+-      "outputs": [
+-        {
+-          "name": "stdout",
+-          "output_type": "stream",
+-          "text": [
+-            "The autoreload extension is already loaded. To reload it, use:\n",
+-            "  %reload_ext autoreload\n",
+-            "Device: cuda:0\n"
+-          ]
+-        }
+-      ],
++      "outputs": [],
+       "source": [
+         "%load_ext autoreload\n",
+         "%autoreload 2\n",
+@@ -66,26 +56,27 @@
+         "    collect_predictions_for_data,\n",
+         ")\n",
+         "\n",
+-        "torch.manual_seed(0)\n",
+-        "np.random.seed(0)\n",
+-        "rng = np.random.default_rng()\n",
++        "SEED = 0\n",
++        "torch.manual_seed(SEED)\n",
++        "np.random.seed(SEED)\n",
++        "rng = np.random.default_rng(SEED)\n",
+         "DEVICE = torch.device(\"cuda:0\" if torch.cuda.is_available() else \"cpu\")\n",
+         "print(\"Device:\", DEVICE)"
+       ]
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 4,
++      "execution_count": null,
+       "id": "584f6752",
+       "metadata": {},
+       "outputs": [],
+       "source": [
+-        "comment = \"Random channels, fixed-location interfaces, adaptive n_sub, 70/10/20 split\""
++        "comment = \"Large smooth channels random interface placement\""
+       ]
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 5,
++      "execution_count": null,
+       "id": "d599c828",
+       "metadata": {},
+       "outputs": [
+@@ -149,7 +140,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 6,
++      "execution_count": null,
+       "id": "0d0b1ae2",
+       "metadata": {},
+       "outputs": [
+@@ -157,7 +148,7 @@
+           "name": "stdout",
+           "output_type": "stream",
+           "text": [
+-            "Available cases (44): [0, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 84, 88, 89, 92]\n"
++            "Available cases (100): [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]\n"
+           ]
+         }
+       ],
+@@ -167,9 +158,9 @@
+         "\n",
+         "def case_paths(i):\n",
+         "    return {\n",
+-        "        \"design\": ROOT_DIR / f\"2d_geometry_specs/rand_channel/channel_{i:02d}.json\",\n",
+-        "        \"mesh\": ROOT_DIR / f\"runs_2d/rand_channel/channel_{i:02d}/channel_{i:02d}.msh.h5\",\n",
+-        "        \"dat\": ROOT_DIR / f\"runs_2d/rand_channel/channel_{i:02d}/case2d.dat.h5\",\n",
++        "        \"design\": ROOT_DIR / f\"2d_geometry_specs/rand_channel_smooth/channel_{i:02d}.json\",\n",
++        "        \"mesh\": ROOT_DIR / f\"runs_2d/rand_channel_smooth/channel_{i:02d}/channel_{i:02d}.msh.h5\",\n",
++        "        \"dat\": ROOT_DIR / f\"runs_2d/rand_channel_smooth/channel_{i:02d}/case2d.dat.h5\",\n",
+         "    }\n",
+         "\n",
+         "\n",
+@@ -193,7 +184,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 7,
++      "execution_count": null,
+       "id": "874cdda1",
+       "metadata": {},
+       "outputs": [
+@@ -201,21 +192,21 @@
+           "name": "stdout",
+           "output_type": "stream",
+           "text": [
+-            "Train cases (31): [0, 2, 3, 4, 5, 10, 11, 12, 13, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 32, 34, 36, 37, 40, 41, 84, 88, 89]\n",
+-            "Valid cases (4): [8, 15, 38, 39]\n",
+-            "Test  cases (9): [6, 9, 14, 16, 17, 31, 33, 35, 92]\n"
++            "Train cases (80): [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 32, 34, 35, 36, 37, 39, 40, 42, 43, 44, 45, 46, 47, 49, 50, 51, 52, 53, 55, 57, 58, 60, 61, 62, 64, 65, 66, 67, 68, 70, 71, 72, 74, 75, 80, 81, 82, 83, 84, 85, 86, 87, 90, 91, 92, 93, 94, 96, 97, 98, 99]\n",
++            "Valid cases (10): [7, 31, 38, 48, 63, 73, 76, 77, 88, 89]\n",
++            "Test  cases (10): [29, 33, 41, 54, 56, 59, 69, 78, 79, 95]\n"
+           ]
+         }
+       ],
+       "source": [
+-        "# 70/10/20 train/val/test split over the available cases (split by case id).\n",
++        "# 70/20/10 train/val/test split over the available cases (split by case id).\n",
+         "SPLIT_SEED = 0\n",
+         "_split_rng = np.random.default_rng(SPLIT_SEED)\n",
+         "_shuffled_cases = list(available_cases)\n",
+         "_split_rng.shuffle(_shuffled_cases)\n",
+         "\n",
+         "n_total = len(_shuffled_cases)\n",
+-        "n_train = int(round(0.70 * n_total))\n",
++        "n_train = int(round(0.80 * n_total))\n",
+         "n_valid = int(round(0.10 * n_total))\n",
+         "TRAIN_CASES = sorted(_shuffled_cases[:n_train])\n",
+         "VALID_CASES = sorted(_shuffled_cases[n_train:n_train + n_valid])\n",
+@@ -229,14 +220,14 @@
+         "N_SUBDOMAINS = \"adaptive\"\n",
+         "N_INTERFACE_POINTS = 256\n",
+         "N_WALL_POINTS = 256\n",
+-        "INTERFACE_PLACEMENT = \"fixed\"\n",
++        "INTERFACE_PLACEMENT = \"random\"\n",
+         "INTERFACE_JITTER = 0.0\n",
+         "MIN_SUBDOMAIN_WIDTH = 0.01\n",
+-        "N_REALIZATIONS_TRAIN = 1  # fixed placement is deterministic, so one realization\n",
++        "N_REALIZATIONS_TRAIN = 5 \n",
+         "\n",
+         "N_QUERY_TRAIN = None\n",
+         "N_QUERY_VALID = None\n",
+-        "BATCH_SIZE = 20\n",
++        "BATCH_SIZE = 50\n",
+         "\n",
+         "# Isothermal runs have no temperature field: train on pressure/u/v only.\n",
+         "FIELD_MAP = {\"pressure\": \"SV_P\", \"u\": \"SV_U\", \"v\": \"SV_V\"}\n",
+@@ -262,7 +253,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 8,
++      "execution_count": null,
+       "id": "4be1045c",
+       "metadata": {},
+       "outputs": [
+@@ -270,50 +261,29 @@
+           "name": "stdout",
+           "output_type": "stream",
+           "text": [
+-            "Processing case 0 realization=0 (n_subdomains=13)\n",
+-            "Processing case 2 realization=0 (n_subdomains=38)\n",
+-            "Processing case 3 realization=0 (n_subdomains=18)\n",
+-            "Processing case 4 realization=0 (n_subdomains=30)\n",
+-            "Processing case 5 realization=0 (n_subdomains=11)\n",
+-            "Processing case 10 realization=0 (n_subdomains=28)\n",
+-            "Processing case 11 realization=0 (n_subdomains=48)\n",
+-            "Processing case 12 realization=0 (n_subdomains=45)\n",
+-            "Processing case 13 realization=0 (n_subdomains=50)\n",
+-            "Processing case 18 realization=0 (n_subdomains=33)\n",
+-            "Processing case 19 realization=0 (n_subdomains=35)\n",
+-            "Processing case 20 realization=0 (n_subdomains=10)\n",
+-            "Processing case 21 realization=0 (n_subdomains=33)\n",
+-            "Processing case 22 realization=0 (n_subdomains=49)\n",
+-            "Processing case 23 realization=0 (n_subdomains=33)\n",
+-            "Processing case 24 realization=0 (n_subdomains=29)\n",
+-            "Processing case 25 realization=0 (n_subdomains=19)\n",
+-            "Processing case 26 realization=0 (n_subdomains=32)\n",
+-            "Processing case 27 realization=0 (n_subdomains=41)\n",
+-            "Processing case 28 realization=0 (n_subdomains=37)\n",
+-            "Processing case 29 realization=0 (n_subdomains=29)\n",
+-            "Processing case 30 realization=0 (n_subdomains=32)\n",
+-            "Processing case 32 realization=0 (n_subdomains=15)\n",
+-            "Processing case 34 realization=0 (n_subdomains=18)\n",
+-            "Processing case 36 realization=0 (n_subdomains=24)\n",
+-            "Processing case 37 realization=0 (n_subdomains=21)\n",
+-            "Processing case 40 realization=0 (n_subdomains=32)\n",
+-            "Processing case 41 realization=0 (n_subdomains=33)\n",
+-            "Processing case 84 realization=0 (n_subdomains=30)\n",
+-            "Processing case 88 realization=0 (n_subdomains=23)\n",
+-            "Processing case 89 realization=0 (n_subdomains=11)\n",
+-            "Processing case 8 realization=0 (n_subdomains=10)\n",
+-            "Processing case 15 realization=0 (n_subdomains=46)\n",
+-            "Processing case 38 realization=0 (n_subdomains=47)\n",
+-            "Processing case 39 realization=0 (n_subdomains=13)\n",
+-            "Train samples: 900\n",
+-            "Valid samples: 116\n",
+-            "Train branch channels: ['x_local', 'y_local', 'wall_mask', 'interface_mask', 'boundary_pressure', 'boundary_u', 'boundary_v', 'known_pressure', 'known_u', 'known_v', 'local_aspect_ratio']\n",
+-            "Train trunk channels: ['x_local', 'y_local']\n",
+-            "Output channels: ['pressure', 'u', 'v']\n",
+-            "Example train sample:\n",
+-            "branch: (1024, 11)\n",
+-            "query: (4461, 2)\n",
+-            "target: (4461, 3)\n"
++            "Processing case 0 realization=0 (n_subdomains=10)\n",
++            "Processing case 1 realization=0 (n_subdomains=10)\n"
++          ]
++        },
++        {
++          "ename": "KeyboardInterrupt",
++          "evalue": "",
++          "output_type": "error",
++          "traceback": [
++            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
++            "\u001b[0;31mKeyboardInterrupt\u001b[0m                         Traceback (most recent call last)",
++            "Cell \u001b[0;32mIn[25], line 1\u001b[0m\n\u001b[0;32m----> 1\u001b[0m train_data \u001b[38;5;241m=\u001b[39m build_fluent_deeponet_dataset(\n\u001b[1;32m      2\u001b[0m     case_files\u001b[38;5;241m=\u001b[39mcase_files,\n\u001b[1;32m      3\u001b[0m     case_ids\u001b[38;5;241m=\u001b[39mTRAIN_CASES,\n\u001b[1;32m      4\u001b[0m     n_subdomains\u001b[38;5;241m=\u001b[39mN_SUBDOMAINS,\n\u001b[1;32m      5\u001b[0m     n_interface_points\u001b[38;5;241m=\u001b[39mN_INTERFACE_POINTS,\n\u001b[1;32m      6\u001b[0m     n_boundary_points\u001b[38;5;241m=\u001b[39mN_WALL_POINTS,\n\u001b[1;32m      7\u001b[0m     n_realizations\u001b[38;5;241m=\u001b[39mN_REALIZATIONS_TRAIN,\n\u001b[1;32m      8\u001b[0m     interface_placement\u001b[38;5;241m=\u001b[39mINTERFACE_PLACEMENT,\n\u001b[1;32m      9\u001b[0m     interface_jitter\u001b[38;5;241m=\u001b[39mINTERFACE_JITTER,\n\u001b[1;32m     10\u001b[0m     min_subdomain_width\u001b[38;5;241m=\u001b[39mMIN_SUBDOMAIN_WIDTH,\n\u001b[1;32m     11\u001b[0m     field_map\u001b[38;5;241m=\u001b[39mFIELD_MAP,\n\u001b[1;32m     12\u001b[0m     bc_kwargs\u001b[38;5;241m=\u001b[39mbc_kwargs,\n\u001b[1;32m     13\u001b[0m     keep_raw_case_data\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mFalse\u001b[39;00m,\n\u001b[1;32m     14\u001b[0m     rng\u001b[38;5;241m=\u001b[39mrng,\n\u001b[1;32m     15\u001b[0m )\n\u001b[1;32m     17\u001b[0m valid_data \u001b[38;5;241m=\u001b[39m build_fluent_deeponet_dataset(\n\u001b[1;32m     18\u001b[0m     case_files\u001b[38;5;241m=\u001b[39mcase_files,\n\u001b[1;32m     19\u001b[0m     case_ids\u001b[38;5;241m=\u001b[39mVALID_CASES,\n\u001b[0;32m   (...)\u001b[0m\n\u001b[1;32m     28\u001b[0m     rng\u001b[38;5;241m=\u001b[39mrng,\n\u001b[1;32m     29\u001b[0m )\n\u001b[1;32m     31\u001b[0m samples \u001b[38;5;241m=\u001b[39m train_data[\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124msamples\u001b[39m\u001b[38;5;124m\"\u001b[39m]\n",
++            "File \u001b[0;32m~/Documents/PIDIF/DeepONet/deeponet_fluent_dataset.py:748\u001b[0m, in \u001b[0;36mbuild_fluent_deeponet_dataset\u001b[0;34m(case_files, case_ids, n_subdomains, n_interface_points, n_boundary_points, interface_placement, interface_jitter, min_subdomain_width, rng, field_map, output_fields, bc_kwargs, keep_raw_case_data, n_realizations, ar_list)\u001b[0m\n\u001b[1;32m    745\u001b[0m \u001b[38;5;28;01melse\u001b[39;00m:\n\u001b[1;32m    746\u001b[0m     \u001b[38;5;28;01mraise\u001b[39;00m \u001b[38;5;167;01mValueError\u001b[39;00m(\u001b[38;5;124mf\u001b[39m\u001b[38;5;124m\"\u001b[39m\u001b[38;5;124mInvalid interface_placement argument: \u001b[39m\u001b[38;5;132;01m{\u001b[39;00minterface_placement\u001b[38;5;132;01m}\u001b[39;00m\u001b[38;5;124m\"\u001b[39m)\n\u001b[0;32m--> 748\u001b[0m linear, nearest \u001b[38;5;241m=\u001b[39m _make_global_interpolators(x, y, values)\n\u001b[1;32m    750\u001b[0m \u001b[38;5;66;03m# Fractional sampling positions: across the local channel height in\u001b[39;00m\n\u001b[1;32m    751\u001b[0m \u001b[38;5;66;03m# (0, 1) for the interfaces, and across the subdomain width in\u001b[39;00m\n\u001b[1;32m    752\u001b[0m \u001b[38;5;66;03m# [0, 1] for the (polyline) top/bottom walls.\u001b[39;00m\n\u001b[1;32m    753\u001b[0m y_interface_frac \u001b[38;5;241m=\u001b[39m np\u001b[38;5;241m.\u001b[39mlinspace(\u001b[38;5;241m0.0\u001b[39m, \u001b[38;5;241m1.0\u001b[39m, n_interface_points \u001b[38;5;241m+\u001b[39m \u001b[38;5;241m2\u001b[39m, dtype\u001b[38;5;241m=\u001b[39mnp\u001b[38;5;241m.\u001b[39mfloat64)[\u001b[38;5;241m1\u001b[39m:\u001b[38;5;241m-\u001b[39m\u001b[38;5;241m1\u001b[39m]\n",
++            "File \u001b[0;32m~/Documents/PIDIF/DeepONet/deeponet_fluent_dataset.py:378\u001b[0m, in \u001b[0;36m_make_global_interpolators\u001b[0;34m(x, y, values)\u001b[0m\n\u001b[1;32m    376\u001b[0m nearest \u001b[38;5;241m=\u001b[39m []\n\u001b[1;32m    377\u001b[0m \u001b[38;5;28;01mfor\u001b[39;00m c \u001b[38;5;129;01min\u001b[39;00m \u001b[38;5;28mrange\u001b[39m(values\u001b[38;5;241m.\u001b[39mshape[\u001b[38;5;241m1\u001b[39m]):\n\u001b[0;32m--> 378\u001b[0m     linear\u001b[38;5;241m.\u001b[39mappend(LinearNDInterpolator(points, values[:, c]))\n\u001b[1;32m    379\u001b[0m     nearest\u001b[38;5;241m.\u001b[39mappend(NearestNDInterpolator(points, values[:, c]))\n\u001b[1;32m    380\u001b[0m \u001b[38;5;28;01mreturn\u001b[39;00m linear, nearest\n",
++            "File \u001b[0;32mscipy/interpolate/_interpnd.pyx:302\u001b[0m, in \u001b[0;36mscipy.interpolate._interpnd.LinearNDInterpolator.__init__\u001b[0;34m()\u001b[0m\n",
++            "File \u001b[0;32mscipy/interpolate/_interpnd.pyx:93\u001b[0m, in \u001b[0;36mscipy.interpolate._interpnd.NDInterpolatorBase.__init__\u001b[0;34m()\u001b[0m\n",
++            "File \u001b[0;32mscipy/interpolate/_interpnd.pyx:306\u001b[0m, in \u001b[0;36mscipy.interpolate._interpnd.LinearNDInterpolator._calculate_triangulation\u001b[0;34m()\u001b[0m\n",
++            "File \u001b[0;32mscipy/spatial/_qhull.pyx:1891\u001b[0m, in \u001b[0;36mscipy.spatial._qhull.Delaunay.__init__\u001b[0;34m()\u001b[0m\n",
++            "File \u001b[0;32mscipy/spatial/_qhull.pyx:1600\u001b[0m, in \u001b[0;36mscipy.spatial._qhull._QhullUser.__init__\u001b[0;34m()\u001b[0m\n",
++            "File \u001b[0;32mscipy/spatial/_qhull.pyx:1909\u001b[0m, in \u001b[0;36mscipy.spatial._qhull.Delaunay._update\u001b[0;34m()\u001b[0m\n",
++            "File \u001b[0;32mscipy/spatial/_qhull.pyx:1629\u001b[0m, in \u001b[0;36mscipy.spatial._qhull._QhullUser._update\u001b[0;34m()\u001b[0m\n",
++            "File \u001b[0;32m~/.miniconda3/envs/pinn/lib/python3.12/site-packages/numpy/_core/_methods.py:45\u001b[0m, in \u001b[0;36m_amin\u001b[0;34m(a, axis, out, keepdims, initial, where)\u001b[0m\n\u001b[1;32m     41\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21m_amax\u001b[39m(a, axis\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mNone\u001b[39;00m, out\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mNone\u001b[39;00m, keepdims\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mFalse\u001b[39;00m,\n\u001b[1;32m     42\u001b[0m           initial\u001b[38;5;241m=\u001b[39m_NoValue, where\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mTrue\u001b[39;00m):\n\u001b[1;32m     43\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m umr_maximum(a, axis, \u001b[38;5;28;01mNone\u001b[39;00m, out, keepdims, initial, where)\n\u001b[0;32m---> 45\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21m_amin\u001b[39m(a, axis\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mNone\u001b[39;00m, out\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mNone\u001b[39;00m, keepdims\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mFalse\u001b[39;00m,\n\u001b[1;32m     46\u001b[0m           initial\u001b[38;5;241m=\u001b[39m_NoValue, where\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mTrue\u001b[39;00m):\n\u001b[1;32m     47\u001b[0m     \u001b[38;5;28;01mreturn\u001b[39;00m umr_minimum(a, axis, \u001b[38;5;28;01mNone\u001b[39;00m, out, keepdims, initial, where)\n\u001b[1;32m     49\u001b[0m \u001b[38;5;28;01mdef\u001b[39;00m \u001b[38;5;21m_sum\u001b[39m(a, axis\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mNone\u001b[39;00m, dtype\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mNone\u001b[39;00m, out\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mNone\u001b[39;00m, keepdims\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mFalse\u001b[39;00m,\n\u001b[1;32m     50\u001b[0m          initial\u001b[38;5;241m=\u001b[39m_NoValue, where\u001b[38;5;241m=\u001b[39m\u001b[38;5;28;01mTrue\u001b[39;00m):\n",
++            "\u001b[0;31mKeyboardInterrupt\u001b[0m: "
+           ]
+         }
+       ],
+@@ -374,7 +344,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 9,
++      "execution_count": null,
+       "id": "2a71ec89",
+       "metadata": {},
+       "outputs": [
+@@ -393,16 +363,6 @@
+         "train_metadata = train_data[\"metadata\"]\n",
+         "valid_metadata = valid_data[\"metadata\"]\n",
+         "\n",
+-        "train_ars_array = np.asarray(\n",
+-        "    [m[\"aspect_ratio\"] for m in train_metadata],\n",
+-        "    dtype=np.float32,\n",
+-        ")\n",
+-        "\n",
+-        "valid_ars_array = np.asarray(\n",
+-        "    [m[\"aspect_ratio\"] for m in valid_metadata],\n",
+-        "    dtype=np.float32,\n",
+-        ")\n",
+-        "\n",
+         "train_subdomain_ids = np.asarray(\n",
+         "    [m[\"subdomain_id\"] for m in train_metadata],\n",
+         "    dtype=np.int64,\n",
+@@ -417,14 +377,12 @@
+         "valid_case_ids = sorted({int(m[\"case_id\"]) for m in valid_metadata})\n",
+         "\n",
+         "print(\"Train cases:\", train_case_ids)\n",
+-        "print(\"Valid cases:\", valid_case_ids)\n",
+-        "print(\"Train AR range:\", float(train_ars_array.min()), \"-\", float(train_ars_array.max()))\n",
+-        "print(\"Valid AR range:\", float(valid_ars_array.min()), \"-\", float(valid_ars_array.max()))"
++        "print(\"Valid cases:\", valid_case_ids)"
+       ]
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 10,
++      "execution_count": null,
+       "id": "f711a6d0",
+       "metadata": {},
+       "outputs": [
+@@ -476,7 +434,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 11,
++      "execution_count": null,
+       "id": "7de7c844",
+       "metadata": {},
+       "outputs": [
+@@ -551,7 +509,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 12,
++      "execution_count": null,
+       "id": "d486f243",
+       "metadata": {},
+       "outputs": [
+@@ -601,7 +559,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 16,
++      "execution_count": null,
+       "id": "7419e62a",
+       "metadata": {},
+       "outputs": [
+@@ -806,7 +764,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 74,
++      "execution_count": null,
+       "id": "a5e6824a",
+       "metadata": {},
+       "outputs": [
+@@ -864,7 +822,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 75,
++      "execution_count": null,
+       "id": "e17ae343",
+       "metadata": {},
+       "outputs": [
+@@ -908,7 +866,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 76,
++      "execution_count": null,
+       "id": "f7c92b8e",
+       "metadata": {},
+       "outputs": [
+@@ -1129,7 +1087,7 @@
+     },
+     {
+       "cell_type": "code",
+-      "execution_count": 77,
++      "execution_count": null,
+       "id": "eeb08140",
+       "metadata": {},
+       "outputs": [
