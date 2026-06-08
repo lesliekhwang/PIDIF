@@ -1,0 +1,201 @@
+case,status,spec_json,step_path,mesh_path,case_data_path,pin_txt,pout_txt,uin_mps,pin_pa,pout_pa,dp_pa,vin_mps,vout_mps,reynolds_number,flow_regime,mass_conservation_rel_error,physics_ok,inlet_name,outlet_name,wall_bottom_name,wall_top_name,elapsed_sec
+channel_00,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-flhrb9m5.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_00.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_00.step,,,,,1.0,,,,,,,,,,,,,,
+channel_01,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-h2bl70nf.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_01.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_01.step,,,,,1.0,,,,,,,,,,,,,,
+channel_02,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-9qnvka7y.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_02.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_02.step,,,,,1.0,,,,,,,,,,,,,,
+channel_03,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-lg6q5cei.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_03.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_03.step,,,,,1.0,,,,,,,,,,,,,,
+channel_04,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-u2871ugp.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_04.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_04.step,,,,,1.0,,,,,,,,,,,,,,
+channel_05,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-74o_cjoh.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_05.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_05.step,,,,,1.0,,,,,,,,,,,,,,
+channel_06,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-1bhc0653.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_06.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_06.step,,,,,1.0,,,,,,,,,,,,,,
+channel_07,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-utrmhjfh.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_07.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_07.step,,,,,1.0,,,,,,,,,,,,,,
+channel_08,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-rsv0kl2b.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_08.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_08.step,,,,,1.0,,,,,,,,,,,,,,
+channel_09,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-prsbn5dx.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_09.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_09.step,,,,,1.0,,,,,,,,,,,,,,
+channel_10,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-yonetfwp.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_10.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_10.step,,,,,1.0,,,,,,,,,,,,,,
+channel_11,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-pmo8yoh1.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_11.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_11.step,,,,,1.0,,,,,,,,,,,,,,
+channel_12,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-hnolicw3.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_12.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_12.step,,,,,1.0,,,,,,,,,,,,,,
+channel_13,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-pg1yl9h_.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_13.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_13.step,,,,,1.0,,,,,,,,,,,,,,
+channel_14,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ycy7zxx1.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_14.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_14.step,,,,,1.0,,,,,,,,,,,,,,
+channel_15,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-7x0c1g72.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_15.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_15.step,,,,,1.0,,,,,,,,,,,,,,
+channel_16,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-l9cdgll0.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_16.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_16.step,,,,,1.0,,,,,,,,,,,,,,
+channel_17,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ibhdd9go.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_17.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_17.step,,,,,1.0,,,,,,,,,,,,,,
+channel_18,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 3ddp -py -t16 -hidden -meshing -sifile=/tmp/serverinfo-yjjgwgsa.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_18.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_18.step,,,,,1.0,,,,,,,,,,,,,,
+channel_19,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 3ddp -py -t16 -hidden -meshing -sifile=/tmp/serverinfo-_cs1mw3m.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_19.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_19.step,,,,,1.0,,,,,,,,,,,,,,
+channel_20,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ix0vswpp.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_20.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_20.step,,,,,1.0,,,,,,,,,,,,,,
+channel_21,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-238ee9ca.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_21.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_21.step,,,,,1.0,,,,,,,,,,,,,,
+channel_22,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-f1669aur.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_22.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_22.step,,,,,1.0,,,,,,,,,,,,,,
+channel_23,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-fmjfvqyq.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_23.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_23.step,,,,,1.0,,,,,,,,,,,,,,
+channel_24,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-6qligubj.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_24.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_24.step,,,,,1.0,,,,,,,,,,,,,,
+channel_25,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-afge83to.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_25.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_25.step,,,,,1.0,,,,,,,,,,,,,,
+channel_26,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-mnqhboie.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_26.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_26.step,,,,,1.0,,,,,,,,,,,,,,
+channel_27,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-mdl2e7qf.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_27.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_27.step,,,,,1.0,,,,,,,,,,,,,,
+channel_28,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-5g77s2pr.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_28.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_28.step,,,,,1.0,,,,,,,,,,,,,,
+channel_29,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-d7j1i97b.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_29.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_29.step,,,,,1.0,,,,,,,,,,,,,,
+channel_30,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-61xb5ajl.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_30.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_30.step,,,,,1.0,,,,,,,,,,,,,,
+channel_31,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-dcb6w9mt.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_31.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_31.step,,,,,1.0,,,,,,,,,,,,,,
+channel_32,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-0ocjzy37.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_32.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_32.step,,,,,1.0,,,,,,,,,,,,,,
+channel_33,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ok_cjm1c.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_33.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_33.step,,,,,1.0,,,,,,,,,,,,,,
+channel_34,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-t6azn4tz.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_34.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_34.step,,,,,1.0,,,,,,,,,,,,,,
+channel_35,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-pl_i9c_m.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_35.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_35.step,,,,,1.0,,,,,,,,,,,,,,
+channel_36,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-9ou1wjyt.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_36.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_36.step,,,,,1.0,,,,,,,,,,,,,,
+channel_37,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-slyk8nng.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_37.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_37.step,,,,,1.0,,,,,,,,,,,,,,
+channel_38,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-a3sulmeg.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_38.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_38.step,,,,,1.0,,,,,,,,,,,,,,
+channel_39,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-trw8_n0p.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_39.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_39.step,,,,,1.0,,,,,,,,,,,,,,
+channel_40,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-nv14nwdj.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_40.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_40.step,,,,,1.0,,,,,,,,,,,,,,
+channel_41,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-pukshcna.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_41.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_41.step,,,,,1.0,,,,,,,,,,,,,,
+channel_42,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-lbw9irrn.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_42.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_42.step,,,,,1.0,,,,,,,,,,,,,,
+channel_43,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-d9mijyz3.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_43.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_43.step,,,,,1.0,,,,,,,,,,,,,,
+channel_44,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-zoq7zu1f.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_44.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_44.step,,,,,1.0,,,,,,,,,,,,,,
+channel_45,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-1kf6u_t5.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_45.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_45.step,,,,,1.0,,,,,,,,,,,,,,
+channel_46,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-mq2j74hj.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_46.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_46.step,,,,,1.0,,,,,,,,,,,,,,
+channel_47,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-34h_ku29.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_47.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_47.step,,,,,1.0,,,,,,,,,,,,,,
+channel_48,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-n__7bghm.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_48.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_48.step,,,,,1.0,,,,,,,,,,,,,,
+channel_49,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-sj27dc3k.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_49.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_49.step,,,,,1.0,,,,,,,,,,,,,,
+channel_50,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-kir9tdxh.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_50.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_50.step,,,,,1.0,,,,,,,,,,,,,,
+channel_51,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-7jpmsm6i.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_51.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_51.step,,,,,1.0,,,,,,,,,,,,,,
+channel_52,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-fg56khpu.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_52.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_52.step,,,,,1.0,,,,,,,,,,,,,,
+channel_53,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-o44_ivxe.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_53.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_53.step,,,,,1.0,,,,,,,,,,,,,,
+channel_54,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-df0ezb1j.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_54.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_54.step,,,,,1.0,,,,,,,,,,,,,,
+channel_55,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-m0db2gx9.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_55.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_55.step,,,,,1.0,,,,,,,,,,,,,,
+channel_56,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ysnb7jdz.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_56.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_56.step,,,,,1.0,,,,,,,,,,,,,,
+channel_57,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-tnhb0on7.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_57.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_57.step,,,,,1.0,,,,,,,,,,,,,,
+channel_58,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-e9zn6avk.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_58.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_58.step,,,,,1.0,,,,,,,,,,,,,,
+channel_59,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-04r771_3.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_59.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_59.step,,,,,1.0,,,,,,,,,,,,,,
+channel_60,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-v_ck2ham.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_60.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_60.step,,,,,1.0,,,,,,,,,,,,,,
+channel_61,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-3_al7m7u.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_61.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_61.step,,,,,1.0,,,,,,,,,,,,,,
+channel_62,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-6ikh8exg.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_62.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_62.step,,,,,1.0,,,,,,,,,,,,,,
+channel_63,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-9orprbsq.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_63.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_63.step,,,,,1.0,,,,,,,,,,,,,,
+channel_64,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ar2e97ih.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_64.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_64.step,,,,,1.0,,,,,,,,,,,,,,
+channel_65,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-19gwnx6b.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_65.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_65.step,,,,,1.0,,,,,,,,,,,,,,
+channel_66,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-o7v0qwd2.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_66.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_66.step,,,,,1.0,,,,,,,,,,,,,,
+channel_67,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-vzuop4hi.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_67.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_67.step,,,,,1.0,,,,,,,,,,,,,,
+channel_68,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-mn0t1i3z.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_68.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_68.step,,,,,1.0,,,,,,,,,,,,,,
+channel_69,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-26ayg3v1.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_69.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_69.step,,,,,1.0,,,,,,,,,,,,,,
+channel_70,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-9klhbsni.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_70.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_70.step,,,,,1.0,,,,,,,,,,,,,,
+channel_71,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-2lm7cgxn.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_71.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_71.step,,,,,1.0,,,,,,,,,,,,,,
+channel_72,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-safoa9w7.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_72.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_72.step,,,,,1.0,,,,,,,,,,,,,,
+channel_73,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-rorq_i8q.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_73.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_73.step,,,,,1.0,,,,,,,,,,,,,,
+channel_74,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-lcu7j5mm.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_74.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_74.step,,,,,1.0,,,,,,,,,,,,,,
+channel_75,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-cd__m65e.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_75.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_75.step,,,,,1.0,,,,,,,,,,,,,,
+channel_76,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ge7p0sa3.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_76.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_76.step,,,,,1.0,,,,,,,,,,,,,,
+channel_77,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-fv5jnk8v.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_77.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_77.step,,,,,1.0,,,,,,,,,,,,,,
+channel_78,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-y6d6ldqq.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_78.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_78.step,,,,,1.0,,,,,,,,,,,,,,
+channel_79,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-lh4sx38o.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_79.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_79.step,,,,,1.0,,,,,,,,,,,,,,
+channel_80,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-qtjopmtf.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_80.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_80.step,,,,,1.0,,,,,,,,,,,,,,
+channel_81,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-00zkfh8a.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_81.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_81.step,,,,,1.0,,,,,,,,,,,,,,
+channel_82,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-n27xgsbd.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_82.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_82.step,,,,,1.0,,,,,,,,,,,,,,
+channel_83,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-r_s_wke6.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_83.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_83.step,,,,,1.0,,,,,,,,,,,,,,
+channel_84,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-a87kxy6e.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_84.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_84.step,,,,,1.0,,,,,,,,,,,,,,
+channel_85,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-3bs4v3bz.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_85.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_85.step,,,,,1.0,,,,,,,,,,,,,,
+channel_86,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-1g420asa.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_86.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_86.step,,,,,1.0,,,,,,,,,,,,,,
+channel_87,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-f4bx6oj8.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_87.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_87.step,,,,,1.0,,,,,,,,,,,,,,
+channel_88,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-mqmiuzaw.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_88.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_88.step,,,,,1.0,,,,,,,,,,,,,,
+channel_89,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-d2qx9o_1.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_89.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_89.step,,,,,1.0,,,,,,,,,,,,,,
+channel_90,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-m53kvyl8.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_90.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_90.step,,,,,1.0,,,,,,,,,,,,,,
+channel_91,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-xoj_37_a.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_91.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_91.step,,,,,1.0,,,,,,,,,,,,,,
+channel_92,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-2hxy7k2_.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_92.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_92.step,,,,,1.0,,,,,,,,,,,,,,
+channel_93,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-1yl_tfx2.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_93.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_93.step,,,,,1.0,,,,,,,,,,,,,,
+channel_94,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-ozsg5age.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_94.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_94.step,,,,,1.0,,,,,,,,,,,,,,
+channel_95,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-m1tt_0rm.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_95.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_95.step,,,,,1.0,,,,,,,,,,,,,,
+channel_96,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-22ppz1nd.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_96.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_96.step,,,,,1.0,,,,,,,,,,,,,,
+channel_97,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-g_639n7z.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_97.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_97.step,,,,,1.0,,,,,,,,,,,,,,
+channel_98,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-p7ele55f.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_98.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_98.step,,,,,1.0,,,,,,,,,,,,,,
+channel_99,"failed: 
+Fluent Launch command: /packages/apps/ansys/2025r1/ansys/v251/fluent/bin/fluent 2ddp -py -t16 -hidden -sifile=/tmp/serverinfo-37gwudf_.txt -nm",/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water/channel_99.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water/channel_99.step,,,,,1.0,,,,,,,,,,,,,,
