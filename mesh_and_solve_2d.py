@@ -20,7 +20,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # DEFAULTS
 # ============================================================
 
-DEFAULT_NPROCS = 10
+DEFAULT_NPROCS = 16
 DEFAULT_NITER = 2000
 DEFAULT_PRECISION = "double"
 DEFAULT_UI_MODE = "hidden_gui"
@@ -496,6 +496,7 @@ def set_models_and_materials(solver) -> None:
 
         if fluid_zones:
             fluid_zone = fluid_zones[0]
+            solver.settings.setup.materials.database.copy_by_name(type="fluid", name="water-liquid")
             solver.settings.setup.cell_zone_conditions.fluid[fluid_zone].general.material = "water-liquid"
             log(f"[INFO] Assigned material 'water' to fluid zone '{fluid_zone}'")
     except Exception as e:
@@ -1090,6 +1091,8 @@ def solve_2d_mesh(
             pout_pa=pout,
             inlet_height_m=inlet_height_m,
             outlet_height_m=outlet_height_m,
+            density=WATER_DENSITY,
+            viscosity=WATER_VISCOSITY,
         )
 
         postprocess_summary = {
