@@ -1,0 +1,22 @@
+diff --git a/DeepONet/train_deeponet.ipynb b/DeepONet/train_deeponet.ipynb
+index 598ee21..8b5a977 100644
+--- a/DeepONet/train_deeponet.ipynb
++++ b/DeepONet/train_deeponet.ipynb
+@@ -71,7 +71,7 @@
+       "metadata": {},
+       "outputs": [],
+       "source": [
+-        "comment = \"Small smooth channels interface at control points\""
++        "comment = \"random interface placement one realization\""
+       ]
+     },
+     {
+@@ -193,7 +193,7 @@
+         "N_SUBDOMAINS = \"adaptive\"\n",
+         "N_INTERFACE_POINTS = 256\n",
+         "N_WALL_POINTS = 256\n",
+-        "INTERFACE_PLACEMENT = \"control_points\"\n",
++        "INTERFACE_PLACEMENT = \"random\"\n",
+         "INTERFACE_JITTER = 0.0\n",
+         "MIN_SUBDOMAIN_WIDTH = 0.01\n",
+         "N_REALIZATIONS_TRAIN = 1\n",

@@ -312,21 +312,63 @@ def sample_constrained_x_edges(
     n_subdomains: int,
     min_subdomain_width: float,
     rng: np.random.Generator,
+    existing_edges: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Sample sorted x-edges with a minimum subdomain width.
 
     min_subdomain_width is interpreted as a fraction of the full span.
+
+    When ``existing_edges`` is provided, those edges are kept fixed and
+    additional interior edges are sampled so the merged result has
+    ``n_subdomains + 1`` edges (``n_subdomains`` subdomains total). New edges
+    are inserted only inside gaps between consecutive existing edges.
     """
     span = float(xmax) - float(xmin)
     n_subdomains = int(n_subdomains)
     min_width_frac = float(min_subdomain_width)
+    min_width = min_width_frac * span
 
     if n_subdomains < 1:
         raise ValueError("n_subdomains must be >= 1")
     if min_width_frac < 0.0:
         raise ValueError("min_subdomain_width must be non-negative")
-    if n_subdomains == 1:
-        return np.asarray([xmin, xmax], dtype=np.float64)
+
+    if existing_edges is None:
+        if n_subdomains == 1:
+            return np.asarray([xmin, xmax], dtype=np.float64)
+
+        min_total = n_subdomains * min_width_frac * span
+        if min_total > span:
+            raise ValueError(
+                "Infeasible subdomain constraints: "
+                "n_subdomains * min_subdomain_width must be <= 1."
+            )
+
+        slack = span - min_total
+        extras = rng.dirichlet(np.ones(n_subdomains, dtype=np.float64))
+        widths = min_width + slack * extras
+        edges = np.concatenate([[float(xmin)], float(xmin) + np.cumsum(widths)])
+        edges[-1] = float(xmax)
+        return edges.astype(np.float64)
+
+    existing = np.asarray(existing_edges, dtype=np.float64).reshape(-1)
+    if existing.size < 2:
+        raise ValueError("existing_edges must contain at least two x-values")
+    if np.any(np.diff(existing) <= 0):
+        raise ValueError("existing_edges must be strictly increasing")
+    if existing[0] < float(xmin) - 1.0e-12 or existing[-1] > float(xmax) + 1.0e-12:
+        raise ValueError("existing_edges must lie within [xmin, xmax]")
+
+    existing = existing.copy()
+
+    n_new_edges = n_subdomains - (existing.size - 1)
+    if n_new_edges < 0:
+        raise ValueError(
+            f"existing_edges define {existing.size - 1} subdomains but "
+            f"n_subdomains={n_subdomains}; cannot remove fixed edges."
+        )
+    if n_new_edges == 0:
+        return existing.astype(np.float64)
 
     min_total = n_subdomains * min_width_frac * span
     if min_total > span:
@@ -335,11 +377,51 @@ def sample_constrained_x_edges(
             "n_subdomains * min_subdomain_width must be <= 1."
         )
 
-    slack = span - min_total
-    extras = rng.dirichlet(np.ones(n_subdomains, dtype=np.float64))
-    widths = min_width_frac * span + slack * extras
-    edges = np.concatenate([[float(xmin)], float(xmin) + np.cumsum(widths)])
+    gaps = np.diff(existing)
+    max_splits = np.maximum(0, np.floor(gaps / min_width).astype(int) - 1)
+
+    if int(max_splits.sum()) < n_new_edges:
+        raise ValueError(
+            "Infeasible subdomain constraints: cannot insert "
+            f"{n_new_edges} additional edge(s) while respecting "
+            "min_subdomain_width."
+        )
+
+    splits = np.zeros(existing.size - 1, dtype=int)
+    caps = max_splits.copy()
+    for _ in range(n_new_edges):
+        eligible = np.flatnonzero(caps > 0)
+        weights = caps[eligible].astype(np.float64)
+        weights /= weights.sum()
+        gap_idx = int(rng.choice(eligible, p=weights))
+        splits[gap_idx] += 1
+        caps[gap_idx] -= 1
+
+    new_interior: List[float] = []
+    for gap_idx, (a, b) in enumerate(zip(existing[:-1], existing[1:])):
+        k = int(splits[gap_idx])
+        if k == 0:
+            continue
+        gap_span = float(b) - float(a)
+        n_pieces = k + 1
+        gap_min_total = n_pieces * min_width
+        if gap_min_total > gap_span + 1.0e-12:
+            raise ValueError(
+                f"Gap {gap_idx} too narrow for {k} additional edge(s) "
+                "at min_subdomain_width."
+            )
+        slack = gap_span - gap_min_total
+        extras = rng.dirichlet(np.ones(n_pieces, dtype=np.float64))
+        widths = min_width + slack * extras
+        new_interior.extend((float(a) + np.cumsum(widths[:-1])).tolist())
+
+    edges = np.sort(np.concatenate([existing, np.asarray(new_interior, dtype=np.float64)]))
+    edges[0] = float(xmin)
     edges[-1] = float(xmax)
+    if edges.size != n_subdomains + 1:
+        raise RuntimeError(
+            f"Expected {n_subdomains + 1} edges after merging, got {edges.size}."
+        )
     return edges.astype(np.float64)
 
 BRANCH_CHANNELS = CELL_BRANCH_CHANNELS
@@ -512,7 +594,6 @@ def build_fluent_deeponet_dataset(
     bc_kwargs: Optional[Mapping[str, float]] = None,
     keep_raw_case_data: bool = False,
     n_realizations: int = 1,
-    ar_list: Optional[Sequence] = None,
 ) -> Dict[str, object]:
     """
     Build a non-grid DeepONet dataset from Fluent HDF5 files.
@@ -589,11 +670,6 @@ def build_fluent_deeponet_dataset(
         raise ValueError("output_fields must be non-empty")
     branch_channel_names = make_cell_branch_channels(output_fields)
 
-    # Backward compat: 'ar_list' was the old name for 'case_ids'.
-    if ar_list is not None:
-        if case_ids is not None:
-            raise ValueError("Pass either case_ids or ar_list (deprecated alias), not both.")
-        case_ids = ar_list
     if case_ids is None:
         case_ids = list(case_files.keys())
 
@@ -616,9 +692,12 @@ def build_fluent_deeponet_dataset(
         raise ValueError("n_interface_points must be positive and n_boundary_points must be > 1")
     # if interface_placement is "control_points" or "fixed" with no jitter, 
     # we only need one realization as there is no randomness
-    if interface_placement == "control_points" or (interface_placement == "fixed" and interface_jitter == 0):
+    if interface_placement == "fixed" and interface_jitter == 0:
         n_realizations = 1
-        print(f"Setting n_realizations to 1 for interface_placement={interface_placement}")
+        print(f"Setting n_realizations to 1 for fixed interface placement with no jitter")
+    if interface_placement == "control_points" and adaptive_n_sub:
+        n_realizations = 1
+        print(f"Setting n_realizations to 1 for control points interface placement with adaptive n_subdomains")
     if n_realizations < 1:
         raise ValueError("n_realizations must be >= 1")
 
@@ -745,9 +824,17 @@ def build_fluent_deeponet_dataset(
                         "interface_placement='control_points' requires a design config "
                         "(case_files[case_id]['design']) with metadata.x_points_mm."
                     )
-                # Ignore n_subdomains; one subdomain per straight wall segment.
-                x_edges = np.asarray(config_x_edges, dtype=np.float64)
-                n_sub_eff = int(x_edges.size - 1)
+                # Keep design control-point edges; add random interior edges to
+                # reach n_sub total subdomains when n_sub exceeds that count.
+                x_edges = sample_constrained_x_edges(
+                    xmin=xmin,
+                    xmax=xmax,
+                    n_subdomains=n_sub,
+                    min_subdomain_width=min_subdomain_width,
+                    rng=rng,
+                    existing_edges=config_x_edges,
+                )
+                n_sub_eff = n_sub
             else:
                 raise ValueError(f"Invalid interface_placement argument: {interface_placement}")
 
