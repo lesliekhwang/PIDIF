@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import List, Mapping, Optional, Sequence, Tuple, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -290,6 +290,16 @@ def interpolate_to_plot_grid(
     return Xi, Yi, Zi, extent, boundary_segments
 
 
+def interface_x_from_metadata(metadata_list: Sequence[Mapping[str, object]]) -> List[float]:
+    """Return sorted internal subdomain interface x-coordinates from sample metadata."""
+    if len(metadata_list) <= 1:
+        return []
+
+    sorted_meta = sorted(metadata_list, key=lambda m: int(m["subdomain_id"]))
+    # Internal interfaces lie at x_right of each subdomain except the last.
+    return [float(m["x_right_mm"]) for m in sorted_meta[:-1]]
+
+
 def plot_prediction_imshow_from_points(
     x,
     y,
@@ -308,6 +318,9 @@ def plot_prediction_imshow_from_points(
     wall_y_bottom: Optional[Sequence[float]] = None,
     wall_y_top: Optional[Sequence[float]] = None,
     draw_boundary: bool = True,
+    draw_interfaces: bool = True,
+    interface_x: Optional[Sequence[float]] = None,
+    metadata: Optional[Sequence[Mapping[str, object]]] = None,
     coord_scale: float = 1.0,
     coord_unit: str = "",
     xlim: Optional[Tuple[float, float]] = None,
@@ -319,6 +332,10 @@ def plot_prediction_imshow_from_points(
     When ``mesh_h5`` or wall polyline coordinates are provided, pixels outside the
     channel are masked and the true (polyline) boundary is drawn with
     ``LineCollection``, following the style of ``plot_imshow`` in ``foo.ipynb``.
+
+    Subdomain interface locations are drawn as dashed vertical lines. Pass
+    ``interface_x`` explicitly, or supply ``metadata`` (one entry per subdomain
+    sample) to infer them from ``x_left_mm`` / ``x_right_mm``.
     """
     x = np.asarray(x)
     y = np.asarray(y)
@@ -367,6 +384,10 @@ def plot_prediction_imshow_from_points(
         vmin = float(cmap_vals.min())
         vmax = float(cmap_vals.max())
 
+    if interface_x is None and metadata is not None:
+        interface_x = interface_x_from_metadata(metadata)
+    interface_x_list = [float(xi) for xi in (interface_x or [])]
+
     x_label = f"x [{coord_unit}]" if coord_unit else "x"
     y_label = f"y [{coord_unit}]" if coord_unit else "y"
 
@@ -399,6 +420,16 @@ def plot_prediction_imshow_from_points(
             ax.set_xlim(*xlim)
         if ylim is not None:
             ax.set_ylim(*ylim)
+        if draw_interfaces and interface_x_list:
+            for x_iface in interface_x_list:
+                ax.axvline(
+                    x_iface,
+                    color="w",
+                    linestyle="--",
+                    linewidth=1.0,
+                    alpha=0.95,
+                    zorder=5,
+                )
         fig.colorbar(im, ax=ax, pad=0.02)
 
     if output_dir is not None:
@@ -430,16 +461,19 @@ def collect_predictions_for_data(
     """
     if sample_indices is None:
         sample_indices = range(len(data["samples"]))
+    sample_indices = list(sample_indices)
 
     xs = []
     ys = []
     preds = []
     truths = []
     sample_ids = []
+    metadata_list = []
 
     for sid in sample_indices:
         sample = data["samples"][sid]
         metadata = data["metadata"][sid]
+        metadata_list.append(metadata)
 
         pred_phys = predict_cell_sample(
             model=model,
@@ -467,6 +501,8 @@ def collect_predictions_for_data(
         "pred": np.concatenate(preds, axis=0),
         "truth": np.concatenate(truths, axis=0),
         "sample_id": np.concatenate(sample_ids, axis=0),
+        "metadata": metadata_list,
+        "interface_x": interface_x_from_metadata(metadata_list),
     }
 
 

@@ -97,7 +97,7 @@ def _auto_to_mm(coords):
         coords *= 1000.0
     return coords
 
-def read_fluent_cell_centers(mesh_h5, convert_to_mm="auto"):
+def read_fluent_cell_centers(mesh_h5, convert_to_mm=False):
     """Return cell-center coordinates from Fluent .msh.h5 or .cas.h5."""
     mesh_h5 = Path(mesh_h5)
     with h5py.File(mesh_h5, "r") as f:
