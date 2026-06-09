@@ -438,8 +438,13 @@ def mesh_2d_from_step(
         if meshing is not None:
             try:
                 meshing.exit()
-            except Exception:
-                pass
+            except Exception as e:
+                log(f"[WARN] meshing.exit() failed: {e}")
+                try:
+                    meshing.force_exit()
+                    log("[INFO] meshing.force_exit() succeeded")
+                except Exception as e2:
+                    log(f"[WARN] meshing.force_exit() failed: {e2}")
 
 
 # ============================================================
@@ -1185,8 +1190,13 @@ def solve_2d_mesh(
         if solver is not None:
             try:
                 solver.exit()
-            except Exception:
-                pass
+            except Exception as e:
+                log(f"[WARN] solver.exit() failed: {e}")
+                try:
+                    solver.force_exit()
+                    log("[INFO] solver.force_exit() succeeded")
+                except Exception as e2:
+                    log(f"[WARN] solver.force_exit() failed: {e2}")
 
 # ============================================================
 # SINGLE CASE RUNNER
