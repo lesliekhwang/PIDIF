@@ -19,7 +19,7 @@ STEP_DIR = BASE_DIR / "2d_geometry_step" / "channel_water"
 CSV_PATH = OUT_DIR / "designs.csv"
 
 # reproducibility
-SEED = 64
+SEED = 42
 rng = np.random.default_rng(SEED)
 
 # square side length
@@ -27,7 +27,7 @@ L = 0.1  # mm
 MIN_SUBDOMAIN_WIDTH = 0.2 * L
 
 # number of designs
-START_CASE = 0
+START_CASE = 100
 N_CASES = 100
 
 # trapezoid offsets
@@ -38,7 +38,7 @@ UIN = 1.0 # m/s
 
 
 def make_case_name(i: int) -> str:
-    return f"channel_{i:02d}"
+    return f"channel_{i:03d}"
 
 
 def validate_inputs(l: float) -> None:

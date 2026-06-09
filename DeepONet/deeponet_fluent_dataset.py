@@ -614,6 +614,11 @@ def build_fluent_deeponet_dataset(
     n_realizations = int(n_realizations)
     if n_interface_points <= 0 or n_boundary_points <= 1:
         raise ValueError("n_interface_points must be positive and n_boundary_points must be > 1")
+    # if interface_placement is "control_points" or "fixed" with no jitter, 
+    # we only need one realization as there is no randomness
+    if interface_placement == "control_points" or (interface_placement == "fixed" and interface_jitter == 0):
+        n_realizations = 1
+        print(f"Setting n_realizations to 1 for interface_placement={interface_placement}")
     if n_realizations < 1:
         raise ValueError("n_realizations must be >= 1")
 
