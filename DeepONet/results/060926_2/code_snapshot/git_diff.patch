@@ -1,0 +1,39 @@
+diff --git a/DeepONet/results/060926_1/training.log b/DeepONet/results/060926_1/training.log
+index b0d6870..c2a1aae 100644
+--- a/DeepONet/results/060926_1/training.log
++++ b/DeepONet/results/060926_1/training.log
+@@ -195,3 +195,4 @@
+ 2026-06-09 14:10:28 - pino - INFO - Total plotted points: 225946
+ 2026-06-09 14:10:28 - pino - INFO - x range: 0.00025748738 0.99974716
+ 2026-06-09 14:10:28 - pino - INFO - y range: -0.0038637233 0.10386955
++2026-06-09 14:38:12 - pino - INFO - Device: cuda:0
+diff --git a/DeepONet/train_deeponet.ipynb b/DeepONet/train_deeponet.ipynb
+index 8b5a977..3fa0b31 100644
+--- a/DeepONet/train_deeponet.ipynb
++++ b/DeepONet/train_deeponet.ipynb
+@@ -71,7 +71,7 @@
+       "metadata": {},
+       "outputs": [],
+       "source": [
+-        "comment = \"random interface placement one realization\""
++        "comment = \"control points interface placement with 10 additional interfaces, 5 realizations\""
+       ]
+     },
+     {
+@@ -190,13 +190,13 @@
+         "print(f\"Test  cases ({len(TEST_CASES)}):\", TEST_CASES)\n",
+         "\n",
+         "# Interfaces at fixed locations; n_sub adapts to each channel's aspect ratio.\n",
+-        "N_SUBDOMAINS = \"adaptive\"\n",
++        "N_SUBDOMAINS = 20\n",
+         "N_INTERFACE_POINTS = 256\n",
+         "N_WALL_POINTS = 256\n",
+-        "INTERFACE_PLACEMENT = \"random\"\n",
++        "INTERFACE_PLACEMENT = \"control_points\"\n",
+         "INTERFACE_JITTER = 0.0\n",
+         "MIN_SUBDOMAIN_WIDTH = 0.01\n",
+-        "N_REALIZATIONS_TRAIN = 1\n",
++        "N_REALIZATIONS_TRAIN = 5\n",
+         "\n",
+         "N_QUERY_TRAIN = None\n",
+         "N_QUERY_VALID = None\n",
