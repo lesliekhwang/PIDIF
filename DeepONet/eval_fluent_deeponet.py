@@ -22,6 +22,8 @@ from typing import Dict, Mapping, Optional, Sequence, Tuple, Union, List
 
 import numpy as np
 import torch
+from scipy.fft import dct, idct
+from torch.autograd import grad
 
 from fluent_deeponet import DeepONet, FeatureNormalizer, normalize_cell_branch_with_y, predict_deeponet_points
 from plot import local_query_to_physical
@@ -51,7 +53,11 @@ class InterfaceIterationConfig:
     init_gaussian_center_y: float = 0.5
     init_gaussian_var_y: float = 0.02
     preserve_wall_corners: bool = False
-
+    
+    # Dimension 
+    #   dct : Discrete Cosine Transform
+    # (default) None : No dimensionality reduction
+    reduce_mode: Optional[str] = None
     query_batch_size: int = 65536
     sample_batch_size: int = 8
     verbose: bool = True
@@ -70,7 +76,8 @@ class InterfaceIterationConfig:
         self.query_batch_size = int(self.query_batch_size)
         self.sample_batch_size = int(self.sample_batch_size)
         self.preserve_wall_corners = bool(self.preserve_wall_corners)
-
+        self.reduce_mode = str(self.reduce_mode).lower() if self.reduce_mode else None
+        
         aliases = {
             "pointwise_normal": "pointwise_random",
             "pointwise_random_normal": "pointwise_random",
@@ -84,7 +91,7 @@ class InterfaceIterationConfig:
         }
         self.init_mode = aliases.get(self.init_mode, self.init_mode)
 
-        allowed = {
+        allowed_init = {
             "pointwise_random",
             "fixed_with_noise",
             "interfacewise_random",
@@ -93,11 +100,21 @@ class InterfaceIterationConfig:
         }
         if self.mse_mode not in {"normalized", "physical"}:
             raise ValueError("mse_mode must be 'normalized' or 'physical'")
-        if self.init_mode not in allowed:
+        if self.init_mode not in allowed_init:
             raise ValueError(
                 "init_mode must be one of "
                 "'pointwise_random', 'fixed_with_noise', "
                 "'interfacewise_random', 'gaussian_along_y', or 'dataset_truth'."
+            )
+            
+        allowed_reduce = {
+            "dct",
+            None,
+        }
+        if self.reduce_mode not in allowed_reduce:
+            raise ValueError(
+                "reduce_mode must be one of "
+                "'dct' or None."
             )
         if not (0.0 < self.relaxation <= 1.0):
             raise ValueError("relaxation must satisfy 0 < relaxation <= 1")
@@ -148,18 +165,18 @@ def load_base_deeponet_checkpoint(
     return model, y_normalizer, dict(ckpt)
 
 
-def select_sample_indices_by_ar(
+def select_sample_indices_by_case_id(
     dataset: Mapping[str, object],
-    ar: int,
+    case_id: str,
     realization_id: Optional[int] = None,
 ) -> Array:
     """Return sample indices for one AR sorted by subdomain_id."""
     metadata = list(dataset["metadata"])
-    idx = [i for i, m in enumerate(metadata) if int(round(float(m["aspect_ratio"]))) == int(ar)]
+    idx = [i for i, m in enumerate(metadata) if m["case_id"] == case_id]
     if realization_id is not None:
         idx = [i for i in idx if int(metadata[i].get("realization_id", 0)) == int(realization_id)]
     if not idx:
-        raise ValueError(f"No samples found for AR={ar}")
+        raise ValueError(f"No samples found for case {case_id}")
     idx = np.asarray(idx, dtype=np.int64)
     sub = np.asarray([metadata[i]["subdomain_id"] for i in idx], dtype=np.int64)
     return idx[np.argsort(sub, kind="stable")]
@@ -232,13 +249,6 @@ def _set_edge_profile(branch_one: Array, edge_idx: Array, value_idx: Array, prof
             f"profile has shape {profile.shape}, expected {(edge_idx.size, value_idx.size)}"
         )
     branch_one[np.ix_(edge_idx, value_idx)] = profile
-
-
-def _edge_profile(branch_one: Array, edge_idx: Array, value_idx: Array) -> Array:
-    return np.asarray(
-        branch_one[np.ix_(np.asarray(edge_idx, dtype=np.int64), np.asarray(value_idx, dtype=np.int64))],
-        dtype=np.float32,
-    )
 
 
 def _interface_value_profiles_from_branch(branch_inputs: Array, layout: EdgeLayout) -> Tuple[Array, Array]:
@@ -498,7 +508,7 @@ def initialize_unknown_interior_interfaces(
 
 
 @torch.no_grad()
-def predict_edge_profiles_physical(
+def predict_edge_profiles(
     model: DeepONet,
     branch_inputs: Array,
     layout: EdgeLayout,
@@ -532,11 +542,85 @@ def predict_edge_profiles_physical(
     b = torch.as_tensor(branch_norm, dtype=torch.float32, device=device)
     q_left = torch.as_tensor(left_q, dtype=torch.float32, device=device)
     q_right = torch.as_tensor(right_q, dtype=torch.float32, device=device)
-    pred_left = y_normalizer.decode(model(b, q_left)).detach().cpu().numpy().astype(np.float32)
-    pred_right = y_normalizer.decode(model(b, q_right)).detach().cpu().numpy().astype(np.float32)
+    pred_left = model(b, q_left).detach().cpu().numpy().astype(np.float32)
+    pred_right = model(b, q_right).detach().cpu().numpy().astype(np.float32)
     if pred_left.shape[0] != n_sub or pred_right.shape[0] != n_sub:
         raise RuntimeError("Unexpected interface prediction shape")
     return pred_left, pred_right
+
+
+def _edge_grad_from_queries(
+    model: DeepONet,
+    branch_batch: torch.Tensor,
+    query: torch.Tensor,
+) -> Array:
+    """Return pointwise dp/dx at each edge query location via autograd w.r.t. x and y."""
+    query = query.detach().requires_grad_(True)
+    pred = model(branch_batch, query)
+
+    n_batch, n_points, n_ch = pred.shape
+    grad = torch.empty((n_batch, n_points, n_ch), dtype=torch.float32, device=pred.device)
+    for ch in range(n_ch):
+        grad_ch = torch.autograd.grad(
+            pred[..., ch],
+            query,
+            torch.ones([n_batch, n_points]).to(pred.device),
+            retain_graph=ch < (n_ch - 1),
+        )[0]
+        grad[..., ch] = grad_ch[..., 0]
+    return grad.detach().cpu().numpy().astype(np.float32)
+
+
+def predict_edge_grad(
+    model: DeepONet,
+    branch_inputs: Array,
+    layout: EdgeLayout,
+    branch_channel_names: Sequence[str],
+    device: Union[str, torch.device],
+    y_normalizer: FeatureNormalizer,
+    local_aspect_mean: Optional[float] = None,
+    local_aspect_std: Optional[float] = None,
+) -> Tuple[Array, Array]:
+    """Predict dp/dx on left and right interface profiles."""
+    model.eval()
+    device = torch.device(device)
+    y_normalizer = y_normalizer.to(device)
+    branch_raw = np.asarray(branch_inputs, dtype=np.float32)
+    n_sub = branch_raw.shape[0]
+
+    left_q = branch_raw[:, layout.left, :][:, :, [layout.x_channel, layout.y_channel]]
+    right_q = branch_raw[:, layout.right, :][:, :, [layout.x_channel, layout.y_channel]]
+
+    branch_norm = np.stack([
+        normalize_cell_branch_with_y(
+            b,
+            branch_channel_names=branch_channel_names,
+            target_y_normalizer=y_normalizer,
+            local_aspect_mean=local_aspect_mean,
+            local_aspect_std=local_aspect_std,
+        )
+        for b in branch_raw
+    ], axis=0)
+
+    b = torch.as_tensor(branch_norm, dtype=torch.float32, device=device)
+    q_left = torch.as_tensor(left_q, dtype=torch.float32, device=device)
+    q_right = torch.as_tensor(right_q, dtype=torch.float32, device=device)
+
+    with torch.enable_grad():
+        dpdx_left = _edge_grad_from_queries(
+            model=model,
+            branch_batch=b,
+            query=q_left,
+        )
+        dpdx_right = _edge_grad_from_queries(
+            model=model,
+            branch_batch=b,
+            query=q_right,
+        )
+
+        if dpdx_left.shape[0] != n_sub or dpdx_right.shape[0] != n_sub:
+            raise RuntimeError("Unexpected interface gradient prediction shape")
+        return dpdx_left, dpdx_right
 
 
 @torch.no_grad()
@@ -573,14 +657,11 @@ def predict_cell_samples_physical(
     return preds
 
 
-def compute_interface_mse_from_edges(pred_left: Array, pred_right: Array, y_normalizer: Optional[FeatureNormalizer], mse_mode: str) -> Tuple[Array, Array]:
+def compute_interface_mse_from_edges(pred_left: Array, pred_right: Array) -> Tuple[Array, Array]:
     """Compare pred_right[k] with pred_left[k+1]."""
     if pred_left.shape[0] < 2:
         return np.zeros((0,), dtype=np.float32), np.zeros((0, pred_left.shape[-1]), dtype=np.float32)
     diff = pred_right[:-1] - pred_left[1:]
-    if str(mse_mode).lower() == "normalized" and y_normalizer is not None:
-        std = y_normalizer.std.detach().cpu().numpy().reshape(1, 1, -1).astype(np.float32)
-        diff = diff / np.maximum(std, 1.0e-12)
     mse_by_channel = np.mean(diff ** 2, axis=1)
     mse_total = np.mean(diff ** 2, axis=(1, 2))
     return mse_total.astype(np.float32), mse_by_channel.astype(np.float32)
@@ -610,7 +691,7 @@ def update_branch_interfaces_from_edge_predictions(
 
 def iterative_unknown_interface_inference(
     model: DeepONet,
-    samples_for_ar: Sequence[Mapping[str, Array]],
+    samples: Sequence[Mapping[str, Array]],
     branch_channel_names: Sequence[str],
     device: Union[str, torch.device],
     y_normalizer: FeatureNormalizer,
@@ -621,7 +702,7 @@ def iterative_unknown_interface_inference(
     """Run simultaneous unknown-interface inference for variable cell-center samples."""
     if config is None:
         config = InterfaceIterationConfig()
-    branches = np.stack([np.asarray(s["branch"], dtype=np.float32) for s in samples_for_ar], axis=0)
+    branches = np.stack([np.asarray(s["branch"], dtype=np.float32) for s in samples], axis=0)
     layout = infer_edge_layout(branches[0], branch_channel_names)
     if config.init_mode == "dataset_truth":
         current_branch = branches.copy()
@@ -652,7 +733,7 @@ def iterative_unknown_interface_inference(
     converged = False
     n_iter_done = 0
     for iteration in range(1, config.max_iter + 1):
-        pred_left, pred_right = predict_edge_profiles_physical(
+        pred_left, pred_right = predict_edge_profiles(
             model=model,
             branch_inputs=current_branch,
             layout=layout,
@@ -663,10 +744,8 @@ def iterative_unknown_interface_inference(
             local_aspect_std=local_aspect_std,
         )
         mse_total, mse_by_channel = compute_interface_mse_from_edges(
-            pred_left=pred_left,
-            pred_right=pred_right,
-            y_normalizer=y_normalizer,
-            mse_mode=config.mse_mode,
+            pred_left,
+            pred_right,
         )
         is_converged = mse_total <= config.tol
         all_converged = bool(np.all(is_converged))
@@ -698,7 +777,7 @@ def iterative_unknown_interface_inference(
 
     pred_samples = predict_cell_samples_physical(
         model=model,
-        samples=samples_for_ar,
+        samples=samples,
         branch_inputs=current_branch,
         branch_channel_names=branch_channel_names,
         device=device,
@@ -737,6 +816,8 @@ def pack_interior_interface_z(
     branch_inputs: Array,
     layout: EdgeLayout,
     y_normalizer: FeatureNormalizer,
+    reduce_mode: Optional[str] = None,
+    dimensions: int = 16,
 ) -> Array:
     """
     Pack all interior interface profiles into normalized output space.
@@ -744,21 +825,25 @@ def pack_interior_interface_z(
     Returns
     -------
     z:
-        Shape (n_interfaces, n_interface_points, 4).  Interface i in this
-        packed state corresponds to the shared boundary between subdomain i
-        and subdomain i+1.
+        Normalized interface state.  Shape is
+        ``(n_interfaces, n_interface_points, n_channels)`` when
+        ``reduce_mode is None``, or ``(n_interfaces, dimensions, n_channels)``
+        when ``reduce_mode == "dct"``.  Interface i corresponds to the shared
+        boundary between subdomain i and subdomain i+1.
 
     Notes
     -----
-    If average_sides is True, the packed value is the average of the right edge
-    of the left subdomain and the left edge of the right subdomain.  This makes
-    random initialization produce one shared interface profile before annealing.
+    The packed value is the average of the right edge of the left subdomain
+    and the left edge of the right subdomain, normalized with
+    ``y_normalizer`` before optional DCT compression.
     """
     branch = np.asarray(branch_inputs, dtype=np.float32)
     if branch.ndim != 3:
         raise ValueError(f"branch_inputs must have shape (S,M,C), got {branch.shape}")
+    n_channels = int(layout.value_channels.size)
     if branch.shape[0] < 2:
-        return np.zeros((0, int(layout.right.size), int(layout.value_channels.size)), dtype=np.float32)
+        n_packed = int(dimensions) if reduce_mode == "dct" else int(layout.right.size)
+        return np.zeros((0, n_packed, n_channels), dtype=np.float32)
 
     profiles = []
     for interface_id in range(1, branch.shape[0]):
@@ -770,12 +855,16 @@ def pack_interior_interface_z(
                 f"right={right_profile.shape}, left={left_profile.shape}"
             )
         profile = 0.5 * (right_profile + left_profile)
-        profiles.append(profile.astype(np.float32, copy=False))
+        profiles.append(profile.astype(np.float32))
 
-    profiles = np.stack(profiles, axis=0).astype(np.float32, copy=False)
+    profiles = np.stack(profiles, axis=0).astype(np.float32)
     mean, std = _output_mean_std_np(y_normalizer)
-    
-    return ((profiles - mean.reshape(1, 1, -1)) / std.reshape(1, 1, -1)).astype(np.float32)
+    if reduce_mode == "dct":
+        profile_norm = np.array(dct(profiles, axis=1, norm="ortho"), dtype=np.float32)
+        profile_norm = profile_norm[:, :dimensions, :]
+    else:
+        profile_norm = ((profiles - mean.reshape(1, 1, -1)) / std.reshape(1, 1, -1)).astype(np.float32)
+    return profile_norm
 
 
 def apply_interior_interface_z(
@@ -783,6 +872,7 @@ def apply_interior_interface_z(
     z: Array,
     layout: EdgeLayout,
     y_normalizer: FeatureNormalizer,
+    reduce_mode: Optional[str] = None,
 ) -> Array:
     """
     Decode normalized interface profiles and write them to both sides of every
@@ -790,6 +880,8 @@ def apply_interior_interface_z(
     """
     branch = np.asarray(base_branch, dtype=np.float32).copy()
     z = np.asarray(z, dtype=np.float32)
+    if reduce_mode == "dct":
+        z = np.array(idct(z, axis=1, norm="ortho", n=int(layout.right.size)), dtype=np.float32)
     expected = (max(branch.shape[0] - 1, 0), int(layout.right.size), int(layout.value_channels.size))
     if z.shape != expected:
         raise ValueError(f"z has shape {z.shape}, expected {expected}")
@@ -834,20 +926,23 @@ def simulated_annealing_interface_energy(
     local_aspect_std: Optional[float] = None,
     mse_mode: str = "normalized",
     objective: str = "max",
+    reduce_mode: Optional[str] = None,
 ) -> Tuple[float, Dict[str, object], Array]:
     """
-    Simulated-annealing objective that only minimizes predicted interface mismatch.
+    Simulated-annealing objective that minimizes predicted interface mismatch.
 
-    No smoothness penalty, range penalty, or truth penalty is included.  The
-    scalar energy is computed from the existing interface MSE values.
+    The scalar energy combines value mismatch (Dirichlet) and first-order
+    derivative mismatch dp/dx (Neumann) across interior interfaces.  No
+    smoothness penalty, range penalty, or truth penalty is included.
     """
     branch = apply_interior_interface_z(
         base_branch=base_branch,
         z=z,
         layout=layout,
         y_normalizer=y_normalizer,
+        reduce_mode=reduce_mode,
     )
-    pred_left, pred_right = predict_edge_profiles_physical(
+    pred_left, pred_right = predict_edge_profiles(
         model=model,
         branch_inputs=branch,
         layout=layout,
@@ -858,18 +953,39 @@ def simulated_annealing_interface_energy(
         local_aspect_std=local_aspect_std,
     )
     mse_total, mse_by_channel = compute_interface_mse_from_edges(
-        pred_left=pred_left,
-        pred_right=pred_right,
-        y_normalizer=y_normalizer,
-        mse_mode=mse_mode,
+        pred_left,
+        pred_right,
     )
-    energy = _annealing_objective_from_mse(mse_total, objective=objective)
+    grad_left = None
+    grad_right = None
+    grad_mse_total = np.zeros_like(mse_total)
+    grad_mse_by_channel = np.zeros_like(mse_by_channel)
+    # grad_left, grad_right = predict_edge_grad(
+    #     model=model,
+    #     branch_inputs=branch,
+    #     layout=layout,
+    #     branch_channel_names=branch_channel_names,
+    #     device=device,
+    #     y_normalizer=y_normalizer,
+    #     local_aspect_mean=local_aspect_mean,
+    #     local_aspect_std=local_aspect_std,
+    # )
+    # grad_mse_total, grad_mse_by_channel = compute_interface_mse_from_edges(
+    #     grad_left,
+    #     grad_right,
+    # )
+    combined_mse = mse_total + 0 * grad_mse_total
+    energy = _annealing_objective_from_mse(combined_mse, objective=objective)
     details: Dict[str, object] = {
         "energy": float(energy),
         "mse_total": mse_total,
         "mse_by_channel": mse_by_channel,
+        "grad_mse_total": grad_mse_total,
+        "grad_mse_by_channel": grad_mse_by_channel,
         "pred_left": pred_left,
         "pred_right": pred_right,
+        "grad_left": grad_left,
+        "grad_right": grad_right,
     }
     return float(energy), details, branch
 
@@ -880,6 +996,7 @@ def _propose_interface_z(
     proposal_sigma: float,
     proposal_location: str = "channel",
     sample_mode: str = "fixed",
+    reduce_mode: Optional[str] = None,
     z_clip: Optional[float] = None,
 ) -> Array:
     """
@@ -904,40 +1021,51 @@ def _propose_interface_z(
     sigma = float(proposal_sigma)
     n_if, n_y, n_ch = z_new.shape
 
-    if location == "all":
-        if mode == "random":
-            z_new += rng.normal(0.0, sigma, size=z_new.shape).astype(np.float32)
-        elif mode == "fixed":
-            delta = rng.normal(0.0, sigma, size=(n_ch,))
-            z_new += delta.reshape(1, 1, -1)
-    elif location == "interface":
+    if reduce_mode == "dct":
+        mode_prob = 1 / (np.arange(n_y) + 1)
+        mode_prob = mode_prob / mode_prob.sum()
+        mode_sigma = 1 / (np.arange(n_y) ** 2 + 1)
+        
         i = int(rng.integers(0, n_if))
-        if mode == "random":
-            z_new[i, :, :] += rng.normal(0.0, sigma, size=(n_y, n_ch)).astype(np.float32, copy=False)
-        elif mode == "fixed":
-            delta = rng.normal(0.0, sigma, size=(n_ch,))
-            z_new[i, :, :] += delta.reshape(1, -1)
-    elif location == "channel":
-        i = int(rng.integers(0, n_if))
-        c = int(rng.integers(0, n_ch))
-        if mode == "random":
-            z_new[i, :, c] += rng.normal(0.0, sigma, size=(n_y,)).astype(np.float32)
-        elif mode == "fixed":
-            z_new[i, :, c] += rng.normal(0.0, sigma)
-    elif location == "point":
-        i = int(rng.integers(0, n_if))
-        j = int(rng.integers(0, n_y))
-        c = int(rng.integers(0, n_ch))
-        z_new[i, j, c] += np.float32(rng.normal(0.0, sigma))
-    else:
-        raise ValueError(
-            "proposal_mode must be 'all', 'interface', 'interface_channel', or 'point_channel'"
-        )
+        for c in range(n_ch):
+            j = int(rng.choice(n_y, p=mode_prob))
+            z_new[i, j, c] += rng.normal(0.0, mode_sigma[j])
+
+    elif reduce_mode is None:
+        if location == "all":
+            if mode == "random":
+                z_new += rng.normal(0.0, sigma, size=z_new.shape).astype(np.float32)
+            elif mode == "fixed":
+                delta = rng.normal(0.0, sigma, size=(n_ch,))
+                z_new += delta.reshape(1, 1, -1)
+        elif location == "interface":
+            i = int(rng.integers(0, n_if))
+            if mode == "random":
+                z_new[i, :, :] += rng.normal(0.0, sigma, size=(n_y, n_ch)).astype(np.float32)
+            elif mode == "fixed":
+                delta = rng.normal(0.0, sigma, size=(n_ch,))
+                z_new[i, :, :] += delta.reshape(1, -1)
+        elif location == "channel":
+            i = int(rng.integers(0, n_if))
+            c = int(rng.integers(0, n_ch))
+            if mode == "random":
+                z_new[i, :, c] += rng.normal(0.0, sigma, size=(n_y,)).astype(np.float32)
+            elif mode == "fixed":
+                z_new[i, :, c] += rng.normal(0.0, sigma)
+        elif location == "point":
+            i = int(rng.integers(0, n_if))
+            j = int(rng.integers(0, n_y))
+            c = int(rng.integers(0, n_ch))
+            z_new[i, j, c] += np.float32(rng.normal(0.0, sigma))
+        else:
+            raise ValueError(
+                "proposal_mode must be 'all', 'interface', 'interface_channel', or 'point_channel'"
+            )
 
     if z_clip is not None:
         clip = abs(float(z_clip))
-        z_new = np.clip(z_new, -clip, clip).astype(np.float32, copy=False)
-    return z_new.astype(np.float32, copy=False)
+        z_new = np.clip(z_new, -clip, clip)
+    return z_new
 
 
 def _geometric_schedule(start: float, stop: float, frac: float) -> float:
@@ -953,14 +1081,13 @@ def _geometric_schedule(start: float, stop: float, frac: float) -> float:
 @torch.no_grad()
 def simulated_annealing_unknown_interface_inference(
     model: DeepONet,
-    samples_for_ar: Sequence[Mapping[str, Array]],
+    samples: Sequence[Mapping[str, Array]],
     branch_channel_names: Sequence[str],
     device: Union[str, torch.device],
     y_normalizer: FeatureNormalizer,
     local_aspect_mean: Optional[float] = None,
     local_aspect_std: Optional[float] = None,
     config: Optional[InterfaceIterationConfig] = None,
-    n_steps: int = 2000,
     temperature0: Optional[float] = None,
     temperature_min: float = 1.0e-8,
     proposal_sigma0: float = 5.0e-2,
@@ -981,13 +1108,14 @@ def simulated_annealing_unknown_interface_inference(
     if config is None:
         config = InterfaceIterationConfig()
     rng = np.random.default_rng(int(config.random_seed))
-    n_steps = int(n_steps)
+    n_steps = int(config.max_iter)
     if n_steps < 0:
-        raise ValueError("n_steps must be >= 0")
+        raise ValueError("number of iterations must be >= 0")
     if proposal_sigma0 < 0.0 or proposal_sigma_min < 0.0:
         raise ValueError("proposal sigmas must be non-negative")
+    reduce_mode = config.reduce_mode
 
-    branches = np.stack([np.asarray(s["branch"], dtype=np.float32) for s in samples_for_ar], axis=0)
+    branches = np.stack([np.asarray(s["branch"], dtype=np.float32) for s in samples], axis=0)
     layout = infer_edge_layout(branches[0], branch_channel_names)
 
     if config.init_mode == "dataset_truth":
@@ -1011,6 +1139,7 @@ def simulated_annealing_unknown_interface_inference(
         init_branch,
         layout=layout,
         y_normalizer=y_normalizer,
+        reduce_mode=reduce_mode,
     )
 
     current_energy, current_details, current_branch = simulated_annealing_interface_energy(
@@ -1025,6 +1154,7 @@ def simulated_annealing_unknown_interface_inference(
         local_aspect_std=local_aspect_std,
         mse_mode=config.mse_mode,
         objective=objective,
+        reduce_mode=reduce_mode,
     )
 
     print(f"Initial energy: {current_energy:.6e}")
@@ -1039,6 +1169,7 @@ def simulated_annealing_unknown_interface_inference(
                 proposal_location=proposal_location,
                 sample_mode=sample_mode,
                 z_clip=z_clip,
+                reduce_mode=reduce_mode,
             )
             prop_e, _, _, = simulated_annealing_interface_energy(
                 z=z_prop,
@@ -1052,6 +1183,7 @@ def simulated_annealing_unknown_interface_inference(
                 local_aspect_std=local_aspect_std,
                 mse_mode=config.mse_mode,
                 objective=objective,
+                reduce_mode=reduce_mode,
             )
             if prop_e > current_energy:
                 p_de.append(prop_e - current_energy)
@@ -1087,6 +1219,7 @@ def simulated_annealing_unknown_interface_inference(
             proposal_location=proposal_location,
             sample_mode=sample_mode,
             z_clip=z_clip,
+            reduce_mode=reduce_mode,
         )
         prop_energy, prop_details, prop_branch = simulated_annealing_interface_energy(
             z=z_prop,
@@ -1100,6 +1233,7 @@ def simulated_annealing_unknown_interface_inference(
             local_aspect_std=local_aspect_std,
             mse_mode=config.mse_mode,
             objective=objective,
+            reduce_mode=reduce_mode,
         )
 
         delta_e = float(prop_energy) - float(current_energy)
@@ -1154,7 +1288,7 @@ def simulated_annealing_unknown_interface_inference(
 
     pred_samples = predict_cell_samples_physical(
         model=model,
-        samples=samples_for_ar,
+        samples=samples,
         branch_inputs=best_branch,
         branch_channel_names=branch_channel_names,
         device=device,
@@ -1228,7 +1362,6 @@ def make_plot_dict_from_iterative_result(
     data,
     sample_indices,
     output_channel_names=None,
-    nondimensionalize_xy=True,
 ):
     """
     Convert iterative inference result to the dictionary format expected by
@@ -1282,13 +1415,6 @@ def make_plot_dict_from_iterative_result(
     pred = np.concatenate(preds, axis=0)
     truth = np.concatenate(truths, axis=0)
     sample_ids = np.concatenate(sample_ids, axis=0)
-
-    # Optional: convert physical mm coordinates to x/H, y/H.
-    # This makes AR plotting consistent with plot.py's 1-to-AR style.
-    if nondimensionalize_xy:
-        y_span = y.max() - y.min()
-        x = (x - x.min()) / y_span
-        y = (y - y.min()) / y_span
 
     idx = {name: output_channel_names.index(name) for name in output_channel_names}
 

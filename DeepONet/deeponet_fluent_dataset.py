@@ -47,7 +47,7 @@ import torch
 from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 
 PathLike = Union[str, Path]
-CaseFiles = Mapping[int, Mapping[str, PathLike]]
+CaseFiles = Mapping[str, Mapping[str, PathLike]]
 
 # Full field map. Pass a subset (e.g. without "temperature") to build datasets
 # for isothermal runs; the output/branch channels then adapt automatically.
