@@ -1,0 +1,151 @@
+On branch Alan
+Your branch is up to date with 'origin/Alan'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   deeponet_fluent_dataset.py
+	modified:   eval_fluent_deeponet.py
+	modified:   iterative_inference.ipynb
+	modified:   results/060926_3/checkpoint.pt
+	modified:   results/060926_3/training.log
+	deleted:    results/061026_1/checkpoint.pt
+	deleted:    results/061026_1/code_snapshot/git_commit.txt
+	deleted:    results/061026_1/code_snapshot/git_diff.patch
+	deleted:    results/061026_1/code_snapshot/git_diff_cached.patch
+	deleted:    results/061026_1/code_snapshot/git_status.txt
+	deleted:    results/061026_1/loss_history.png
+	deleted:    results/061026_1/predictions/test/test_case03_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case03_u.png
+	deleted:    results/061026_1/predictions/test/test_case03_v.png
+	deleted:    results/061026_1/predictions/test/test_case14_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case14_u.png
+	deleted:    results/061026_1/predictions/test/test_case14_v.png
+	deleted:    results/061026_1/predictions/test/test_case25_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case25_u.png
+	deleted:    results/061026_1/predictions/test/test_case25_v.png
+	deleted:    results/061026_1/predictions/test/test_case49_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case49_u.png
+	deleted:    results/061026_1/predictions/test/test_case49_v.png
+	deleted:    results/061026_1/predictions/test/test_case52_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case52_u.png
+	deleted:    results/061026_1/predictions/test/test_case52_v.png
+	deleted:    results/061026_1/predictions/test/test_case55_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case55_u.png
+	deleted:    results/061026_1/predictions/test/test_case55_v.png
+	deleted:    results/061026_1/predictions/test/test_case58_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case58_u.png
+	deleted:    results/061026_1/predictions/test/test_case58_v.png
+	deleted:    results/061026_1/predictions/test/test_case69_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case69_u.png
+	deleted:    results/061026_1/predictions/test/test_case69_v.png
+	deleted:    results/061026_1/predictions/test/test_case73_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case73_u.png
+	deleted:    results/061026_1/predictions/test/test_case73_v.png
+	deleted:    results/061026_1/predictions/test/test_case97_pressure.png
+	deleted:    results/061026_1/predictions/test/test_case97_u.png
+	deleted:    results/061026_1/predictions/test/test_case97_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case03_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case03_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case03_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case14_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case14_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case14_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case25_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case25_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case25_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case49_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case49_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case49_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case52_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case52_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case52_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case55_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case55_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case55_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case58_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case58_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case58_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case69_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case69_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case69_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case73_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case73_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case73_v.png
+	deleted:    results/061026_1/predictions/test_random/test_case97_pressure.png
+	deleted:    results/061026_1/predictions/test_random/test_case97_u.png
+	deleted:    results/061026_1/predictions/test_random/test_case97_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case03_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case03_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case03_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case14_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case14_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case14_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case25_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case25_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case25_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case49_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case49_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case49_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case52_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case52_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case52_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case55_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case55_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case55_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case58_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case58_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case58_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case69_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case69_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case69_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case73_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case73_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case73_v.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case97_pressure.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case97_u.png
+	deleted:    results/061026_1/predictions/test_random_20subdomains/test_case97_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case09_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case09_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case09_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case11_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case11_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case11_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case16_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case16_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case16_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case18_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case18_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case18_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case20_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case20_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case20_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case23_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case23_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case23_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case29_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case29_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case29_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case35_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case35_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case35_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case43_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case43_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case43_v.png
+	deleted:    results/061026_1/predictions/validation/valid_case76_pressure.png
+	deleted:    results/061026_1/predictions/validation/valid_case76_u.png
+	deleted:    results/061026_1/predictions/validation/valid_case76_v.png
+	deleted:    results/061026_1/training.log
+	modified:   train_deeponet.ipynb
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	draft.ipynb
+	results/060926_2/predictions/test_random/
+	results/061626_1/
+	results/061626_2/
+	train_deeponet copy.ipynb
+	../runs_2d/channel_water/channel_00/fluent-20260616-114554-4093298.trn
+	../runs_2d/channel_water/channel_00/fluent-20260616-114802-4101687.trn
+
+no changes added to commit (use "git add" and/or "git commit -a")
