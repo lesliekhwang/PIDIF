@@ -1,0 +1,32 @@
+{
+  "run_name": "traction_0.1_flux_0.3_dirichlet_0.1",
+  "alpha_traction": 0.1,
+  "alpha_flux": 0.3,
+  "alpha_dirichlet": 0.1,
+  "converged": false,
+  "n_iter": 21,
+  "rel_l2": {
+    "pressure": 0.021833810955286026,
+    "u": 0.008563213981688023,
+    "v": 0.18592138588428497
+  },
+  "overall_avg_rel_l2": 0.07210613787174225,
+  "max_field_error": {
+    "pressure": 147.9208984375,
+    "u": 0.11873340606689453,
+    "v": 0.04558560252189636
+  },
+  "final_physics_losses": {
+    "loss": 0.00044605234870687127,
+    "traction": 0.0031042888294905424,
+    "flux": 0.0001448194234399125,
+    "dirichlet": 0.0009217748884111643,
+    "smooth": 1.8348017647440429e-06,
+    "value_l2": 0.6911264657974243,
+    "max_abs_traction_res": 101.4930419921875,
+    "max_abs_flux_res": 7.095804903656244e-07,
+    "iteration": 21.0,
+    "traction_scale": 415.0386657714844,
+    "flux_scale": 4.349945016124987e-05
+  }
+}
