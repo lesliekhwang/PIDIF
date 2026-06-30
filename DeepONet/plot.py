@@ -291,13 +291,40 @@ def interpolate_to_plot_grid(
 
 
 def interface_x_from_metadata(metadata_list: Sequence[Mapping[str, object]]) -> List[float]:
-    """Return sorted internal subdomain interface x-coordinates from sample metadata."""
-    if len(metadata_list) <= 1:
+    """Return sorted unique internal vertical interface x-coordinates.
+
+    Works for both plain x-strip subdomains and horizontal y-split halves.  The
+    internal x-edges are the unique ``x_left_mm`` / ``x_right_mm`` values that
+    lie strictly inside the channel span.
+    """
+    if not metadata_list:
         return []
 
-    sorted_meta = sorted(metadata_list, key=lambda m: int(m["subdomain_id"]))
-    # Internal interfaces lie at x_right of each subdomain except the last.
-    return [float(m["x_right_mm"]) for m in sorted_meta[:-1]]
+    x_edges = sorted(
+        {float(m["x_left_mm"]) for m in metadata_list}
+        | {float(m["x_right_mm"]) for m in metadata_list}
+    )
+    if len(x_edges) < 2:
+        return []
+
+    xmin, xmax = x_edges[0], x_edges[-1]
+    return [x for x in x_edges if xmin < x < xmax]
+
+
+def interface_y_from_metadata(metadata_list: Sequence[Mapping[str, object]]) -> List[float]:
+    """Return sorted unique horizontal interface y-coordinates, if present.
+
+    When ``horizontal_interface=True`` during dataset construction, each sample
+    metadata row carries the same ``y_center_mm`` value.
+    """
+    y_centers = sorted(
+        {
+            float(m["y_center_mm"])
+            for m in metadata_list
+            if m.get("y_center_mm") is not None
+        }
+    )
+    return y_centers
 
 
 def plot_prediction_imshow_from_points(
@@ -320,6 +347,7 @@ def plot_prediction_imshow_from_points(
     draw_boundary: bool = True,
     draw_interfaces: bool = True,
     interface_x: Optional[Sequence[float]] = None,
+    interface_y: Optional[Sequence[float]] = None,
     metadata: Optional[Sequence[Mapping[str, object]]] = None,
     coord_scale: float = 1.0,
     coord_unit: str = "",
@@ -333,9 +361,11 @@ def plot_prediction_imshow_from_points(
     channel are masked and the true (polyline) boundary is drawn with
     ``LineCollection``, following the style of ``plot_imshow`` in ``foo.ipynb``.
 
-    Subdomain interface locations are drawn as dashed vertical lines. Pass
-    ``interface_x`` explicitly, or supply ``metadata`` (one entry per subdomain
-    sample) to infer them from ``x_left_mm`` / ``x_right_mm``.
+    Subdomain interface locations are drawn as dashed lines: vertical interfaces
+    from unique interior ``x_left_mm`` / ``x_right_mm`` edges, and horizontal
+    interfaces from ``y_center_mm`` when present.  Pass ``interface_x`` /
+    ``interface_y`` explicitly, or supply ``metadata`` (one entry per subdomain
+    sample) to infer them automatically.
     """
     x = np.asarray(x)
     y = np.asarray(y)
@@ -384,9 +414,13 @@ def plot_prediction_imshow_from_points(
         vmin = float(cmap_vals.min())
         vmax = float(cmap_vals.max())
 
-    if interface_x is None and metadata is not None:
-        interface_x = interface_x_from_metadata(metadata)
+    if metadata is not None:
+        if interface_x is None:
+            interface_x = interface_x_from_metadata(metadata)
+        if interface_y is None:
+            interface_y = interface_y_from_metadata(metadata)
     interface_x_list = [float(xi) for xi in (interface_x or [])]
+    interface_y_list = [float(yi) for yi in (interface_y or [])]
 
     x_label = f"x [{coord_unit}]" if coord_unit else "x"
     y_label = f"y [{coord_unit}]" if coord_unit else "y"
@@ -420,11 +454,20 @@ def plot_prediction_imshow_from_points(
             ax.set_xlim(*xlim)
         if ylim is not None:
             ax.set_ylim(*ylim)
-        if draw_interfaces and interface_x_list:
+        if draw_interfaces:
             for x_iface in interface_x_list:
                 ax.axvline(
                     x_iface,
                     color="w",
+                    linestyle="--",
+                    linewidth=1.0,
+                    alpha=0.95,
+                    zorder=5,
+                )
+            for y_iface in interface_y_list:
+                ax.axhline(
+                    y_iface,
+                    color="0.85",
                     linestyle="--",
                     linewidth=1.0,
                     alpha=0.95,
@@ -503,6 +546,7 @@ def collect_predictions_for_data(
         "sample_id": np.concatenate(sample_ids, axis=0),
         "metadata": metadata_list,
         "interface_x": interface_x_from_metadata(metadata_list),
+        "interface_y": interface_y_from_metadata(metadata_list),
     }
 
 

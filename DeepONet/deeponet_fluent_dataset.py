@@ -33,6 +33,14 @@ Each sample has boundary/interface sensor points with features:
 
 Exterior boundaries use prescribed boundary-condition values and known_* masks.
 Interior interfaces use values interpolated from the global Fluent solution.
+
+Optional horizontal interface
+-----------------------------
+When ``horizontal_interface=True``, each x-strip subdomain is further split at
+the channel mid-height (``y`` center) into two symmetric halves.  The
+horizontal interior interface uses interpolated field values; the outer
+half-channel retains the physical wall boundary condition on the remaining
+top/bottom side.
 """
 
 from __future__ import annotations
@@ -588,6 +596,7 @@ def build_fluent_deeponet_dataset(
     interface_placement: str = "fixed",
     interface_jitter: float = 0.0,
     min_subdomain_width: float = 0.01,
+    horizontal_interface: bool = False,
     rng: Optional[np.random.Generator] = None,
     field_map=FIELD_MAP,
     output_fields: Optional[Sequence[str]] = None,
@@ -645,12 +654,20 @@ def build_fluent_deeponet_dataset(
         - ``"control_points"``: ignore ``n_subdomains`` and place interfaces at the
           interior geometry control points ``x_points_mm[1:-1]`` (requires a design
           config).  Each subdomain then spans exactly one straight wall segment.
+    horizontal_interface:
+        When ``True``, split each x-strip subdomain at the channel mid-height
+        (``y`` center) into two symmetric top/bottom halves.  Each half keeps
+        the usual left/right (vertical) interfaces and replaces the interior
+        top or bottom wall with a horizontal interface carrying interpolated
+        field values.  Total samples per case become ``2 * n_subdomains``.
 
     Notes
     -----
     The per-subdomain ``local_aspect_ratio`` is defined as
-    ``subdomain_length / reference_length``, where the reference length is the
-    config ``L_mm`` (or the channel height for the legacy flat case).
+    ``subdomain_width / subdomain_height``, where ``subdomain_width`` is the
+    x-strip width and ``subdomain_height`` is the reference length ``L_mm``
+    (full channel height).  When ``horizontal_interface=True``, each sample spans
+    half the channel height, so ``subdomain_height = L_mm / 2``.
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -788,6 +805,9 @@ def build_fluent_deeponet_dataset(
             raise ValueError("n_subdomains must be positive")
         used_sub_counts.append(int(n_sub))
 
+        y_center_phys = 0.5 * ref_length_mm
+        y_parts = ("bottom", "top") if horizontal_interface else (None,)
+
         for realization_id in range(n_realizations):
             print(
                 f"Processing case {case_id} realization={realization_id} (n_subdomains={n_sub})",
@@ -845,122 +865,190 @@ def build_fluent_deeponet_dataset(
             # [0, 1] for the (polyline) top/bottom walls.
             y_interface_frac = np.linspace(0.0, 1.0, n_interface_points + 2, dtype=np.float64)[1:-1]
             x_wall_frac = np.linspace(0.0, 1.0, n_boundary_points, dtype=np.float64)
+            x_interface_frac = np.linspace(0.0, 1.0, n_interface_points + 2, dtype=np.float64)[1:-1]
+            y_center_local = float(y_center_phys / ref_length)
 
             for s in range(n_sub_eff):
                 x0 = float(x_edges[s])
                 x1 = float(x_edges[s + 1])
                 width = x1 - x0
-                local_aspect = width / ref_length
+                subdomain_height = ref_length if not horizontal_interface else 0.5 * ref_length
+                local_aspect = width / subdomain_height
                 inv_ref = 1.0 / ref_length
-                inv_width = 1.0 / max(width, 1.0e-12)
+                inv_width = 1.0 / width
 
-                cell_mask = (x >= x0) & (x <= x1)
-                if not np.any(cell_mask):
-                    raise ValueError(f"No cell centers in case {case_id}, subdomain={s}.")
-
-                x_cell = x[cell_mask]
-                y_cell = y[cell_mask]
-                target = values[cell_mask].astype(np.float32)
-
-                query = np.column_stack(
-                    [
-                        ((x_cell - x0) * inv_width).astype(np.float32),
-                        (y_cell * inv_ref).astype(np.float32),
-                    ]
-                ).astype(np.float32, copy=False)
-
-                branch_parts: List[np.ndarray] = []
-
-                # Left side (inlet for the first subdomain, interface otherwise).
                 yb_left = float(y_bottom_fn(x0))
                 yt_left = float(y_top_fn(x0))
-                y_left_phys = yb_left + y_interface_frac * (yt_left - yb_left)
-                x_left_phys = np.full(n_interface_points, x0, dtype=np.float64)
-                x_left_local = np.zeros(n_interface_points, dtype=np.float32)
-                y_left_local = (y_left_phys * inv_ref).astype(np.float32)
-                if s == 0:
-                    vals, known = make_rect_channel_bc_values("inlet", n_interface_points, output_fields, **case_bc_kwargs)
-                else:
-                    vals = _interp_fields(linear, nearest, x_left_phys, y_left_phys)
-                    known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
-                branch_parts.append(
-                    _stack_cell_branch_features(
-                        x_local=x_left_local,
-                        y_local=y_left_local,
-                        wall_mask=np.zeros(n_interface_points, dtype=np.float32),
-                        interface_mask=np.ones(n_interface_points, dtype=np.float32),
-                        values=vals,
-                        known_mask=known,
-                        local_aspect_ratio=local_aspect,
-                    )
-                )
-
-                # Right side (outlet for the last subdomain, interface otherwise).
                 yb_right = float(y_bottom_fn(x1))
                 yt_right = float(y_top_fn(x1))
-                y_right_phys = yb_right + y_interface_frac * (yt_right - yb_right)
-                x_right_phys = np.full(n_interface_points, x1, dtype=np.float64)
-                x_right_local = np.ones(n_interface_points, dtype=np.float32)
-                y_right_local = (y_right_phys * inv_ref).astype(np.float32)
-                if s == n_sub_eff - 1:
-                    vals, known = make_rect_channel_bc_values("outlet", n_interface_points, output_fields, **case_bc_kwargs)
-                else:
-                    vals = _interp_fields(linear, nearest, x_right_phys, y_right_phys)
-                    known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
-                branch_parts.append(
-                    _stack_cell_branch_features(
-                        x_local=x_right_local,
-                        y_local=y_right_local,
-                        wall_mask=np.zeros(n_interface_points, dtype=np.float32),
-                        interface_mask=np.ones(n_interface_points, dtype=np.float32),
-                        values=vals,
-                        known_mask=known,
-                        local_aspect_ratio=local_aspect,
+
+                for y_part_idx, y_part in enumerate(y_parts):
+                    cell_mask = (x >= x0) & (x <= x1)
+                    if horizontal_interface:
+                        if y_part == "bottom":
+                            cell_mask &= y < y_center_phys
+                        else:
+                            cell_mask &= y > y_center_phys
+
+                    if not np.any(cell_mask):
+                        part_label = y_part if horizontal_interface else "full"
+                        raise ValueError(
+                            f"No cell centers in case {case_id}, subdomain={s}, part={part_label}."
+                        )
+
+                    x_cell = x[cell_mask]
+                    y_cell = y[cell_mask]
+                    target = values[cell_mask].astype(np.float32)
+
+                    query = np.column_stack(
+                        [
+                            ((x_cell - x0) * inv_width).astype(np.float32),
+                            (y_cell * inv_ref).astype(np.float32),
+                        ]
+                    ).astype(np.float32, copy=False)
+
+                    branch_parts: List[np.ndarray] = []
+
+                    # Left side (inlet for the first subdomain, interface otherwise).
+                    y_left_phys = yb_left + y_interface_frac * (yt_left - yb_left)
+                    x_left_phys = np.full(n_interface_points, x0, dtype=np.float64)
+                    x_left_local = np.zeros(n_interface_points, dtype=np.float32)
+                    y_left_local = (y_left_phys * inv_ref).astype(np.float32)
+                    if s == 0:
+                        vals, known = make_rect_channel_bc_values(
+                            "inlet", n_interface_points, output_fields, **case_bc_kwargs
+                        )
+                    else:
+                        vals = _interp_fields(linear, nearest, x_left_phys, y_left_phys)
+                        known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
+                    branch_parts.append(
+                        _stack_cell_branch_features(
+                            x_local=x_left_local,
+                            y_local=y_left_local,
+                            wall_mask=np.zeros(n_interface_points, dtype=np.float32),
+                            interface_mask=np.ones(n_interface_points, dtype=np.float32),
+                            values=vals,
+                            known_mask=known,
+                            local_aspect_ratio=local_aspect,
+                        )
                     )
-                )
 
-                # Top/bottom walls follow the actual polyline, sampled across the
-                # subdomain width and mapped into the shared local frame.
-                x_wall_phys = x0 + x_wall_frac * width
-                x_wall_local = x_wall_frac.astype(np.float32)
-
-                yb_wall_phys = np.asarray(y_bottom_fn(x_wall_phys), dtype=np.float64)
-                y_bottom_local = (yb_wall_phys * inv_ref).astype(np.float32)
-                vals, known = make_rect_channel_bc_values("bottom", n_boundary_points, output_fields, **case_bc_kwargs)
-                branch_parts.append(
-                    _stack_cell_branch_features(
-                        x_local=x_wall_local,
-                        y_local=y_bottom_local,
-                        wall_mask=np.ones(n_boundary_points, dtype=np.float32),
-                        interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
-                        values=vals,
-                        known_mask=known,
-                        local_aspect_ratio=local_aspect,
+                    # Right side (outlet for the last subdomain, interface otherwise).
+                    y_right_phys = yb_right + y_interface_frac * (yt_right - yb_right)
+                    x_right_phys = np.full(n_interface_points, x1, dtype=np.float64)
+                    x_right_local = np.ones(n_interface_points, dtype=np.float32)
+                    y_right_local = (y_right_phys * inv_ref).astype(np.float32)
+                    if s == n_sub_eff - 1:
+                        vals, known = make_rect_channel_bc_values(
+                            "outlet", n_interface_points, output_fields, **case_bc_kwargs
+                        )
+                    else:
+                        vals = _interp_fields(linear, nearest, x_right_phys, y_right_phys)
+                        known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
+                    branch_parts.append(
+                        _stack_cell_branch_features(
+                            x_local=x_right_local,
+                            y_local=y_right_local,
+                            wall_mask=np.zeros(n_interface_points, dtype=np.float32),
+                            interface_mask=np.ones(n_interface_points, dtype=np.float32),
+                            values=vals,
+                            known_mask=known,
+                            local_aspect_ratio=local_aspect,
+                        )
                     )
-                )
 
-                yt_wall_phys = np.asarray(y_top_fn(x_wall_phys), dtype=np.float64)
-                y_top_local = (yt_wall_phys * inv_ref).astype(np.float32)
-                vals, known = make_rect_channel_bc_values("top", n_boundary_points, output_fields, **case_bc_kwargs)
-                branch_parts.append(
-                    _stack_cell_branch_features(
-                        x_local=x_wall_local,
-                        y_local=y_top_local,
-                        wall_mask=np.ones(n_boundary_points, dtype=np.float32),
-                        interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
-                        values=vals,
-                        known_mask=known,
-                        local_aspect_ratio=local_aspect,
-                    )
-                )
+                    x_wall_phys = x0 + x_wall_frac * width
+                    x_wall_local = x_wall_frac.astype(np.float32)
+                    x_iface_phys = x0 + x_interface_frac * width
+                    x_iface_local = x_interface_frac.astype(np.float32)
+                    y_iface_local = np.full(n_interface_points, y_center_local, dtype=np.float32)
 
-                branch = np.concatenate(branch_parts, axis=0).astype(np.float32, copy=False)
-                samples.append({"branch": branch, "query": query, "target": target})
-                metadata.append(
-                    {
+                    if not horizontal_interface or y_part == "bottom":
+                        yb_wall_phys = np.asarray(y_bottom_fn(x_wall_phys), dtype=np.float64)
+                        y_bottom_local = (yb_wall_phys * inv_ref).astype(np.float32)
+                        vals, known = make_rect_channel_bc_values(
+                            "bottom", n_boundary_points, output_fields, **case_bc_kwargs
+                        )
+                        branch_parts.append(
+                            _stack_cell_branch_features(
+                                x_local=x_wall_local,
+                                y_local=y_bottom_local,
+                                wall_mask=np.ones(n_boundary_points, dtype=np.float32),
+                                interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
+                                values=vals,
+                                known_mask=known,
+                                local_aspect_ratio=local_aspect,
+                            )
+                        )
+                    else:
+                        vals = _interp_fields(
+                            linear,
+                            nearest,
+                            x_iface_phys,
+                            np.full(n_interface_points, y_center_phys, dtype=np.float64),
+                        )
+                        known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
+                        branch_parts.append(
+                            _stack_cell_branch_features(
+                                x_local=x_iface_local,
+                                y_local=y_iface_local,
+                                wall_mask=np.zeros(n_interface_points, dtype=np.float32),
+                                interface_mask=np.ones(n_interface_points, dtype=np.float32),
+                                values=vals,
+                                known_mask=known,
+                                local_aspect_ratio=local_aspect,
+                            )
+                        )
+
+                    if not horizontal_interface or y_part == "top":
+                        yt_wall_phys = np.asarray(y_top_fn(x_wall_phys), dtype=np.float64)
+                        y_top_local = (yt_wall_phys * inv_ref).astype(np.float32)
+                        vals, known = make_rect_channel_bc_values(
+                            "top", n_boundary_points, output_fields, **case_bc_kwargs
+                        )
+                        branch_parts.append(
+                            _stack_cell_branch_features(
+                                x_local=x_wall_local,
+                                y_local=y_top_local,
+                                wall_mask=np.ones(n_boundary_points, dtype=np.float32),
+                                interface_mask=np.zeros(n_boundary_points, dtype=np.float32),
+                                values=vals,
+                                known_mask=known,
+                                local_aspect_ratio=local_aspect,
+                            )
+                        )
+                    else:
+                        vals = _interp_fields(
+                            linear,
+                            nearest,
+                            x_iface_phys,
+                            np.full(n_interface_points, y_center_phys, dtype=np.float64),
+                        )
+                        known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
+                        branch_parts.append(
+                            _stack_cell_branch_features(
+                                x_local=x_iface_local,
+                                y_local=y_iface_local,
+                                wall_mask=np.zeros(n_interface_points, dtype=np.float32),
+                                interface_mask=np.ones(n_interface_points, dtype=np.float32),
+                                values=vals,
+                                known_mask=known,
+                                local_aspect_ratio=local_aspect,
+                            )
+                        )
+
+                    branch = np.concatenate(branch_parts, axis=0).astype(np.float32, copy=False)
+                    samples.append({"branch": branch, "query": query, "target": target})
+
+                    if horizontal_interface:
+                        subdomain_id = int(s * 2 + y_part_idx)
+                    else:
+                        subdomain_id = int(s)
+
+                    meta_row: Dict[str, object] = {
                         "case_id": case_id,
                         "aspect_ratio": float(channel_ar),
-                        "subdomain_id": int(s),
+                        "subdomain_id": subdomain_id,
                         "realization_id": int(realization_id),
                         "x_left_mm": float(x0),
                         "x_right_mm": float(x1),
@@ -972,7 +1060,10 @@ def build_fluent_deeponet_dataset(
                         "local_aspect_ratio": float(local_aspect),
                         "n_cells": int(query.shape[0]),
                     }
-                )
+                    if horizontal_interface:
+                        meta_row["y_split"] = y_part
+                        meta_row["y_center_mm"] = float(y_center_phys)
+                    metadata.append(meta_row)
 
             if keep_raw_case_data:
                 raw_key: object = case_id if n_realizations == 1 else (case_id, int(realization_id))
@@ -1017,6 +1108,7 @@ def build_fluent_deeponet_dataset(
         "n_boundary_points": int(n_boundary_points),
         "interface_placement": str(interface_placement),
         "interface_jitter": float(interface_jitter),
+        "horizontal_interface": bool(horizontal_interface),
         "n_realizations": int(n_realizations),
         "raw_cases": raw_cases if keep_raw_case_data else None,
     }
@@ -1154,6 +1246,7 @@ def save_deeponet_dataset_h5(dataset: Mapping[str, object], output_path: PathLik
         f.attrs["n_interface_points"] = int(dataset["n_interface_points"])
         f.attrs["n_boundary_points"] = int(dataset["n_boundary_points"])
         f.attrs["include_interface_endpoints"] = bool(dataset.get("include_interface_endpoints", False))
+        f.attrs["horizontal_interface"] = bool(dataset.get("horizontal_interface", False))
         f.attrs["n_samples"] = len(samples)
 
         grp = f.create_group("samples")
@@ -1212,6 +1305,7 @@ def load_deeponet_dataset_h5(path: PathLike) -> Dict[str, object]:
             "n_interface_points": int(f.attrs["n_interface_points"]),
             "n_boundary_points": int(f.attrs["n_boundary_points"]),
             "include_interface_endpoints": bool(f.attrs.get("include_interface_endpoints", False)),
+            "horizontal_interface": bool(f.attrs.get("horizontal_interface", False)),
         }
 
 def deeponet_cell_collate_fn(batch):
