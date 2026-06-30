@@ -1,0 +1,56 @@
+On branch Alan
+Your branch is up to date with 'origin/Alan'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	modified:   deeponet_fluent_dataset.py
+	modified:   plot.py
+	deleted:    results/060926_3/checkpoint.pt
+	deleted:    results/060926_3/code_snapshot/git_commit.txt
+	deleted:    results/060926_3/code_snapshot/git_diff.patch
+	deleted:    results/060926_3/code_snapshot/git_diff_cached.patch
+	deleted:    results/060926_3/code_snapshot/git_status.txt
+	deleted:    results/060926_3/training.log
+	new file:   results/physics_inference_fixed/channel_03/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_03/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_03/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_14/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_14/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_14/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_25/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_25/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_25/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_49/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_49/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_49/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_52/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_52/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_52/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_55/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_55/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_55/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_58/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_58/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_58/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_69/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_69/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_69/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_73/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_73/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_73/prediction_v.png
+	new file:   results/physics_inference_fixed/channel_97/prediction_pressure.png
+	new file:   results/physics_inference_fixed/channel_97/prediction_u.png
+	new file:   results/physics_inference_fixed/channel_97/prediction_v.png
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   iterative_inference.ipynb
+	modified:   train_deeponet.ipynb
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	draft.ipynb
+	results/062926_1/
+	train_deeponet copy.ipynb
+

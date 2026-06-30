@@ -17,7 +17,10 @@ channel walls are reconstructed from ``metadata.x_points_mm`` and
 
 i.e. the channel is symmetric about ``y = L_mm / 2`` and varies along ``x``.
 When a design config is supplied, subdomain coordinates use ``x_local`` in
-``[0, 1]`` across the subdomain width and ``y_local = y / reference_length``.
+``[0, 1]`` across the subdomain width.  Without a horizontal split, ``y_local``
+is scaled by the full reference length.  With ``horizontal_interface=True``,
+each half-channel uses the half reference length so the horizontal midline maps
+to ``y_local=1`` for the lower half and ``y_local=0`` for the upper half.
 When no config is supplied the module falls back to a flat rectangular channel
 defined by the mesh bounding box (legacy behavior).
 
@@ -614,9 +617,11 @@ def build_fluent_deeponet_dataset(
     ``"config"``) key pointing to the channel design-config JSON.  When present,
     the channel walls are reconstructed from ``metadata.x_points_mm`` /
     ``metadata.deltas_mm`` and subdomain coordinates use ``x_local`` in
-    ``[0, 1]`` and ``y_local = y / reference_length``.  When absent, the legacy
-    flat-rectangle behavior (mesh
-    bounding box) is used.
+    ``[0, 1]``.  Without a horizontal split, ``y_local`` is scaled by the full
+    reference length.  With ``horizontal_interface=True``, each half-channel uses
+    the half reference length so each sample has a roughly 0-1 y-coordinate
+    range.  When absent, the legacy flat-rectangle behavior (mesh bounding box)
+    is used.
 
     Parameters
     ----------
@@ -783,6 +788,7 @@ def build_fluent_deeponet_dataset(
             xmax = mesh_xmax
             ref_length = max(cfg_L * geom_scale, 1.0e-12)
             ref_length_mm = cfg_L
+            y_origin = 0.0
             channel_ar = int(config["AR"]) if config.get("AR") is not None else int(case_id)  # type: ignore
         else:
             ymin0 = float(mesh_info["y_min_mm"])
@@ -794,6 +800,7 @@ def build_fluent_deeponet_dataset(
             xmax = float(mesh_info["x_max_mm"])
             ref_length = max(ymax0 - ymin0, 1.0e-12)
             ref_length_mm = float(ref_length)
+            y_origin = ymin0
             channel_ar = int(case_id)
 
         # Resolve the per-case subdomain count (adaptive == channel aspect ratio).
@@ -805,8 +812,33 @@ def build_fluent_deeponet_dataset(
             raise ValueError("n_subdomains must be positive")
         used_sub_counts.append(int(n_sub))
 
-        y_center_phys = 0.5 * ref_length_mm
+        y_center_phys = float(y_origin + 0.5 * ref_length)
+        half_ref_length = max(0.5 * ref_length, 1.0e-12)
         y_parts = ("bottom", "top") if horizontal_interface else (None,)
+
+        def _y_to_local(y_phys: np.ndarray, y_part: Optional[str]) -> np.ndarray:
+            y_arr = np.asarray(y_phys, dtype=np.float64)
+            if not horizontal_interface or y_part is None:
+                return ((y_arr - y_origin) / ref_length).astype(np.float32)
+            if y_part == "bottom":
+                return ((y_arr - y_origin) / half_ref_length).astype(np.float32)
+            if y_part == "top":
+                return ((y_arr - y_center_phys) / half_ref_length).astype(np.float32)
+            raise ValueError(f"Invalid y_part: {y_part!r}")
+
+        def _vertical_edge_y(y_lower: float, y_upper: float, y_part: Optional[str]) -> np.ndarray:
+            if not horizontal_interface or y_part is None:
+                y0_edge = float(y_lower)
+                y1_edge = float(y_upper)
+            elif y_part == "bottom":
+                y0_edge = float(y_lower)
+                y1_edge = float(y_center_phys)
+            elif y_part == "top":
+                y0_edge = float(y_center_phys)
+                y1_edge = float(y_upper)
+            else:
+                raise ValueError(f"Invalid y_part: {y_part!r}")
+            return y0_edge + y_interface_frac * (y1_edge - y0_edge)
 
         for realization_id in range(n_realizations):
             print(
@@ -866,15 +898,13 @@ def build_fluent_deeponet_dataset(
             y_interface_frac = np.linspace(0.0, 1.0, n_interface_points + 2, dtype=np.float64)[1:-1]
             x_wall_frac = np.linspace(0.0, 1.0, n_boundary_points, dtype=np.float64)
             x_interface_frac = np.linspace(0.0, 1.0, n_interface_points + 2, dtype=np.float64)[1:-1]
-            y_center_local = float(y_center_phys / ref_length)
 
             for s in range(n_sub_eff):
                 x0 = float(x_edges[s])
                 x1 = float(x_edges[s + 1])
                 width = x1 - x0
-                subdomain_height = ref_length if not horizontal_interface else 0.5 * ref_length
+                subdomain_height = ref_length if not horizontal_interface else half_ref_length
                 local_aspect = width / subdomain_height
-                inv_ref = 1.0 / ref_length
                 inv_width = 1.0 / width
 
                 yb_left = float(y_bottom_fn(x0))
@@ -903,17 +933,17 @@ def build_fluent_deeponet_dataset(
                     query = np.column_stack(
                         [
                             ((x_cell - x0) * inv_width).astype(np.float32),
-                            (y_cell * inv_ref).astype(np.float32),
+                            _y_to_local(y_cell, y_part),
                         ]
                     ).astype(np.float32, copy=False)
 
                     branch_parts: List[np.ndarray] = []
 
                     # Left side (inlet for the first subdomain, interface otherwise).
-                    y_left_phys = yb_left + y_interface_frac * (yt_left - yb_left)
+                    y_left_phys = _vertical_edge_y(yb_left, yt_left, y_part)
                     x_left_phys = np.full(n_interface_points, x0, dtype=np.float64)
                     x_left_local = np.zeros(n_interface_points, dtype=np.float32)
-                    y_left_local = (y_left_phys * inv_ref).astype(np.float32)
+                    y_left_local = _y_to_local(y_left_phys, y_part)
                     if s == 0:
                         vals, known = make_rect_channel_bc_values(
                             "inlet", n_interface_points, output_fields, **case_bc_kwargs
@@ -934,10 +964,10 @@ def build_fluent_deeponet_dataset(
                     )
 
                     # Right side (outlet for the last subdomain, interface otherwise).
-                    y_right_phys = yb_right + y_interface_frac * (yt_right - yb_right)
+                    y_right_phys = _vertical_edge_y(yb_right, yt_right, y_part)
                     x_right_phys = np.full(n_interface_points, x1, dtype=np.float64)
                     x_right_local = np.ones(n_interface_points, dtype=np.float32)
-                    y_right_local = (y_right_phys * inv_ref).astype(np.float32)
+                    y_right_local = _y_to_local(y_right_phys, y_part)
                     if s == n_sub_eff - 1:
                         vals, known = make_rect_channel_bc_values(
                             "outlet", n_interface_points, output_fields, **case_bc_kwargs
@@ -961,11 +991,14 @@ def build_fluent_deeponet_dataset(
                     x_wall_local = x_wall_frac.astype(np.float32)
                     x_iface_phys = x0 + x_interface_frac * width
                     x_iface_local = x_interface_frac.astype(np.float32)
-                    y_iface_local = np.full(n_interface_points, y_center_local, dtype=np.float32)
+                    y_iface_local = _y_to_local(
+                        np.full(n_interface_points, y_center_phys, dtype=np.float64),
+                        y_part,
+                    )
 
                     if not horizontal_interface or y_part == "bottom":
                         yb_wall_phys = np.asarray(y_bottom_fn(x_wall_phys), dtype=np.float64)
-                        y_bottom_local = (yb_wall_phys * inv_ref).astype(np.float32)
+                        y_bottom_local = _y_to_local(yb_wall_phys, y_part)
                         vals, known = make_rect_channel_bc_values(
                             "bottom", n_boundary_points, output_fields, **case_bc_kwargs
                         )
@@ -1002,7 +1035,7 @@ def build_fluent_deeponet_dataset(
 
                     if not horizontal_interface or y_part == "top":
                         yt_wall_phys = np.asarray(y_top_fn(x_wall_phys), dtype=np.float64)
-                        y_top_local = (yt_wall_phys * inv_ref).astype(np.float32)
+                        y_top_local = _y_to_local(yt_wall_phys, y_part)
                         vals, known = make_rect_channel_bc_values(
                             "top", n_boundary_points, output_fields, **case_bc_kwargs
                         )
@@ -1045,6 +1078,16 @@ def build_fluent_deeponet_dataset(
                     else:
                         subdomain_id = int(s)
 
+                    if not horizontal_interface or y_part is None:
+                        y_local_origin = float(y_origin)
+                        y_local_scale = float(ref_length)
+                    elif y_part == "bottom":
+                        y_local_origin = float(y_origin)
+                        y_local_scale = float(half_ref_length)
+                    else:
+                        y_local_origin = float(y_center_phys)
+                        y_local_scale = float(half_ref_length)
+
                     meta_row: Dict[str, object] = {
                         "case_id": case_id,
                         "aspect_ratio": float(channel_ar),
@@ -1056,7 +1099,12 @@ def build_fluent_deeponet_dataset(
                         "y_top_left_mm": float(yt_left),
                         "y_bottom_right_mm": float(yb_right),
                         "y_top_right_mm": float(yt_right),
+                        "y_bottom_mm": float(y_local_origin),
+                        "y_top_mm": float(y_local_origin + y_local_scale),
+                        "y_local_origin_mm": float(y_local_origin),
+                        "y_local_scale_mm": float(y_local_scale),
                         "reference_length_mm": float(ref_length_mm),
+                        "reference_length_mesh": float(ref_length),
                         "local_aspect_ratio": float(local_aspect),
                         "n_cells": int(query.shape[0]),
                     }
@@ -1074,6 +1122,9 @@ def build_fluent_deeponet_dataset(
                     "mesh_info": mesh_info,
                     "x_edges_mm": x_edges.astype(np.float32),
                     "reference_length_mm": float(ref_length_mm),
+                    "reference_length_mesh": float(ref_length),
+                    "y_origin_mm": float(y_origin),
+                    "y_center_mm": float(y_center_phys),
                     "output_channel_names": list(output_fields),
                 }
                 if config is not None:

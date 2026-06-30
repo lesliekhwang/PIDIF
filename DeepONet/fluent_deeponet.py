@@ -384,7 +384,7 @@ def boundary_loss(
     model: nn.Module,
     branch: torch.Tensor,
     branch_channel_names: Sequence[str],
-    output_channel_names: Sequence[str],
+    output_channel_names: Optional[Sequence[str]] = None,
     known_masked: bool = True,
 ) -> torch.Tensor:
     """
@@ -399,6 +399,14 @@ def boundary_loss(
     pressure, outlet velocity, etc. to arbitrary fill values.
     """
     names = list(branch_channel_names)
+    if output_channel_names is None:
+        output_channel_names = [
+            name[len("boundary_") :]
+            for name in names
+            if name.startswith("boundary_")
+        ]
+    output_channel_names = list(output_channel_names)
+
     x_ch = names.index("x_local")
     y_ch = names.index("y_local")
     value_ch = [
@@ -461,6 +469,8 @@ def train_deeponet_one_epoch(
         if lambda_bc > 0.0:
             if branch_channel_names is None:
                 raise ValueError("branch_channel_names is required when boundary loss is active")
+            if output_channel_names is None:
+                raise ValueError("output_channel_names is required when boundary loss is active")
             bc_loss = float(lambda_bc) * boundary_loss(
                 model=model,
                 branch=branch,
@@ -501,20 +511,22 @@ def evaluate_deeponet(
         query_batch_id = query_batch_id.to(device)
         pred = model(branch, query, query_batch_id)
 
+        pred_metric = pred
+        target_metric = target
+        if y_normalizer is not None:
+            pred_metric = y_normalizer.decode(pred)
+            target_metric = y_normalizer.decode(target)
+
         bs = int(branch.shape[0])
-        mse = ragged_mse_loss(pred, target, query_batch_id, bs)
-        rel = ragged_relative_l2_loss(pred, target, query_batch_id, bs)
+        mse = ragged_mse_loss(pred_metric, target_metric, query_batch_id, bs)
+        rel = ragged_relative_l2_loss(pred_metric, target_metric, query_batch_id, bs)
         mse_sum += float(mse.item()) * bs
         rel_sum += float(rel.item()) * bs
         count += bs
 
-        if y_normalizer is not None:
-            pred = y_normalizer.decode(pred)
-            target = y_normalizer.decode(target)
-
-        diff = pred - target
+        diff = pred_metric - target_metric
         sse = torch.sum(diff ** 2, dim=0)
-        energy = torch.sum(target ** 2, dim=0)
+        energy = torch.sum(target_metric ** 2, dim=0)
         if channel_sse is None:
             channel_sse = sse.detach()
             channel_energy = energy.detach()
