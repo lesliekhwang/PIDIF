@@ -435,6 +435,108 @@ def sample_constrained_x_edges(
         )
     return edges.astype(np.float64)
 
+
+def _sharp_control_point_interfaces(
+    x_points: np.ndarray,
+    y_bottom_points: np.ndarray,
+    y_top_points: np.ndarray,
+    slope_threshold: float,
+) -> Tuple[np.ndarray, List[Dict[str, float]]]:
+    """Return interior control-point x-locations that should become interfaces.
+
+    The channel walls are piecewise-linear. A control point can create a sharp
+    contraction/expansion when either adjacent wall segment has a large
+    ``abs(dy/dx)``. In fixed/random interface placement, such a point may lie
+    inside a larger subdomain. Splitting at that x-location prevents one
+    subdomain from spanning the kink.
+    """
+    x_pts = np.asarray(x_points, dtype=np.float64).reshape(-1)
+    yb = np.asarray(y_bottom_points, dtype=np.float64).reshape(-1)
+    yt = np.asarray(y_top_points, dtype=np.float64).reshape(-1)
+    threshold = float(slope_threshold)
+
+    if x_pts.shape != yb.shape or x_pts.shape != yt.shape:
+        raise ValueError("x_points, y_bottom_points, and y_top_points must have the same shape")
+    if x_pts.size < 3:
+        return np.empty(0, dtype=np.float64), []
+    if threshold < 0.0:
+        raise ValueError("sharp_control_point_slope_threshold must be non-negative")
+    if np.any(np.diff(x_pts) <= 0.0):
+        raise ValueError("control-point x locations must be strictly increasing")
+
+    sharp_x: List[float] = []
+    info: List[Dict[str, float]] = []
+    for i in range(1, x_pts.size - 1):
+        dx_left = float(x_pts[i] - x_pts[i - 1])
+        dx_right = float(x_pts[i + 1] - x_pts[i])
+
+        slopes = np.asarray(
+            [
+                (yb[i] - yb[i - 1]) / dx_left,
+                (yb[i + 1] - yb[i]) / dx_right,
+                (yt[i] - yt[i - 1]) / dx_left,
+                (yt[i + 1] - yt[i]) / dx_right,
+            ],
+            dtype=np.float64,
+        )
+        max_abs_slope = float(np.max(np.abs(slopes)))
+        if max_abs_slope >= threshold:
+            x_cp = float(x_pts[i])
+            sharp_x.append(x_cp)
+            info.append(
+                {
+                    "x_mm": x_cp,
+                    "control_point_index": float(i),
+                    "max_abs_wall_slope": max_abs_slope,
+                    "bottom_left_slope": float(slopes[0]),
+                    "bottom_right_slope": float(slopes[1]),
+                    "top_left_slope": float(slopes[2]),
+                    "top_right_slope": float(slopes[3]),
+                }
+            )
+
+    return np.asarray(sharp_x, dtype=np.float64), info
+
+
+def _insert_x_edges(
+    x_edges: np.ndarray,
+    extra_edges: Optional[np.ndarray],
+    tol: float = 1.0e-10,
+) -> np.ndarray:
+    """Merge additional x-interfaces into an existing sorted edge array."""
+    base = np.asarray(x_edges, dtype=np.float64).reshape(-1)
+    if base.size < 2:
+        raise ValueError("x_edges must contain at least two edges")
+    if np.any(np.diff(base) <= 0.0):
+        raise ValueError("x_edges must be strictly increasing")
+    if extra_edges is None:
+        return base.astype(np.float64)
+
+    extra = np.asarray(extra_edges, dtype=np.float64).reshape(-1)
+    if extra.size == 0:
+        return base.astype(np.float64)
+
+    xmin = float(base[0])
+    xmax = float(base[-1])
+    span = max(xmax - xmin, 1.0e-12)
+    abs_tol = float(tol) * span if float(tol) < 1.0 else float(tol)
+
+    merged = list(base)
+    for xe in extra:
+        x_val = float(xe)
+        if x_val <= xmin + abs_tol or x_val >= xmax - abs_tol:
+            continue
+        if np.min(np.abs(np.asarray(merged, dtype=np.float64) - x_val)) <= abs_tol:
+            continue
+        merged.append(x_val)
+
+    out = np.sort(np.asarray(merged, dtype=np.float64))
+    if np.any(np.diff(out) <= 0.0):
+        raise RuntimeError("Inserted x-interfaces produced non-increasing x_edges")
+    out[0] = xmin
+    out[-1] = xmax
+    return out.astype(np.float64)
+
 BRANCH_CHANNELS = CELL_BRANCH_CHANNELS
 TRUNK_CHANNELS = CELL_TRUNK_CHANNELS
 OUTPUT_CHANNELS = CELL_OUTPUT_CHANNELS
@@ -599,7 +701,10 @@ def build_fluent_deeponet_dataset(
     interface_placement: str = "fixed",
     interface_jitter: float = 0.0,
     min_subdomain_width: float = 0.01,
+    insert_sharp_control_point_interfaces: bool = True,
+    sharp_control_point_slope_threshold: float = 0.2,
     horizontal_interface: bool = False,
+    horizontal_interface_jitter: float = 0.0,
     rng: Optional[np.random.Generator] = None,
     field_map=FIELD_MAP,
     output_fields: Optional[Sequence[str]] = None,
@@ -659,12 +764,28 @@ def build_fluent_deeponet_dataset(
         - ``"control_points"``: ignore ``n_subdomains`` and place interfaces at the
           interior geometry control points ``x_points_mm[1:-1]`` (requires a design
           config).  Each subdomain then spans exactly one straight wall segment.
+    insert_sharp_control_point_interfaces:
+        For ``"fixed"`` and ``"random"`` placements with a design config, insert
+        additional vertical interfaces at interior control points whose adjacent
+        wall segment slope is large.  This prevents a single subdomain from
+        spanning a sharp contraction/expansion corner.
+    sharp_control_point_slope_threshold:
+        Dimensionless ``abs(dy/dx)`` threshold used by
+        ``insert_sharp_control_point_interfaces``.  A control point is split out
+        when either adjacent top/bottom wall segment has slope magnitude greater
+        than or equal to this value.
     horizontal_interface:
         When ``True``, split each x-strip subdomain at the channel mid-height
-        (``y`` center) into two symmetric top/bottom halves.  Each half keeps
-        the usual left/right (vertical) interfaces and replaces the interior
-        top or bottom wall with a horizontal interface carrying interpolated
-        field values.  Total samples per case become ``2 * n_subdomains``.
+        (``y`` center) into two top/bottom parts.  Each half keeps the usual
+        left/right (vertical) interfaces and replaces the interior top or
+        bottom wall with a horizontal interface carrying interpolated field
+        values.  Total samples per case become ``2 * n_subdomains``.
+    horizontal_interface_jitter:
+        Absolute physical jitter, in the same coordinate units used by the
+        mesh/config after scaling, applied independently to each x-strip's
+        horizontal interface location.  The split is sampled as
+        ``y_origin + 0.5 * reference_length + Uniform(-jitter, jitter)`` and
+        clipped inside the nominal channel height to avoid degenerate halves.
 
     Notes
     -----
@@ -672,12 +793,21 @@ def build_fluent_deeponet_dataset(
     ``subdomain_width / subdomain_height``, where ``subdomain_width`` is the
     x-strip width and ``subdomain_height`` is the reference length ``L_mm``
     (full channel height).  When ``horizontal_interface=True``, each sample spans
-    half the channel height, so ``subdomain_height = L_mm / 2``.
+    half the channel height when ``horizontal_interface_jitter=0``.  With
+    horizontal jitter, bottom/top local heights are based on the actual
+    per-strip horizontal interface location.
     """
     if rng is None:
         rng = np.random.default_rng()
     if bc_kwargs is None:
         bc_kwargs = {}
+    insert_sharp_control_point_interfaces = bool(insert_sharp_control_point_interfaces)
+    sharp_control_point_slope_threshold = float(sharp_control_point_slope_threshold)
+    horizontal_interface_jitter = float(horizontal_interface_jitter)
+    if sharp_control_point_slope_threshold < 0.0:
+        raise ValueError("sharp_control_point_slope_threshold must be non-negative")
+    if horizontal_interface_jitter < 0.0:
+        raise ValueError("horizontal_interface_jitter must be non-negative")
 
     # Output fields default to the keys of field_map (e.g. drop "temperature"
     # by passing a field_map without it). Branch/output channels adapt to this.
@@ -706,6 +836,7 @@ def build_fluent_deeponet_dataset(
         sub_counts = list(_expand_n_subdomains(n_subdomains, case_ids))  # type: ignore[arg-type]
 
     used_sub_counts: List[int] = []
+    used_sub_counts_per_realization: List[int] = []
 
     n_interface_points = int(n_interface_points)
     n_boundary_points = int(n_boundary_points)
@@ -714,7 +845,11 @@ def build_fluent_deeponet_dataset(
         raise ValueError("n_interface_points must be positive and n_boundary_points must be > 1")
     # if interface_placement is "control_points" or "fixed" with no jitter, 
     # we only need one realization as there is no randomness
-    if interface_placement == "fixed" and interface_jitter == 0:
+    if (
+        interface_placement == "fixed"
+        and interface_jitter == 0
+        and (not horizontal_interface or horizontal_interface_jitter == 0)
+    ):
         n_realizations = 1
         print(f"Setting n_realizations to 1 for fixed interface placement with no jitter")
     if interface_placement == "control_points" and adaptive_n_sub:
@@ -763,6 +898,10 @@ def build_fluent_deeponet_dataset(
             case_bc_kwargs.setdefault("inlet_u", float(config["Uin_mps"]))  # type: ignore
 
         config_x_edges: Optional[np.ndarray] = None
+        config_y_bottom_edges: Optional[np.ndarray] = None
+        config_y_top_edges: Optional[np.ndarray] = None
+        sharp_control_point_x_edges = np.empty(0, dtype=np.float64)
+        sharp_control_point_info: List[Dict[str, float]] = []
         if config is not None:
             # The design config is in mm while the mesh may be stored in a
             # different unit (e.g. um).  Auto-scale the config geometry into the
@@ -780,10 +919,21 @@ def build_fluent_deeponet_dataset(
             # Generated channels share the coordinate origin (x=0, y=0 centered
             # at L/2), so an isotropic scale aligns config and mesh frames.
             x_pts_mesh = mesh_xmin + (cfg_x - cfg_x[0]) * geom_scale
-            y_bottom_fn = _interp_wall(x_pts_mesh, cfg_yb * geom_scale)
-            y_top_fn = _interp_wall(x_pts_mesh, cfg_yt * geom_scale)
+            yb_pts_mesh = cfg_yb * geom_scale
+            yt_pts_mesh = cfg_yt * geom_scale
+            y_bottom_fn = _interp_wall(x_pts_mesh, yb_pts_mesh)
+            y_top_fn = _interp_wall(x_pts_mesh, yt_pts_mesh)
 
             config_x_edges = x_pts_mesh
+            config_y_bottom_edges = yb_pts_mesh
+            config_y_top_edges = yt_pts_mesh
+            if insert_sharp_control_point_interfaces:
+                sharp_control_point_x_edges, sharp_control_point_info = _sharp_control_point_interfaces(
+                    x_points=config_x_edges,
+                    y_bottom_points=config_y_bottom_edges,
+                    y_top_points=config_y_top_edges,
+                    slope_threshold=sharp_control_point_slope_threshold,
+                )
             xmin = mesh_xmin
             xmax = mesh_xmax
             ref_length = max(cfg_L * geom_scale, 1.0e-12)
@@ -810,10 +960,10 @@ def build_fluent_deeponet_dataset(
             n_sub = int(n_sub)  # type: ignore[arg-type]
         if n_sub <= 0:
             raise ValueError("n_subdomains must be positive")
-        used_sub_counts.append(int(n_sub))
+        case_used_sub_counts: List[int] = []
 
-        y_center_phys = float(y_origin + 0.5 * ref_length)
-        half_ref_length = max(0.5 * ref_length, 1.0e-12)
+        y_center_nominal_phys = float(y_origin + 0.5 * ref_length)
+        y_top_nominal_phys = float(y_origin + ref_length)
         y_parts = ("bottom", "top") if horizontal_interface else (None,)
 
         def _y_to_local(y_phys: np.ndarray, y_part: Optional[str]) -> np.ndarray:
@@ -821,9 +971,9 @@ def build_fluent_deeponet_dataset(
             if not horizontal_interface or y_part is None:
                 return ((y_arr - y_origin) / ref_length).astype(np.float32)
             if y_part == "bottom":
-                return ((y_arr - y_origin) / half_ref_length).astype(np.float32)
+                return ((y_arr - y_origin) / bottom_subdomain_height).astype(np.float32)
             if y_part == "top":
-                return ((y_arr - y_center_phys) / half_ref_length).astype(np.float32)
+                return ((y_arr - y_split_phys) / top_subdomain_height).astype(np.float32)
             raise ValueError(f"Invalid y_part: {y_part!r}")
 
         def _vertical_edge_y(y_lower: float, y_upper: float, y_part: Optional[str]) -> np.ndarray:
@@ -832,9 +982,9 @@ def build_fluent_deeponet_dataset(
                 y1_edge = float(y_upper)
             elif y_part == "bottom":
                 y0_edge = float(y_lower)
-                y1_edge = float(y_center_phys)
+                y1_edge = float(y_split_phys)
             elif y_part == "top":
-                y0_edge = float(y_center_phys)
+                y0_edge = float(y_split_phys)
                 y1_edge = float(y_upper)
             else:
                 raise ValueError(f"Invalid y_part: {y_part!r}")
@@ -890,6 +1040,44 @@ def build_fluent_deeponet_dataset(
             else:
                 raise ValueError(f"Invalid interface_placement argument: {interface_placement}")
 
+            if interface_placement in {"fixed", "random"}:
+                n_before_insert = int(n_sub_eff)
+                x_edges = _insert_x_edges(x_edges, sharp_control_point_x_edges)
+                n_sub_eff = int(x_edges.size - 1)
+                n_inserted = n_sub_eff - n_before_insert
+                if n_inserted > 0:
+                    print(
+                        f"Inserted {n_inserted} sharp-control-point interface(s) "
+                        f"for case {case_id} realization={realization_id}",
+                        flush=True,
+                    )
+            case_used_sub_counts.append(int(n_sub_eff))
+
+            if horizontal_interface:
+                if horizontal_interface_jitter > 0.0:
+                    horizontal_delta_raw = rng.uniform(
+                        -horizontal_interface_jitter,
+                        horizontal_interface_jitter,
+                        size=n_sub_eff,
+                    ).astype(np.float64)
+                else:
+                    horizontal_delta_raw = np.zeros(n_sub_eff, dtype=np.float64)
+                min_half_height = max(1.0e-6 * ref_length, 1.0e-12)
+                horizontal_interface_y = np.clip(
+                    y_center_nominal_phys + horizontal_delta_raw,
+                    float(y_origin + min_half_height),
+                    float(y_top_nominal_phys - min_half_height),
+                ).astype(np.float64)
+                horizontal_interface_delta = (
+                    horizontal_interface_y - y_center_nominal_phys
+                ).astype(np.float64)
+            else:
+                horizontal_delta_raw = np.zeros(n_sub_eff, dtype=np.float64)
+                horizontal_interface_y = np.full(
+                    n_sub_eff, y_center_nominal_phys, dtype=np.float64
+                )
+                horizontal_interface_delta = np.zeros(n_sub_eff, dtype=np.float64)
+
             linear, nearest = _make_global_interpolators(x, y, values)
 
             # Fractional sampling positions: across the local channel height in
@@ -903,8 +1091,6 @@ def build_fluent_deeponet_dataset(
                 x0 = float(x_edges[s])
                 x1 = float(x_edges[s + 1])
                 width = x1 - x0
-                subdomain_height = ref_length if not horizontal_interface else half_ref_length
-                local_aspect = width / subdomain_height
                 inv_width = 1.0 / width
 
                 yb_left = float(y_bottom_fn(x0))
@@ -912,13 +1098,25 @@ def build_fluent_deeponet_dataset(
                 yb_right = float(y_bottom_fn(x1))
                 yt_right = float(y_top_fn(x1))
 
+                y_split_phys = float(horizontal_interface_y[s])
+                y_horizontal_delta_phys = float(horizontal_interface_delta[s])
+                bottom_subdomain_height = max(y_split_phys - float(y_origin), 1.0e-12)
+                top_subdomain_height = max(float(y_top_nominal_phys) - y_split_phys, 1.0e-12)
+
                 for y_part_idx, y_part in enumerate(y_parts):
+                    if not horizontal_interface or y_part is None:
+                        subdomain_height = ref_length
+                    elif y_part == "bottom":
+                        subdomain_height = bottom_subdomain_height
+                    else:
+                        subdomain_height = top_subdomain_height
+                    local_aspect = width / subdomain_height
                     cell_mask = (x >= x0) & (x <= x1)
                     if horizontal_interface:
                         if y_part == "bottom":
-                            cell_mask &= y < y_center_phys
+                            cell_mask &= y < y_split_phys
                         else:
-                            cell_mask &= y > y_center_phys
+                            cell_mask &= y > y_split_phys
 
                     if not np.any(cell_mask):
                         part_label = y_part if horizontal_interface else "full"
@@ -992,7 +1190,7 @@ def build_fluent_deeponet_dataset(
                     x_iface_phys = x0 + x_interface_frac * width
                     x_iface_local = x_interface_frac.astype(np.float32)
                     y_iface_local = _y_to_local(
-                        np.full(n_interface_points, y_center_phys, dtype=np.float64),
+                        np.full(n_interface_points, y_split_phys, dtype=np.float64),
                         y_part,
                     )
 
@@ -1018,7 +1216,7 @@ def build_fluent_deeponet_dataset(
                             linear,
                             nearest,
                             x_iface_phys,
-                            np.full(n_interface_points, y_center_phys, dtype=np.float64),
+                            np.full(n_interface_points, y_split_phys, dtype=np.float64),
                         )
                         known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
                         branch_parts.append(
@@ -1055,7 +1253,7 @@ def build_fluent_deeponet_dataset(
                             linear,
                             nearest,
                             x_iface_phys,
-                            np.full(n_interface_points, y_center_phys, dtype=np.float64),
+                            np.full(n_interface_points, y_split_phys, dtype=np.float64),
                         )
                         known = np.ones((n_interface_points, len(output_fields)), dtype=np.float32)
                         branch_parts.append(
@@ -1078,15 +1276,24 @@ def build_fluent_deeponet_dataset(
                     else:
                         subdomain_id = int(s)
 
+                    sharp_left = bool(
+                        sharp_control_point_x_edges.size
+                        and np.any(np.isclose(float(x0), sharp_control_point_x_edges, rtol=0.0, atol=1.0e-8))
+                    )
+                    sharp_right = bool(
+                        sharp_control_point_x_edges.size
+                        and np.any(np.isclose(float(x1), sharp_control_point_x_edges, rtol=0.0, atol=1.0e-8))
+                    )
+
                     if not horizontal_interface or y_part is None:
                         y_local_origin = float(y_origin)
                         y_local_scale = float(ref_length)
                     elif y_part == "bottom":
                         y_local_origin = float(y_origin)
-                        y_local_scale = float(half_ref_length)
+                        y_local_scale = float(bottom_subdomain_height)
                     else:
-                        y_local_origin = float(y_center_phys)
-                        y_local_scale = float(half_ref_length)
+                        y_local_origin = float(y_split_phys)
+                        y_local_scale = float(top_subdomain_height)
 
                     meta_row: Dict[str, object] = {
                         "case_id": case_id,
@@ -1106,11 +1313,16 @@ def build_fluent_deeponet_dataset(
                         "reference_length_mm": float(ref_length_mm),
                         "reference_length_mesh": float(ref_length),
                         "local_aspect_ratio": float(local_aspect),
+                        "x_left_is_sharp_control_point": sharp_left,
+                        "x_right_is_sharp_control_point": sharp_right,
                         "n_cells": int(query.shape[0]),
                     }
                     if horizontal_interface:
                         meta_row["y_split"] = y_part
-                        meta_row["y_center_mm"] = float(y_center_phys)
+                        meta_row["y_center_mm"] = float(y_split_phys)
+                        meta_row["y_center_nominal_mm"] = float(y_center_nominal_phys)
+                        meta_row["y_horizontal_interface_mm"] = float(y_split_phys)
+                        meta_row["y_horizontal_interface_delta_mm"] = float(y_horizontal_delta_phys)
                     metadata.append(meta_row)
 
             if keep_raw_case_data:
@@ -1121,10 +1333,16 @@ def build_fluent_deeponet_dataset(
                     "values": values.astype(np.float32),
                     "mesh_info": mesh_info,
                     "x_edges_mm": x_edges.astype(np.float32),
+                    "sharp_control_point_x_edges_mm": sharp_control_point_x_edges.astype(np.float32),
+                    "sharp_control_point_info": list(sharp_control_point_info),
                     "reference_length_mm": float(ref_length_mm),
                     "reference_length_mesh": float(ref_length),
                     "y_origin_mm": float(y_origin),
-                    "y_center_mm": float(y_center_phys),
+                    "y_center_mm": float(y_center_nominal_phys),
+                    "y_center_nominal_mm": float(y_center_nominal_phys),
+                    "horizontal_interface_y_mm": horizontal_interface_y.astype(np.float32),
+                    "horizontal_interface_delta_mm": horizontal_interface_delta.astype(np.float32),
+                    "horizontal_interface_jitter": float(horizontal_interface_jitter),
                     "output_channel_names": list(output_fields),
                 }
                 if config is not None:
@@ -1133,6 +1351,17 @@ def build_fluent_deeponet_dataset(
                     raw_entry["wall_y_top_mm"] = np.asarray(config["y_top_pts"], dtype=np.float32)
                     raw_entry["config_path"] = config["config_path"]
                 raw_cases[raw_key] = raw_entry
+
+        if case_used_sub_counts:
+            used_sub_counts_per_realization.extend(case_used_sub_counts)
+            unique_case_counts = sorted(set(case_used_sub_counts))
+            if len(unique_case_counts) > 1:
+                print(
+                    f"Case {case_id} produced different subdomain counts across realizations: "
+                    f"{unique_case_counts}; reporting the maximum in n_subdomains_per_case.",
+                    flush=True,
+                )
+            used_sub_counts.append(int(max(unique_case_counts)))
 
     if not samples:
         raise ValueError("No samples were processed. Check case_files and AR range.")
@@ -1155,11 +1384,15 @@ def build_fluent_deeponet_dataset(
             else (used_sub_counts if len(set(used_sub_counts)) > 1 else int(used_sub_counts[0]))
         ),
         "n_subdomains_per_case": list(used_sub_counts),
+        "n_subdomains_per_realization": list(used_sub_counts_per_realization),
         "n_interface_points": int(n_interface_points),
         "n_boundary_points": int(n_boundary_points),
         "interface_placement": str(interface_placement),
         "interface_jitter": float(interface_jitter),
+        "insert_sharp_control_point_interfaces": bool(insert_sharp_control_point_interfaces),
+        "sharp_control_point_slope_threshold": float(sharp_control_point_slope_threshold),
         "horizontal_interface": bool(horizontal_interface),
+        "horizontal_interface_jitter": float(horizontal_interface_jitter),
         "n_realizations": int(n_realizations),
         "raw_cases": raw_cases if keep_raw_case_data else None,
     }
@@ -1298,6 +1531,7 @@ def save_deeponet_dataset_h5(dataset: Mapping[str, object], output_path: PathLik
         f.attrs["n_boundary_points"] = int(dataset["n_boundary_points"])
         f.attrs["include_interface_endpoints"] = bool(dataset.get("include_interface_endpoints", False))
         f.attrs["horizontal_interface"] = bool(dataset.get("horizontal_interface", False))
+        f.attrs["horizontal_interface_jitter"] = float(dataset.get("horizontal_interface_jitter", 0.0))
         f.attrs["n_samples"] = len(samples)
 
         grp = f.create_group("samples")
@@ -1357,6 +1591,7 @@ def load_deeponet_dataset_h5(path: PathLike) -> Dict[str, object]:
             "n_boundary_points": int(f.attrs["n_boundary_points"]),
             "include_interface_endpoints": bool(f.attrs.get("include_interface_endpoints", False)),
             "horizontal_interface": bool(f.attrs.get("horizontal_interface", False)),
+            "horizontal_interface_jitter": float(f.attrs.get("horizontal_interface_jitter", 0.0)),
         }
 
 def deeponet_cell_collate_fn(batch):
