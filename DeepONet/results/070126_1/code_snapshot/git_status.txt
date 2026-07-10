@@ -1,0 +1,54 @@
+On branch Alan
+Your branch is up to date with 'origin/Alan'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	new file:   results/062926_1/predictions/test/test_case03_pressure.png
+	new file:   results/062926_1/predictions/test/test_case03_u.png
+	new file:   results/062926_1/predictions/test/test_case03_v.png
+	new file:   results/062926_1/predictions/test/test_case14_pressure.png
+	new file:   results/062926_1/predictions/test/test_case14_u.png
+	new file:   results/062926_1/predictions/test/test_case14_v.png
+	new file:   results/062926_1/predictions/test/test_case25_pressure.png
+	new file:   results/062926_1/predictions/test/test_case25_u.png
+	new file:   results/062926_1/predictions/test/test_case25_v.png
+	new file:   results/062926_1/predictions/test/test_case49_pressure.png
+	new file:   results/062926_1/predictions/test/test_case49_u.png
+	new file:   results/062926_1/predictions/test/test_case49_v.png
+	new file:   results/062926_1/predictions/test/test_case52_pressure.png
+	new file:   results/062926_1/predictions/test/test_case52_u.png
+	new file:   results/062926_1/predictions/test/test_case52_v.png
+	new file:   results/062926_1/predictions/test/test_case55_pressure.png
+	new file:   results/062926_1/predictions/test/test_case55_u.png
+	new file:   results/062926_1/predictions/test/test_case55_v.png
+	new file:   results/062926_1/predictions/test/test_case58_pressure.png
+	new file:   results/062926_1/predictions/test/test_case58_u.png
+	new file:   results/062926_1/predictions/test/test_case58_v.png
+	new file:   results/062926_1/predictions/test/test_case69_pressure.png
+	new file:   results/062926_1/predictions/test/test_case69_u.png
+	new file:   results/062926_1/predictions/test/test_case69_v.png
+	new file:   results/062926_1/predictions/test/test_case73_pressure.png
+	new file:   results/062926_1/predictions/test/test_case73_u.png
+	new file:   results/062926_1/predictions/test/test_case73_v.png
+	new file:   results/062926_1/predictions/test/test_case97_pressure.png
+	new file:   results/062926_1/predictions/test/test_case97_u.png
+	new file:   results/062926_1/predictions/test/test_case97_v.png
+	modified:   results/062926_1/training.log
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   deeponet_fluent_dataset.py
+	modified:   eval_fluent_deeponet.py
+	modified:   iterative_inference.ipynb
+	modified:   plot.py
+	modified:   results/062926_1/training.log
+	modified:   train_deeponet.ipynb
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	draft.ipynb
+	results/062926_2/
+	results/070126_1/
+	results/physics_weight_fixed/channel_14/
+

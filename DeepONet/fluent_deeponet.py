@@ -160,16 +160,38 @@ class PointSetBranchNet(nn.Module):
             layer_norm=layer_norm,
         )
 
-    def forward(self, branch: torch.Tensor) -> torch.Tensor:
+    def forward(self, branch: torch.Tensor, branch_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         if branch.ndim != 3:
             raise ValueError(f"Expected branch shape (B,M,C), got {tuple(branch.shape)}")
         h = self.point_encoder(branch)
-        if self.aggregation == "mean":
-            h = h.mean(dim=1)
-        elif self.aggregation == "sum":
-            h = h.sum(dim=1)
+        
+        if branch_mask is not None:
+            if branch_mask.ndim != 2:
+                raise ValueError(f"Expected branch_mask shape (B,M), got {tuple(branch_mask.shape)}")
+            if branch_mask.shape != branch.shape[:2]:
+                raise ValueError(f"branch_mask shape {tuple(branch_mask.shape)} does not match branch shape {tuple(branch.shape[:2])}")
+            
+            mask_bool = branch_mask.to(device=h.device, dtype=torch.bool)
+            mask = mask_bool.unsqueeze(-1).to(dtype=h.dtype)
+            
+            if self.aggregation == "mean":
+                h = (h * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
+            elif self.aggregation == "sum":
+                h = (h * mask).sum(dim=1)
+            else:
+                h_masked = h.masked_fill(~mask_bool.unsqueeze(-1), torch.finfo(h.dtype).min)
+                h = h_masked.max(dim=1).values
+                valid_any = mask_bool.any(dim=1)
+                h = torch.where(valid_any.unsqueeze(-1), h, torch.zeros_like(h))
+        
         else:
-            h = h.max(dim=1).values
+            if self.aggregation == "mean":
+                h = h.mean(dim=1)
+            elif self.aggregation == "sum":
+                h = h.sum(dim=1)
+            else:
+                h = h.max(dim=1).values
+            
         coeff = self.global_mlp(h)
         return coeff.reshape(branch.shape[0], self.output_channels, self.latent_dim)
 
@@ -264,14 +286,15 @@ class DeepONet(nn.Module):
         )
         self.bias = nn.Parameter(torch.zeros(self.output_channels))
 
-    def forward(self, branch: torch.Tensor, query: torch.Tensor, query_batch_id: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, branch: torch.Tensor, query: torch.Tensor, query_batch_id: Optional[torch.Tensor] = None, branch_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         if branch.ndim != 3:
             raise ValueError(f"Expected branch shape (B,M,C), got {tuple(branch.shape)}")
-        coeff = self.branch_net(branch)  # (B, Cout, R)
+        coeff = self.branch_net(branch, branch_mask)  # (B, Cout, R)
         
         # ------------------------------------------------------------
         # Concatenated mode:
         #   branch:         (B, M, Cb)
+        #   branch_mask:    (B, M), True for real branch points, False for padding
         #   query:          (N_total, Cq)
         #   query_batch_id: (N_total,)
         #   output:         (N_total, Cout)
@@ -386,6 +409,7 @@ def boundary_loss(
     branch_channel_names: Sequence[str],
     output_channel_names: Optional[Sequence[str]] = None,
     known_masked: bool = True,
+    branch_mask: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     Optional boundary loss for the non-grid branch representation.
@@ -418,15 +442,22 @@ def boundary_loss(
 
     query_bc = branch[..., [x_ch, y_ch]]
     target_bc = branch[..., value_ch]
-    pred_bc = model(branch, query_bc)
+    pred_bc = model(branch, query_bc, branch_mask=branch_mask)
 
     if known_masked and all(k in names for k in known_names):
         known_ch = [
             names.index(f"known_{f}") for f in output_channel_names
         ]
         known = branch[..., known_ch]
+        if branch_mask is not None:
+            known = known * branch_mask.to(device=known.device, dtype=known.dtype).unsqueeze(-1)
         denom = known.sum().clamp_min(1.0)
         return torch.sum(((pred_bc - target_bc) ** 2) * known) / denom
+    
+    if branch_mask is not None:
+        mask = branch_mask.to(device=pred_bc.device, dtype=pred_bc.dtype).unsqueeze(-1)
+        denom = (mask.sum() * pred_bc.shape[-1]).clamp_min(1.0)
+        return torch.sum(((pred_bc - target_bc) ** 2) * mask) / denom
 
     return F.mse_loss(pred_bc, target_bc)
 
@@ -448,15 +479,24 @@ def train_deeponet_one_epoch(
     total_field_loss = 0.0
     count = 0
 
-    for branch, query, target, query_batch_id, _sample_idx in loader:
+    for batch in loader:
+        if len(batch) == 6:
+            branch, query, target, query_batch_id, _sample_idx, branch_mask = batch
+        elif len(batch) == 5:
+            branch, query, target, query_batch_id, _sample_idx = batch
+            branch_mask = None
+        else:
+            raise ValueError(f"Expected 5 or 6 elements in batch, got {len(batch)}")
         bs = int(branch.shape[0])
         branch = branch.to(device)
         query = query.to(device)
         target = target.to(device)
         query_batch_id = query_batch_id.to(device)
+        if branch_mask is not None:
+            branch_mask = branch_mask.to(device)
 
         optimizer.zero_grad(set_to_none=True)
-        pred = model(branch, query, query_batch_id)
+        pred = model(branch, query, query_batch_id, branch_mask)
         
         if loss_type.lower() == "relative_l2":
             field_loss = ragged_relative_l2_loss(pred, target, query_batch_id, bs)
@@ -476,6 +516,7 @@ def train_deeponet_one_epoch(
                 branch=branch,
                 branch_channel_names=branch_channel_names,
                 output_channel_names=output_channel_names,
+                branch_mask=branch_mask,
             )
             total_bc_loss += float(bc_loss.item()) * bs
             loss = loss + bc_loss
@@ -504,12 +545,21 @@ def evaluate_deeponet(
     channel_energy: Optional[torch.Tensor] = None
     if y_normalizer is not None:
         y_normalizer = y_normalizer.to(device)
-    for branch, query, target, query_batch_id, _sample_idx in loader:
+    for batch in loader:
+        if len(batch) == 6:
+            branch, query, target, query_batch_id, _sample_idx, branch_mask = batch
+        elif len(batch) == 5:
+            branch, query, target, query_batch_id, _sample_idx = batch
+            branch_mask = None
+        else:
+            raise ValueError(f"Expected 5 or 6 elements in batch, got {len(batch)}")
         branch = branch.to(device)
         query = query.to(device)
         target = target.to(device)
         query_batch_id = query_batch_id.to(device)
-        pred = model(branch, query, query_batch_id)
+        if branch_mask is not None:
+            branch_mask = branch_mask.to(device)
+        pred = model(branch, query, query_batch_id, branch_mask)
 
         pred_metric = pred
         target_metric = target

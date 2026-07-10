@@ -537,6 +537,455 @@ def _insert_x_edges(
     out[-1] = xmax
     return out.astype(np.float64)
 
+
+
+def read_fluent_cell_topology(mesh_h5, convert_to_mm=False):
+    """Return cell centers plus face adjacency/topology from Fluent .msh.h5 or .cas.h5.
+
+    The returned topology uses 0-based cell indices. A face-side cell index of
+    ``-1`` means that side is outside the fluid domain.
+    """
+    mesh_h5 = Path(mesh_h5)
+    with h5py.File(mesh_h5, "r") as f:
+        mesh = f["meshes/1"]
+
+        coords = _first_dataset(mesh["nodes/coords"])[()]
+        if convert_to_mm == "auto":
+            coords = _auto_to_mm(coords)
+        elif convert_to_mm:
+            coords = coords.astype(np.float64) * 1000.0
+        else:
+            coords = coords.astype(np.float64)
+        coords_xy = coords[:, :2].astype(np.float64, copy=False)
+
+        cell_min_id = int(np.min(mesh["cells/zoneTopology/minId"][()]))
+        cell_max_id = int(np.max(mesh["cells/zoneTopology/maxId"][()]))
+        n_cells = cell_max_id - cell_min_id + 1
+
+        face_nodes_group = mesh["faces/nodes"]
+        c0_group = mesh["faces/c0"]
+        c1_group = mesh["faces/c1"]
+        zone_keys = _sorted_numeric_keys(face_nodes_group)
+
+        all_face_nodes, all_c0, all_c1 = [], [], []
+
+        if len(zone_keys) > 1:
+            for zk in zone_keys:
+                fn = _read_2node_faces(face_nodes_group[zk])
+                nfaces = fn.shape[0]
+                c0 = c0_group[zk][()].astype(np.int64) if zk in c0_group else np.zeros(nfaces, dtype=np.int64)
+                c1 = c1_group[zk][()].astype(np.int64) if zk in c1_group else np.zeros(nfaces, dtype=np.int64)
+                all_face_nodes.append(fn)
+                all_c0.append(c0)
+                all_c1.append(c1)
+        else:
+            zk = zone_keys[0]
+            fn = _read_2node_faces(face_nodes_group[zk])
+            nfaces = fn.shape[0]
+
+            c0_key = _sorted_numeric_keys(c0_group)[0]
+            c0 = c0_group[c0_key][()].astype(np.int64)
+            if len(c0) != nfaces:
+                raise ValueError(f"Cannot align c0 values: {len(c0)} values for {nfaces} faces")
+
+            c1_key = _sorted_numeric_keys(c1_group)[0]
+            c1_raw = c1_group[c1_key][()].astype(np.int64)
+            if len(c1_raw) == nfaces:
+                c1 = c1_raw
+            else:
+                c1 = np.zeros(nfaces, dtype=np.int64)
+                ztop = mesh["faces/zoneTopology"]
+                z_c1 = ztop["c1"][()] if "c1" in ztop else None
+                z_min = ztop["minId"][()]
+                z_max = ztop["maxId"][()]
+                raw_pos = 0
+                if z_c1 is not None:
+                    for has_c1, lo, hi in zip(z_c1 != 0, z_min, z_max):
+                        count = int(hi - lo + 1)
+                        if has_c1:
+                            c1[int(lo) - 1 : int(hi)] = c1_raw[raw_pos : raw_pos + count]
+                            raw_pos += count
+                if raw_pos != len(c1_raw):
+                    c1[:] = 0
+                    c1[-len(c1_raw):] = c1_raw
+
+            all_face_nodes.append(fn)
+            all_c0.append(c0)
+            all_c1.append(c1)
+
+        face_nodes = np.vstack(all_face_nodes).astype(np.int64, copy=False)
+        c0_raw = np.concatenate(all_c0).astype(np.int64, copy=False)
+        c1_raw = np.concatenate(all_c1).astype(np.int64, copy=False)
+
+    face_c0 = np.where(c0_raw > 0, c0_raw - cell_min_id, -1).astype(np.int64)
+    face_c1 = np.where(c1_raw > 0, c1_raw - cell_min_id, -1).astype(np.int64)
+    face_midpoints = coords_xy[face_nodes].mean(axis=1).astype(np.float64)
+
+    valid0 = face_c0 >= 0
+    valid1 = face_c1 >= 0
+    cell_idx = np.concatenate([
+        np.repeat(face_c0[valid0], 2),
+        np.repeat(face_c1[valid1], 2),
+    ])
+    node_idx = np.concatenate([
+        face_nodes[valid0].reshape(-1),
+        face_nodes[valid1].reshape(-1),
+    ])
+
+    order = np.lexsort((node_idx, cell_idx))
+    cell_idx = cell_idx[order]
+    node_idx = node_idx[order]
+
+    keep = np.empty(len(cell_idx), dtype=bool)
+    keep[0] = True
+    keep[1:] = (cell_idx[1:] != cell_idx[:-1]) | (node_idx[1:] != node_idx[:-1])
+    cell_idx = cell_idx[keep]
+    node_idx = node_idx[keep]
+
+    node_count = np.bincount(cell_idx, minlength=n_cells)
+    centers = np.full((n_cells, 2), np.nan, dtype=np.float64)
+    valid_cells = node_count > 0
+    for d in range(2):
+        sums = np.bincount(cell_idx, weights=coords_xy[node_idx, d], minlength=n_cells)
+        centers[valid_cells, d] = sums[valid_cells] / node_count[valid_cells]
+
+    x0, x1 = float(np.nanmin(coords_xy[:, 0])), float(np.nanmax(coords_xy[:, 0]))
+    y0, y1 = float(np.nanmin(coords_xy[:, 1])), float(np.nanmax(coords_xy[:, 1]))
+    mesh_info = {
+        "mesh_h5": str(mesh_h5),
+        "n_nodes": int(coords_xy.shape[0]),
+        "n_cells": int(n_cells),
+        "nodes_per_cell_min": int(node_count.min()),
+        "nodes_per_cell_max": int(node_count.max()),
+        "x_min_mm": x0,
+        "x_max_mm": x1,
+        "y_min_mm": y0,
+        "y_max_mm": y1,
+        "Lx_mm": x1 - x0,
+        "Ly_mm": y1 - y0,
+        "inferred_AR": (x1 - x0) / (y1 - y0),
+    }
+    topology = {
+        "face_nodes": face_nodes,
+        "face_midpoints": face_midpoints,
+        "face_c0": face_c0,
+        "face_c1": face_c1,
+        "n_cells": int(n_cells),
+    }
+    return centers, mesh_info, topology
+
+
+def _metis_partition_valid_cells(
+    topology: Mapping[str, np.ndarray],
+    valid_global_indices: np.ndarray,
+    n_subdomains: int,
+    metis_options: Mapping[str, int],
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Partition valid cells with PyMetis and return labels in valid-cell order."""
+    try:
+        import pymetis  # type: ignore
+    except ImportError as exc:
+        raise ImportError(
+            "interface_placement='metis' requires PyMetis. Install it in the "
+            "training environment with `pip install pymetis`, or use one of "
+            "the existing x-strip interface_placement modes."
+        ) from exc
+
+    n_parts = int(n_subdomains)
+    valid_global = np.asarray(valid_global_indices, dtype=np.int64).reshape(-1)
+    n_valid = int(valid_global.size)
+    if n_parts < 1:
+        raise ValueError("n_subdomains must be positive for METIS partitioning")
+    if n_parts > n_valid:
+        raise ValueError(
+            f"Cannot create {n_parts} METIS subdomains from only {n_valid} valid cells"
+        )
+
+    n_cells_total = int(topology["n_cells"])
+    global_to_valid = np.full(n_cells_total, -1, dtype=np.int64)
+    global_to_valid[valid_global] = np.arange(n_valid, dtype=np.int64)
+
+    face_c0 = np.asarray(topology["face_c0"], dtype=np.int64)
+    face_c1 = np.asarray(topology["face_c1"], dtype=np.int64)
+    adj = [dict() for _ in range(n_valid)]
+    for c0, c1 in zip(face_c0, face_c1):
+        if c0 < 0 or c1 < 0:
+            continue
+        i0 = int(global_to_valid[c0]) if c0 < n_cells_total else -1
+        i1 = int(global_to_valid[c1]) if c1 < n_cells_total else -1
+        if i0 < 0 or i1 < 0 or i0 == i1:
+            continue
+        w = int(rng.integers(1, 101))
+        adj[i0][i1] = w
+        adj[i1][i0] = w
+
+    xadj = [0]
+    adjncy = []
+    eweights = []
+    for neighbors in adj:
+        for j, w in sorted(neighbors.items()):
+            adjncy.append(j)
+            eweights.append(w)
+        xadj.append(len(adjncy))
+    
+    options = pymetis.Options(**metis_options)
+    _, labels = pymetis.part_graph(n_parts, 
+                                   xadj=xadj, 
+                                   adjncy=adjncy, 
+                                   eweights=eweights, 
+                                   contiguous=True, 
+                                   options=options
+                                   )
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+    if labels.size != n_valid:
+        raise RuntimeError(
+            f"PyMetis returned {labels.size} labels for {n_valid} valid cells"
+        )
+
+    unique, counts = np.unique(labels, return_counts=True)
+    if unique.size != n_parts or np.any(counts <= 0):
+        raise RuntimeError(
+            f"METIS produced empty or missing partitions. Requested {n_parts}, "
+            f"got labels {unique.tolist()} with counts {counts.tolist()}."
+        )
+    return labels.astype(np.int64, copy=False)
+
+
+
+def _metis_partition_face_diagnostics(
+    topology: Mapping[str, np.ndarray],
+    valid_global_indices: np.ndarray,
+    labels: np.ndarray,
+) -> Dict[str, np.ndarray]:
+    """Return face-midpoint diagnostics for plotting METIS partition boundaries."""
+    valid_global = np.asarray(valid_global_indices, dtype=np.int64).reshape(-1)
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+    if valid_global.size != labels.size:
+        raise ValueError(
+            f"valid_global_indices has length {valid_global.size} but labels has length {labels.size}"
+        )
+
+    n_cells_total = int(topology["n_cells"])
+    global_to_valid = np.full(n_cells_total, -1, dtype=np.int64)
+    global_to_valid[valid_global] = np.arange(valid_global.size, dtype=np.int64)
+
+    face_c0 = np.asarray(topology["face_c0"], dtype=np.int64)
+    face_c1 = np.asarray(topology["face_c1"], dtype=np.int64)
+    face_midpoints = np.asarray(topology["face_midpoints"], dtype=np.float64)
+
+    c0_valid = np.full(face_c0.shape, -1, dtype=np.int64)
+    c1_valid = np.full(face_c1.shape, -1, dtype=np.int64)
+    ok0 = (face_c0 >= 0) & (face_c0 < n_cells_total)
+    ok1 = (face_c1 >= 0) & (face_c1 < n_cells_total)
+    c0_valid[ok0] = global_to_valid[face_c0[ok0]]
+    c1_valid[ok1] = global_to_valid[face_c1[ok1]]
+
+    both_valid = (c0_valid >= 0) & (c1_valid >= 0)
+    cut_faces = both_valid & (labels[c0_valid.clip(min=0)] != labels[c1_valid.clip(min=0)])
+    exterior_faces = (c0_valid >= 0) ^ (c1_valid >= 0)
+
+    return {
+        "metis_cut_face_midpoints": face_midpoints[cut_faces].astype(np.float32),
+        "metis_exterior_face_midpoints": face_midpoints[exterior_faces].astype(np.float32),
+    }
+
+def _sample_fixed_count_indices(n_available: int, n_desired: int, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
+    """Return source indices and an active mask, padding with inactive rows if empty."""
+    n_available = int(n_available)
+    n_desired = int(n_desired)
+    if n_desired <= 0:
+        return np.empty(0, dtype=np.int64), np.empty(0, dtype=bool)
+    if n_available <= 0:
+        return np.zeros(n_desired, dtype=np.int64), np.zeros(n_desired, dtype=bool)
+    replace = n_available < n_desired
+    idx = rng.choice(n_available, size=n_desired, replace=replace).astype(np.int64)
+    return idx, np.ones(n_desired, dtype=bool)
+
+
+def _classify_exterior_boundary_side(
+    xq: float,
+    yq: float,
+    xmin: float,
+    xmax: float,
+    y_bottom_fn: Callable[[np.ndarray], np.ndarray],
+    y_top_fn: Callable[[np.ndarray], np.ndarray],
+) -> str:
+    """Classify an exterior mesh-face midpoint as inlet/outlet/top/bottom."""
+    xq = float(xq)
+    yq = float(yq)
+    distances = {
+        "inlet": abs(xq - float(xmin)),
+        "outlet": abs(xq - float(xmax)),
+        "bottom": abs(yq - float(np.asarray(y_bottom_fn(np.asarray([xq]))).reshape(-1)[0])),
+        "top": abs(yq - float(np.asarray(y_top_fn(np.asarray([xq]))).reshape(-1)[0])),
+    }
+    return min(distances, key=distances.get)
+
+
+def _metis_partition_sample(
+    part_id: int,
+    labels: np.ndarray,
+    valid_global_indices: np.ndarray,
+    centers_valid: np.ndarray,
+    values_valid: np.ndarray,
+    topology: Mapping[str, np.ndarray],
+    linear,
+    nearest,
+    y_bottom_fn: Callable[[np.ndarray], np.ndarray],
+    y_top_fn: Callable[[np.ndarray], np.ndarray],
+    xmin: float,
+    xmax: float,
+    ref_length: float,
+    output_fields: Sequence[str],
+    n_interface_points: int,
+    n_boundary_points: int,
+    case_bc_kwargs: Mapping[str, float],
+    rng: np.random.Generator,
+) -> Tuple[Dict[str, np.ndarray], Dict[str, object]]:
+    """Build one arbitrary METIS cell-cluster DeepONet sample."""
+    part_id = int(part_id)
+    labels = np.asarray(labels, dtype=np.int64)
+    centers_valid = np.asarray(centers_valid, dtype=np.float64)
+    values_valid = np.asarray(values_valid, dtype=np.float64)
+    valid_global = np.asarray(valid_global_indices, dtype=np.int64)
+
+    cell_mask = labels == part_id
+    if not np.any(cell_mask):
+        raise ValueError(f"METIS partition {part_id} has no cells")
+
+    n_cells_total = int(topology["n_cells"])
+    global_to_valid = np.full(n_cells_total, -1, dtype=np.int64)
+    global_to_valid[valid_global] = np.arange(valid_global.size, dtype=np.int64)
+
+    face_c0 = np.asarray(topology["face_c0"], dtype=np.int64)
+    face_c1 = np.asarray(topology["face_c1"], dtype=np.int64)
+    face_midpoints = np.asarray(topology["face_midpoints"], dtype=np.float64)
+
+    c0_valid = np.where((face_c0 >= 0) & (face_c0 < n_cells_total), global_to_valid[np.maximum(face_c0, 0)], -1)
+    c1_valid = np.where((face_c1 >= 0) & (face_c1 < n_cells_total), global_to_valid[np.maximum(face_c1, 0)], -1)
+    c0_in = (c0_valid >= 0) & (labels[np.maximum(c0_valid, 0)] == part_id)
+    c1_in = (c1_valid >= 0) & (labels[np.maximum(c1_valid, 0)] == part_id)
+    touches_part = c0_in ^ c1_in
+    neighbor_valid = (c0_valid >= 0) & (c1_valid >= 0)
+    crosses_partition = neighbor_valid & touches_part
+    exterior_boundary = touches_part & (~neighbor_valid)
+
+    interface_points_all = face_midpoints[crosses_partition]
+    boundary_points_all = face_midpoints[exterior_boundary]
+
+    cell_xy = centers_valid[cell_mask]
+    target = values_valid[cell_mask].astype(np.float32)
+    geometry_points = [cell_xy]
+    if interface_points_all.size:
+        geometry_points.append(interface_points_all)
+    if boundary_points_all.size:
+        geometry_points.append(boundary_points_all)
+    geom = np.vstack(geometry_points)
+    x0 = float(np.min(geom[:, 0]))
+    x1 = float(np.max(geom[:, 0]))
+    y0 = float(np.min(geom[:, 1]))
+    y1 = float(np.max(geom[:, 1]))
+    width = max(x1 - x0, 1.0e-12)
+    height = max(y1 - y0, 1.0e-12)
+    local_aspect = width / height
+
+    def _to_local(points: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        pts = np.asarray(points, dtype=np.float64).reshape(-1, 2)
+        xl = ((pts[:, 0] - x0) / width).astype(np.float32)
+        yl = ((pts[:, 1] - y0) / height).astype(np.float32)
+        return xl, yl
+
+    qx, qy = _to_local(cell_xy)
+    query = np.column_stack([qx, qy]).astype(np.float32, copy=False)
+
+    branch_parts: List[np.ndarray] = []
+
+    # METIS mode uses every partition-cut face as an interface sensor.
+    # n_interface_points is ignored.
+    n_interface_faces = int(interface_points_all.shape[0])
+    if n_interface_faces > 0:
+        iface_pts = interface_points_all
+        x_iface_local, y_iface_local = _to_local(iface_pts)
+        vals = _interp_fields(linear, nearest, iface_pts[:, 0], iface_pts[:, 1])
+        known = np.ones((n_interface_faces, len(output_fields)), dtype=np.float32)
+        branch_parts.append(
+            _stack_cell_branch_features(
+                x_local=x_iface_local,
+                y_local=y_iface_local,
+                wall_mask=np.zeros(n_interface_faces, dtype=np.float32),
+                interface_mask=np.ones(n_interface_faces, dtype=np.float32),
+                values=vals,
+                known_mask=known,
+                local_aspect_ratio=local_aspect,
+            )
+        )
+
+    bnd_idx, bnd_active = _sample_fixed_count_indices(
+        boundary_points_all.shape[0], n_boundary_points, rng
+    )
+    if n_boundary_points > 0:
+        if boundary_points_all.shape[0] > 0:
+            bnd_pts = boundary_points_all[bnd_idx]
+        else:
+            bnd_pts = np.repeat(np.asarray([[0.5 * (x0 + x1), 0.5 * (y0 + y1)]], dtype=np.float64), n_boundary_points, axis=0)
+        x_bnd_local, y_bnd_local = _to_local(bnd_pts)
+        vals = np.zeros((n_boundary_points, len(output_fields)), dtype=np.float32)
+        known = np.zeros_like(vals, dtype=np.float32)
+        wall_mask = np.zeros(n_boundary_points, dtype=np.float32)
+        interface_mask = np.zeros(n_boundary_points, dtype=np.float32)
+        for i, active in enumerate(bnd_active):
+            if not active:
+                continue
+            side = _classify_exterior_boundary_side(
+                float(bnd_pts[i, 0]), float(bnd_pts[i, 1]), xmin, xmax, y_bottom_fn, y_top_fn
+            )
+            one_vals, one_known = make_rect_channel_bc_values(
+                side, 1, output_fields, **case_bc_kwargs
+            )
+            vals[i] = one_vals[0]
+            known[i] = one_known[0]
+            if side in {"top", "bottom"}:
+                wall_mask[i] = 1.0
+            else:
+                interface_mask[i] = 1.0
+        branch_parts.append(
+            _stack_cell_branch_features(
+                x_local=x_bnd_local,
+                y_local=y_bnd_local,
+                wall_mask=wall_mask,
+                interface_mask=interface_mask,
+                values=vals,
+                known_mask=known,
+                local_aspect_ratio=local_aspect,
+            )
+        )
+
+    if not branch_parts:
+        raise ValueError("METIS samples require at least one interface or exterior-boundary point")
+    branch = np.concatenate(branch_parts, axis=0).astype(np.float32, copy=False)
+
+    meta = {
+        "x_left_mm": float(x0),
+        "x_right_mm": float(x1),
+        "y_bottom_left_mm": float(y0),
+        "y_top_left_mm": float(y1),
+        "y_bottom_right_mm": float(y0),
+        "y_top_right_mm": float(y1),
+        "y_bottom_mm": float(y0),
+        "y_top_mm": float(y1),
+        "y_local_origin_mm": float(y0),
+        "y_local_scale_mm": float(height),
+        "reference_length_mesh": float(ref_length),
+        "local_aspect_ratio": float(local_aspect),
+        "n_cells": int(query.shape[0]),
+        "metis_partition_id": int(part_id),
+        "metis_n_interface_faces": int(interface_points_all.shape[0]),
+        "metis_n_boundary_faces": int(boundary_points_all.shape[0]),
+    }
+    sample = {"branch": branch, "query": query, "target": target}
+    return sample, meta
+
 BRANCH_CHANNELS = CELL_BRANCH_CHANNELS
 TRUNK_CHANNELS = CELL_TRUNK_CHANNELS
 OUTPUT_CHANNELS = CELL_OUTPUT_CHANNELS
@@ -764,6 +1213,11 @@ def build_fluent_deeponet_dataset(
         - ``"control_points"``: ignore ``n_subdomains`` and place interfaces at the
           interior geometry control points ``x_points_mm[1:-1]`` (requires a design
           config).  Each subdomain then spans exactly one straight wall segment.
+        - ``"metis"``: use PyMetis to partition the valid Fluent cell-adjacency
+          graph into ``n_subdomains`` arbitrary cell clusters.  For this mode,
+          ``n_interface_points`` is ignored; one interface sensor is inserted at
+          every partition-cut mesh face. ``n_boundary_points`` is the total number of 
+          sampled exterior-boundary sensors per subdomain.
     insert_sharp_control_point_interfaces:
         For ``"fixed"`` and ``"random"`` placements with a design config, insert
         additional vertical interfaces at interior control points whose adjacent
@@ -801,6 +1255,12 @@ def build_fluent_deeponet_dataset(
         rng = np.random.default_rng()
     if bc_kwargs is None:
         bc_kwargs = {}
+    interface_placement = str(interface_placement).lower()
+    if interface_placement == "metis" and horizontal_interface:
+        raise ValueError(
+            "interface_placement='metis' partitions arbitrary cell clusters and "
+            "does not support horizontal_interface=True. Use horizontal_interface=False."
+        )
     insert_sharp_control_point_interfaces = bool(insert_sharp_control_point_interfaces)
     sharp_control_point_slope_threshold = float(sharp_control_point_slope_threshold)
     horizontal_interface_jitter = float(horizontal_interface_jitter)
@@ -841,8 +1301,10 @@ def build_fluent_deeponet_dataset(
     n_interface_points = int(n_interface_points)
     n_boundary_points = int(n_boundary_points)
     n_realizations = int(n_realizations)
-    if n_interface_points <= 0 or n_boundary_points <= 1:
-        raise ValueError("n_interface_points must be positive and n_boundary_points must be > 1")
+    if n_boundary_points <= 1:
+        raise ValueError("n_boundary_points must be > 1")
+    if interface_placement != "metis" and n_interface_points <= 0:
+        raise ValueError("n_interface_points must be positive for non-METIS interface placement")
     # if interface_placement is "control_points" or "fixed" with no jitter, 
     # we only need one realization as there is no randomness
     if (
@@ -868,7 +1330,11 @@ def build_fluent_deeponet_dataset(
             continue
 
         case = case_files[case_id]
-        centers, mesh_info = read_fluent_cell_centers(case["mesh"])
+        mesh_topology = None
+        if interface_placement == "metis":
+            centers, mesh_info, mesh_topology = read_fluent_cell_topology(case["mesh"])
+        else:
+            centers, mesh_info = read_fluent_cell_centers(case["mesh"])
         fields = read_fluent_cell_fields(case["dat"], field_map=field_map)
         values_all = _ordered_values_from_fields(fields, output_fields)
 
@@ -997,9 +1463,101 @@ def build_fluent_deeponet_dataset(
             )
 
             valid = np.all(np.isfinite(centers), axis=1) & np.all(np.isfinite(values_all), axis=1)
+            valid_global_indices = np.flatnonzero(valid).astype(np.int64)
             x = centers[valid, 0].astype(np.float64)
             y = centers[valid, 1].astype(np.float64)
             values = values_all[valid].astype(np.float64)
+
+            if interface_placement == "metis":
+                if mesh_topology is None:
+                    raise RuntimeError("Internal error: METIS mode missing mesh topology")
+                n_sub_eff = int(n_sub)
+                metis_options = {
+                    "ufactor": 500,
+                    "ncuts": 1,
+                    "niter": 10,
+                    "seed": 42,
+                    "minconn": 1,
+                }
+                labels = _metis_partition_valid_cells(
+                    topology=mesh_topology,
+                    valid_global_indices=valid_global_indices,
+                    n_subdomains=n_sub_eff,
+                    metis_options=metis_options,
+                    rng=np.random.default_rng(rng.integers(0, 1000000)),
+                )
+                linear, nearest = _make_global_interpolators(x, y, values)
+
+                for s in range(n_sub_eff):
+                    sample, metis_meta = _metis_partition_sample(
+                        part_id=s,
+                        labels=labels,
+                        valid_global_indices=valid_global_indices,
+                        centers_valid=np.column_stack([x, y]),
+                        values_valid=values,
+                        topology=mesh_topology,
+                        linear=linear,
+                        nearest=nearest,
+                        y_bottom_fn=y_bottom_fn,
+                        y_top_fn=y_top_fn,
+                        xmin=xmin,
+                        xmax=xmax,
+                        ref_length=ref_length,
+                        output_fields=output_fields,
+                        n_interface_points=n_interface_points,
+                        n_boundary_points=n_boundary_points,
+                        case_bc_kwargs=case_bc_kwargs,
+                        rng=rng,
+                    )
+                    samples.append(sample)
+                    meta_row: Dict[str, object] = {
+                        "case_id": case_id,
+                        "aspect_ratio": float(channel_ar),
+                        "subdomain_id": int(s),
+                        "realization_id": int(realization_id),
+                        "reference_length_mm": float(ref_length_mm),
+                        "x_left_is_sharp_control_point": False,
+                        "x_right_is_sharp_control_point": False,
+                    }
+                    meta_row.update(metis_meta)
+                    metadata.append(meta_row)
+
+                case_used_sub_counts.append(int(n_sub_eff))
+
+                if keep_raw_case_data:
+                    raw_key: object = case_id if n_realizations == 1 else (case_id, int(realization_id))
+                    raw_entry = {
+                        "x": x.astype(np.float32),
+                        "y": y.astype(np.float32),
+                        "values": values.astype(np.float32),
+                        "mesh_info": mesh_info,
+                        "metis_labels": labels.astype(np.int32),
+                        "valid_global_cell_indices": valid_global_indices.astype(np.int64),
+                        "reference_length_mm": float(ref_length_mm),
+                        "reference_length_mesh": float(ref_length),
+                        "y_origin_mm": float(y_origin),
+                        "y_center_mm": float(y_center_nominal_phys),
+                        "y_center_nominal_mm": float(y_center_nominal_phys),
+                        "horizontal_interface_jitter": float(horizontal_interface_jitter),
+                        "output_channel_names": list(output_fields),
+                    }
+                    raw_entry.update(
+                        _metis_partition_face_diagnostics(
+                            topology=mesh_topology,
+                            valid_global_indices=valid_global_indices,
+                            labels=labels,
+                        )
+                    )
+                    if config is not None:
+                        raw_entry["wall_x_points_mm"] = np.asarray(config["x_points"], dtype=np.float32)
+                        raw_entry["wall_y_bottom_mm"] = np.asarray(config["y_bottom_pts"], dtype=np.float32)
+                        raw_entry["wall_y_top_mm"] = np.asarray(config["y_top_pts"], dtype=np.float32)
+                        raw_entry["wall_x_points_mesh"] = np.asarray(config_x_edges, dtype=np.float32)
+                        raw_entry["wall_y_bottom_mesh"] = np.asarray(config_y_bottom_edges, dtype=np.float32)
+                        raw_entry["wall_y_top_mesh"] = np.asarray(config_y_top_edges, dtype=np.float32)
+                        raw_entry["config_path"] = config["config_path"]
+                    raw_cases[raw_key] = raw_entry
+                continue
 
             if interface_placement == "fixed":
                 n_sub_eff = n_sub
@@ -1594,28 +2152,50 @@ def load_deeponet_dataset_h5(path: PathLike) -> Dict[str, object]:
             "horizontal_interface_jitter": float(f.attrs.get("horizontal_interface_jitter", 0.0)),
         }
 
-def deeponet_cell_collate_fn(batch):
+def deeponet_cell_collate_fn(batch, return_branch_mask: bool = True):
     """
-    Collate DeepONet samples with fixed-size branch and variable-size query.
+    Collate DeepONet samples with variable-size branch and variable-size query.
 
     Returns:
-        branch:          (B, M, Cb)
+        branch:          (B, M_max, Cb)
         query_cat:       (N_total, 2)
         target_cat:      (N_total, 4)
         query_batch_id:  (N_total,)
         sample_idx:      (B,)
+    
+    If return_branch_mask is True, also returns:
+        branch_mask:     (B, M_max), True for real branch points, False for padding
     """
     branches, queries, targets, sample_indices = zip(*batch)
 
-    branch = torch.stack(branches, dim=0)      # (B, M, Cb)
+    batch_size = len(branches)
+    branch_dim = branches[0].shape[1]
+    max_branch_points = max(b.shape[0] for b in branches)
+    
+    for i, b in enumerate(branches):
+        if b.ndim != 2:
+            raise ValueError(f"Branch {i} has {b.ndim} dimensions, expected 2")
+        if b.shape[1] != branch_dim:
+            raise ValueError(f"Branch {i} has {b.shape[1]} columns, expected {branch_dim}")
+    
+    branch = branches[0].new_zeros((batch_size, max_branch_points, branch_dim))
+    branch_mask = torch.zeros((batch_size, max_branch_points), dtype=torch.bool, device=branches[0].device)
+    
+    for i, b in enumerate(branches):
+        n = b.shape[0]
+        branch[i, :n, :] = b
+        branch_mask[i, :n] = True
+        
     query_cat = torch.cat(queries, dim=0)      # (N_total, 2)
     target_cat = torch.cat(targets, dim=0)     # (N_total, 4)
 
     query_batch_id = torch.cat([
-        torch.full((query.shape[0],), i, dtype=torch.long)
+        torch.full((query.shape[0],), i, dtype=torch.long, device=query.device)
         for i, query in enumerate(queries)
     ])
 
     sample_idx = torch.stack(sample_indices, dim=0)
 
+    if return_branch_mask:
+        return branch, query_cat, target_cat, query_batch_id, sample_idx, branch_mask
     return branch, query_cat, target_cat, query_batch_id, sample_idx

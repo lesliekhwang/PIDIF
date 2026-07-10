@@ -1,0 +1,188 @@
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case03_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case03_pressure.png
+new file mode 100644
+index 0000000..7189beb
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case03_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case03_u.png b/DeepONet/results/062926_1/predictions/test/test_case03_u.png
+new file mode 100644
+index 0000000..dea8280
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case03_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case03_v.png b/DeepONet/results/062926_1/predictions/test/test_case03_v.png
+new file mode 100644
+index 0000000..b95648b
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case03_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case14_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case14_pressure.png
+new file mode 100644
+index 0000000..b63befe
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case14_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case14_u.png b/DeepONet/results/062926_1/predictions/test/test_case14_u.png
+new file mode 100644
+index 0000000..acd1f3f
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case14_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case14_v.png b/DeepONet/results/062926_1/predictions/test/test_case14_v.png
+new file mode 100644
+index 0000000..be177d1
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case14_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case25_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case25_pressure.png
+new file mode 100644
+index 0000000..6438bb3
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case25_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case25_u.png b/DeepONet/results/062926_1/predictions/test/test_case25_u.png
+new file mode 100644
+index 0000000..bc36953
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case25_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case25_v.png b/DeepONet/results/062926_1/predictions/test/test_case25_v.png
+new file mode 100644
+index 0000000..db77104
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case25_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case49_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case49_pressure.png
+new file mode 100644
+index 0000000..6da2326
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case49_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case49_u.png b/DeepONet/results/062926_1/predictions/test/test_case49_u.png
+new file mode 100644
+index 0000000..d789eaf
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case49_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case49_v.png b/DeepONet/results/062926_1/predictions/test/test_case49_v.png
+new file mode 100644
+index 0000000..42d13c9
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case49_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case52_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case52_pressure.png
+new file mode 100644
+index 0000000..d4f5d78
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case52_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case52_u.png b/DeepONet/results/062926_1/predictions/test/test_case52_u.png
+new file mode 100644
+index 0000000..e23486d
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case52_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case52_v.png b/DeepONet/results/062926_1/predictions/test/test_case52_v.png
+new file mode 100644
+index 0000000..6bbdcd0
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case52_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case55_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case55_pressure.png
+new file mode 100644
+index 0000000..a80d1b8
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case55_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case55_u.png b/DeepONet/results/062926_1/predictions/test/test_case55_u.png
+new file mode 100644
+index 0000000..80bf375
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case55_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case55_v.png b/DeepONet/results/062926_1/predictions/test/test_case55_v.png
+new file mode 100644
+index 0000000..1bc3ae5
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case55_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case58_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case58_pressure.png
+new file mode 100644
+index 0000000..f3d7bc1
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case58_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case58_u.png b/DeepONet/results/062926_1/predictions/test/test_case58_u.png
+new file mode 100644
+index 0000000..2ed7eae
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case58_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case58_v.png b/DeepONet/results/062926_1/predictions/test/test_case58_v.png
+new file mode 100644
+index 0000000..73c1609
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case58_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case69_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case69_pressure.png
+new file mode 100644
+index 0000000..63093a7
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case69_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case69_u.png b/DeepONet/results/062926_1/predictions/test/test_case69_u.png
+new file mode 100644
+index 0000000..a34cc00
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case69_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case69_v.png b/DeepONet/results/062926_1/predictions/test/test_case69_v.png
+new file mode 100644
+index 0000000..f4548dd
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case69_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case73_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case73_pressure.png
+new file mode 100644
+index 0000000..afb4d96
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case73_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case73_u.png b/DeepONet/results/062926_1/predictions/test/test_case73_u.png
+new file mode 100644
+index 0000000..e79ada1
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case73_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case73_v.png b/DeepONet/results/062926_1/predictions/test/test_case73_v.png
+new file mode 100644
+index 0000000..29710a9
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case73_v.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case97_pressure.png b/DeepONet/results/062926_1/predictions/test/test_case97_pressure.png
+new file mode 100644
+index 0000000..cd9ab5a
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case97_pressure.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case97_u.png b/DeepONet/results/062926_1/predictions/test/test_case97_u.png
+new file mode 100644
+index 0000000..fa22f7d
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case97_u.png differ
+diff --git a/DeepONet/results/062926_1/predictions/test/test_case97_v.png b/DeepONet/results/062926_1/predictions/test/test_case97_v.png
+new file mode 100644
+index 0000000..bf1bec8
+Binary files /dev/null and b/DeepONet/results/062926_1/predictions/test/test_case97_v.png differ
+diff --git a/DeepONet/results/062926_1/training.log b/DeepONet/results/062926_1/training.log
+index 1d3277d..97070ab 100644
+--- a/DeepONet/results/062926_1/training.log
++++ b/DeepONet/results/062926_1/training.log
+@@ -228,3 +228,63 @@
+ 2026-06-30 10:19:09 - pino - INFO - Test case channel_97 rel l2: [0.00545268 0.00632459 0.05348177]
+ 2026-06-30 10:19:09 - pino - INFO - Test case channel_97 overall avg rel L2: 2.175e-02
+ 2026-06-30 10:19:09 - pino - INFO - Test case channel_97 max field err: [2.8135913e+02 3.6999452e-01 3.5992682e-02]
++2026-06-30 10:30:23 - pino - INFO - Total plotted points: 237274
++2026-06-30 10:30:23 - pino - INFO - x range: 0.00024775745 0.999737
++2026-06-30 10:30:23 - pino - INFO - y range: -0.0046734763 0.10467545
++2026-06-30 10:30:23 - pino - INFO - Test case channel_03 rel l2: [0.00541923 0.00691709 0.05015106]
++2026-06-30 10:30:23 - pino - INFO - Test case channel_03 overall avg rel L2: 2.083e-02
++2026-06-30 10:30:23 - pino - INFO - Test case channel_03 max field err: [4.6289624e+02 2.9604083e-01 6.4240649e-02]
++2026-06-30 10:31:13 - pino - INFO - Total plotted points: 233642
++2026-06-30 10:31:13 - pino - INFO - x range: 0.00026308117 0.99977
++2026-06-30 10:31:13 - pino - INFO - y range: -0.00436419 0.10436236
++2026-06-30 10:31:13 - pino - INFO - Test case channel_14 rel l2: [0.00734862 0.0079217  0.07663249]
++2026-06-30 10:31:13 - pino - INFO - Test case channel_14 overall avg rel L2: 3.063e-02
++2026-06-30 10:31:13 - pino - INFO - Test case channel_14 max field err: [2.9234424e+02 3.7259394e-01 2.3793191e-02]
++2026-06-30 10:32:03 - pino - INFO - Total plotted points: 230652
++2026-06-30 10:32:03 - pino - INFO - x range: 0.00025932895 0.99975175
++2026-06-30 10:32:03 - pino - INFO - y range: -0.0038433005 0.10384845
++2026-06-30 10:32:03 - pino - INFO - Test case channel_25 rel l2: [0.00655632 0.00626311 0.0519456 ]
++2026-06-30 10:32:03 - pino - INFO - Test case channel_25 overall avg rel L2: 2.159e-02
++2026-06-30 10:32:03 - pino - INFO - Test case channel_25 max field err: [4.5196533e+02 2.8000903e-01 1.0640362e-01]
++2026-06-30 10:32:52 - pino - INFO - Total plotted points: 233712
++2026-06-30 10:32:52 - pino - INFO - x range: 0.00025644194 0.9997555
++2026-06-30 10:32:52 - pino - INFO - y range: -0.0032470438 0.103243925
++2026-06-30 10:32:52 - pino - INFO - Test case channel_49 rel l2: [0.00686727 0.00697113 0.06384484]
++2026-06-30 10:32:52 - pino - INFO - Test case channel_49 overall avg rel L2: 2.589e-02
++2026-06-30 10:32:52 - pino - INFO - Test case channel_49 max field err: [3.5129932e+02 3.2728282e-01 8.6471200e-02]
++2026-06-30 10:33:42 - pino - INFO - Total plotted points: 237198
++2026-06-30 10:33:42 - pino - INFO - x range: 0.00025688665 0.99973845
++2026-06-30 10:33:42 - pino - INFO - y range: -0.0039451937 0.10394325
++2026-06-30 10:33:42 - pino - INFO - Test case channel_52 rel l2: [0.01231883 0.0081856  0.07659075]
++2026-06-30 10:33:42 - pino - INFO - Test case channel_52 overall avg rel L2: 3.237e-02
++2026-06-30 10:33:42 - pino - INFO - Test case channel_52 max field err: [1.7587305e+02 3.2163846e-01 2.3915067e-02]
++2026-06-30 10:34:32 - pino - INFO - Total plotted points: 230740
++2026-06-30 10:34:32 - pino - INFO - x range: 0.00026658783 0.9997444
++2026-06-30 10:34:32 - pino - INFO - y range: -0.0035965291 0.1035983
++2026-06-30 10:34:32 - pino - INFO - Test case channel_55 rel l2: [0.00505347 0.00563307 0.04641771]
++2026-06-30 10:34:32 - pino - INFO - Test case channel_55 overall avg rel L2: 1.903e-02
++2026-06-30 10:34:32 - pino - INFO - Test case channel_55 max field err: [2.4069775e+02 2.7869731e-01 5.5220112e-02]
++2026-06-30 10:35:20 - pino - INFO - Total plotted points: 237088
++2026-06-30 10:35:20 - pino - INFO - x range: 0.0002614005 0.9997458
++2026-06-30 10:35:20 - pino - INFO - y range: -0.004525996 0.104525566
++2026-06-30 10:35:21 - pino - INFO - Test case channel_58 rel l2: [0.00587059 0.00716816 0.06234807]
++2026-06-30 10:35:21 - pino - INFO - Test case channel_58 overall avg rel L2: 2.513e-02
++2026-06-30 10:35:21 - pino - INFO - Test case channel_58 max field err: [1.9907104e+02 3.6281365e-01 3.3412680e-02]
++2026-06-30 10:36:10 - pino - INFO - Total plotted points: 229924
++2026-06-30 10:36:10 - pino - INFO - x range: 0.00025835232 0.99974424
++2026-06-30 10:36:10 - pino - INFO - y range: -0.0030023463 0.10301031
++2026-06-30 10:36:10 - pino - INFO - Test case channel_69 rel l2: [0.00483265 0.00638103 0.06054475]
++2026-06-30 10:36:10 - pino - INFO - Test case channel_69 overall avg rel L2: 2.392e-02
++2026-06-30 10:36:10 - pino - INFO - Test case channel_69 max field err: [2.5168872e+02 3.5806280e-01 2.6290894e-02]
++2026-06-30 10:36:58 - pino - INFO - Total plotted points: 229716
++2026-06-30 10:36:58 - pino - INFO - x range: 0.00025992666 0.999732
++2026-06-30 10:36:58 - pino - INFO - y range: -0.0027418374 0.10274269
++2026-06-30 10:36:58 - pino - INFO - Test case channel_73 rel l2: [0.00704824 0.00721917 0.06003641]
++2026-06-30 10:36:58 - pino - INFO - Test case channel_73 overall avg rel L2: 2.477e-02
++2026-06-30 10:36:58 - pino - INFO - Test case channel_73 max field err: [1.8054980e+02 3.7116444e-01 3.2203913e-02]
++2026-06-30 10:37:47 - pino - INFO - Total plotted points: 225946
++2026-06-30 10:37:47 - pino - INFO - x range: 0.00025748738 0.99974716
++2026-06-30 10:37:47 - pino - INFO - y range: -0.0038637233 0.10386955
++2026-06-30 10:37:47 - pino - INFO - Test case channel_97 rel l2: [0.00545268 0.00632459 0.05348177]
++2026-06-30 10:37:47 - pino - INFO - Test case channel_97 overall avg rel L2: 2.175e-02
++2026-06-30 10:37:47 - pino - INFO - Test case channel_97 max field err: [2.8135913e+02 3.6999452e-01 3.5992682e-02]

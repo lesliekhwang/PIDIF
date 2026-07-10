@@ -28,13 +28,22 @@ def local_query_to_physical(query_local, metadata):
     """
     query_local = np.asarray(query_local, dtype=np.float32)
 
-    # x_local is normalized to [0, 1] across the subdomain width; y_local = y / reference_length.
+    # x_local is normalized to [0, 1] across the subdomain width.
+    # y_local is normalized within each subdomain's local y span; with
+    # horizontal_interface=True the bottom/top halves use y_local_origin_mm
+    # and y_local_scale_mm (half reference length) rather than the full channel.
     x_left = float(metadata["x_left_mm"])
     x_right = float(metadata["x_right_mm"])
-    ref_length = float(metadata["reference_length_mm"])
 
     x_phys = x_left + query_local[:, 0] * (x_right - x_left)
-    y_phys = query_local[:, 1] * ref_length
+
+    if "y_local_origin_mm" in metadata and "y_local_scale_mm" in metadata:
+        y_origin = float(metadata["y_local_origin_mm"])
+        y_scale = float(metadata["y_local_scale_mm"])
+        y_phys = y_origin + query_local[:, 1] * y_scale
+    else:
+        ref_length = float(metadata["reference_length_mm"])
+        y_phys = query_local[:, 1] * ref_length
 
     return x_phys, y_phys
 
@@ -327,6 +336,66 @@ def interface_y_from_metadata(metadata_list: Sequence[Mapping[str, object]]) -> 
     return y_centers
 
 
+def is_metis_partitioning(
+    metadata: Optional[Sequence[Mapping[str, object]]] = None,
+    interface_placement: Optional[str] = None,
+) -> bool:
+    """Return True when samples were built with ``interface_placement='metis'``."""
+    if interface_placement is not None:
+        return str(interface_placement).lower() == "metis"
+    if metadata:
+        return any("metis_partition_id" in m for m in metadata)
+    return False
+
+
+def metis_cut_face_midpoints_from_samples(
+    samples: Sequence[Mapping[str, object]],
+    metadata_list: Sequence[Mapping[str, object]],
+) -> np.ndarray:
+    """Return physical midpoints of METIS partition-cut faces from sample branches.
+
+    Each METIS sample stores every cut-face interface sensor at the start of its
+    branch array.  Those local coordinates are mapped back to physical space with
+    the sample metadata bounding box.
+    """
+    points: List[np.ndarray] = []
+    for sample, metadata in zip(samples, metadata_list):
+        n_cut = int(metadata.get("metis_n_interface_faces", 0))
+        if n_cut <= 0:
+            continue
+        branch = np.asarray(sample["branch"], dtype=np.float32)
+        query_local = branch[:n_cut, :2]
+        x_phys, y_phys = local_query_to_physical(query_local, metadata)
+        points.append(np.column_stack([x_phys, y_phys]))
+
+    if not points:
+        return np.empty((0, 2), dtype=np.float64)
+    return np.vstack(points)
+
+
+def _resolve_metis_cut_face_midpoints(
+    data: Mapping[str, object],
+    sample_indices: Sequence[int],
+    metadata_list: Sequence[Mapping[str, object]],
+) -> np.ndarray:
+    """Prefer raw-case diagnostics; otherwise reconstruct from branch sensors."""
+    raw_cases = data.get("raw_cases")
+    if raw_cases:
+        meta0 = metadata_list[0]
+        case_id = meta0["case_id"]
+        realization_id = int(meta0.get("realization_id", 0))
+        n_realizations = int(data.get("n_realizations", 1))
+        raw_key: object = case_id if n_realizations == 1 else (case_id, realization_id)
+        raw = raw_cases.get(raw_key)
+        if isinstance(raw, Mapping) and "metis_cut_face_midpoints" in raw:
+            cut = np.asarray(raw["metis_cut_face_midpoints"], dtype=np.float64).reshape(-1, 2)
+            if cut.size:
+                return cut
+
+    samples = [data["samples"][int(sid)] for sid in sample_indices]
+    return metis_cut_face_midpoints_from_samples(samples, metadata_list)
+
+
 def plot_prediction_imshow_from_points(
     x,
     y,
@@ -348,6 +417,8 @@ def plot_prediction_imshow_from_points(
     draw_interfaces: bool = True,
     interface_x: Optional[Sequence[float]] = None,
     interface_y: Optional[Sequence[float]] = None,
+    metis_cut_face_midpoints: Optional[np.ndarray] = None,
+    interface_placement: Optional[str] = None,
     metadata: Optional[Sequence[Mapping[str, object]]] = None,
     coord_scale: float = 1.0,
     coord_unit: str = "",
@@ -361,11 +432,14 @@ def plot_prediction_imshow_from_points(
     channel are masked and the true (polyline) boundary is drawn with
     ``LineCollection``, following the style of ``plot_imshow`` in ``foo.ipynb``.
 
-    Subdomain interface locations are drawn as dashed lines: vertical interfaces
-    from unique interior ``x_left_mm`` / ``x_right_mm`` edges, and horizontal
-    interfaces from ``y_center_mm`` when present.  Pass ``interface_x`` /
-    ``interface_y`` explicitly, or supply ``metadata`` (one entry per subdomain
-    sample) to infer them automatically.
+    For x-strip partitioning, subdomain interfaces are drawn as dashed lines:
+    vertical interfaces from unique interior ``x_left_mm`` / ``x_right_mm`` edges,
+    and horizontal interfaces from ``y_center_mm`` when present.
+
+    For METIS partitioning, pass ``interface_placement='metis'`` (or metadata
+    containing ``metis_partition_id``) and supply ``metis_cut_face_midpoints``
+    (or use the array returned by ``collect_predictions_for_data``).  METIS
+    cut faces are drawn as white scatter markers instead of axis-aligned lines.
     """
     x = np.asarray(x)
     y = np.asarray(y)
@@ -414,13 +488,24 @@ def plot_prediction_imshow_from_points(
         vmin = float(cmap_vals.min())
         vmax = float(cmap_vals.max())
 
-    if metadata is not None:
-        if interface_x is None:
-            interface_x = interface_x_from_metadata(metadata)
-        if interface_y is None:
-            interface_y = interface_y_from_metadata(metadata)
-    interface_x_list = [float(xi) for xi in (interface_x or [])]
-    interface_y_list = [float(yi) for yi in (interface_y or [])]
+    is_metis = is_metis_partitioning(metadata, interface_placement)
+    if is_metis:
+        interface_x_list: List[float] = []
+        interface_y_list: List[float] = []
+    else:
+        if metadata is not None:
+            if interface_x is None:
+                interface_x = interface_x_from_metadata(metadata)
+            if interface_y is None:
+                interface_y = interface_y_from_metadata(metadata)
+        interface_x_list = [float(xi) for xi in (interface_x or [])]
+        interface_y_list = [float(yi) for yi in (interface_y or [])]
+
+    metis_cut = (
+        np.asarray(metis_cut_face_midpoints, dtype=np.float64).reshape(-1, 2)
+        if metis_cut_face_midpoints is not None
+        else np.empty((0, 2), dtype=np.float64)
+    )
 
     x_label = f"x [{coord_unit}]" if coord_unit else "x"
     y_label = f"y [{coord_unit}]" if coord_unit else "y"
@@ -455,24 +540,37 @@ def plot_prediction_imshow_from_points(
         if ylim is not None:
             ax.set_ylim(*ylim)
         if draw_interfaces:
-            for x_iface in interface_x_list:
-                ax.axvline(
-                    x_iface,
-                    color="w",
-                    linestyle="--",
-                    linewidth=1.0,
-                    alpha=0.95,
-                    zorder=5,
-                )
-            for y_iface in interface_y_list:
-                ax.axhline(
-                    y_iface,
-                    color="0.85",
-                    linestyle="--",
-                    linewidth=1.0,
-                    alpha=0.95,
-                    zorder=5,
-                )
+            if is_metis:
+                if metis_cut.size:
+                    ax.scatter(
+                        metis_cut[:, 0],
+                        metis_cut[:, 1],
+                        s=4.0,
+                        c="w",
+                        marker=".",
+                        linewidths=0.0,
+                        alpha=0.95,
+                        zorder=5,
+                    )
+            else:
+                for x_iface in interface_x_list:
+                    ax.axvline(
+                        x_iface,
+                        color="w",
+                        linestyle="--",
+                        linewidth=1.0,
+                        alpha=0.95,
+                        zorder=5,
+                    )
+                for y_iface in interface_y_list:
+                    ax.axhline(
+                        y_iface,
+                        color="0.85",
+                        linestyle="--",
+                        linewidth=1.0,
+                        alpha=0.95,
+                        zorder=5,
+                    )
         fig.colorbar(im, ax=ax, pad=0.02)
 
     if output_dir is not None:
@@ -501,6 +599,10 @@ def collect_predictions_for_data(
     """
     Predict selected samples and concatenate their physical coordinates,
     predictions, and truth values.
+
+    For METIS-partitioned datasets, also returns ``metis_cut_face_midpoints``
+    (from ``raw_cases`` when available, otherwise reconstructed from branch
+    interface sensors) and leaves ``interface_x`` / ``interface_y`` empty.
     """
     if sample_indices is None:
         sample_indices = range(len(data["samples"]))
@@ -538,16 +640,31 @@ def collect_predictions_for_data(
         truths.append(truth_phys)
         sample_ids.append(np.full(len(x_phys), sid, dtype=np.int64))
 
-    return {
+    interface_placement = data.get("interface_placement")
+    is_metis = is_metis_partitioning(metadata_list, interface_placement)
+
+    result = {
         "x": np.concatenate(xs, axis=0),
         "y": np.concatenate(ys, axis=0),
         "pred": np.concatenate(preds, axis=0),
         "truth": np.concatenate(truths, axis=0),
         "sample_id": np.concatenate(sample_ids, axis=0),
         "metadata": metadata_list,
-        "interface_x": interface_x_from_metadata(metadata_list),
-        "interface_y": interface_y_from_metadata(metadata_list),
+        "interface_placement": interface_placement,
+        "is_metis": is_metis,
     }
+    if is_metis:
+        result["metis_cut_face_midpoints"] = _resolve_metis_cut_face_midpoints(
+            data=data,
+            sample_indices=sample_indices,
+            metadata_list=metadata_list,
+        )
+        result["interface_x"] = []
+        result["interface_y"] = []
+    else:
+        result["interface_x"] = interface_x_from_metadata(metadata_list)
+        result["interface_y"] = interface_y_from_metadata(metadata_list)
+    return result
 
 
 def select_samples_by_ar(data, ar, realization_id=0):
