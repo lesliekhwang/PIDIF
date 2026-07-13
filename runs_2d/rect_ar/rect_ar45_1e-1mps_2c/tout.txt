@@ -1,6 +1,0 @@
-                         "Surface Integral Report"
-
-           Area-Weighted Average
-              Static Temperature                  [K]
--------------------------------- --------------------
-open_cascade_step_translator_7.3            273.53819

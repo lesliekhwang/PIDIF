@@ -1,6 +1,0 @@
-                         "Surface Integral Report"
-
-           Area-Weighted Average
-                      Y Velocity                [m/s]
--------------------------------- --------------------
-open_cascade_step_translator_7.3       -3.7987523e-05
