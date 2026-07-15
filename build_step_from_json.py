@@ -23,7 +23,7 @@ from OCC.Core.ShapeFix import ShapeFix_Face, ShapeFix_Wire
 from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
 from OCC.Core.TColgp import TColgp_Array1OfPnt
 from OCC.Core.TopoDS import TopoDS_Face, TopoDS_Wire
-from OCC.Core.gp import gp_Pnt
+from OCC.Core.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt
 
 
 # ============================================================
@@ -198,6 +198,30 @@ def make_line_edge(
     return edge_builder.Edge()
 
 
+def make_circle_wire(
+    center: tuple[float, float],
+    radius: float,
+) -> TopoDS_Wire:
+    """Build a clockwise circular wire for use as an inner face boundary."""
+    if radius <= 0.0:
+        raise ValueError(f"Cylinder radius must be positive, got {radius}")
+
+    axis = gp_Ax2(gp_Pnt(center[0], center[1], 0.0), gp_Dir(0.0, 0.0, 1.0))
+    circle = gp_Circ(axis, radius)
+    edge_builder = BRepBuilderAPI_MakeEdge(circle)
+    if not edge_builder.IsDone():
+        raise RuntimeError("Failed to build cylinder circle edge")
+
+    wire_builder = BRepBuilderAPI_MakeWire(edge_builder.Edge())
+    if not wire_builder.IsDone():
+        raise RuntimeError("Failed to build cylinder circle wire")
+
+    wire = wire_builder.Wire()
+    # The outer channel wire is counterclockwise; a hole must be clockwise.
+    wire.Reverse()
+    return wire
+
+
 # ============================================================
 # BUILD 4-EDGE WIRE/FACE
 # ============================================================
@@ -297,8 +321,13 @@ def build_channel_wire_from_polygon(
     return wire
 
 
-def build_face_from_wire(wire: TopoDS_Wire) -> TopoDS_Face:
+def build_face_from_wire(
+    wire: TopoDS_Wire,
+    inner_wires: list[TopoDS_Wire] | None = None,
+) -> TopoDS_Face:
     face_builder = BRepBuilderAPI_MakeFace(wire)
+    for inner_wire in inner_wires or []:
+        face_builder.Add(inner_wire)
     if not face_builder.IsDone():
         raise RuntimeError("Failed to build face from wire")
 
@@ -348,6 +377,7 @@ def extract_case_geometry(spec: dict[str, Any]):
 
     bottom_pts = top_pts = None
     fluid_poly_pts = None
+    cylinder = None
 
     if "wall_bottom" in boundaries and "wall_top" in boundaries:
         bottom_pts = load_points(boundaries["wall_bottom"])
@@ -359,12 +389,51 @@ def extract_case_geometry(spec: dict[str, Any]):
         fluid_poly_pts = load_points(boundaries["fluid_polygon"])
         fluid_poly_pts = convert_points_units(fluid_poly_pts, units)
 
+    if "cylinder" in boundaries:
+        cylinder_spec = boundaries["cylinder"]
+        if "center" not in cylinder_spec:
+            raise ValueError("Cylinder boundary must provide a center.")
+        center = point_from_dict(cylinder_spec["center"])
+        center = (
+            mm_to_model_units(center[0], units),
+            mm_to_model_units(center[1], units),
+        )
+        if "diameter" in cylinder_spec:
+            diameter = mm_to_model_units(float(cylinder_spec["diameter"]), units)
+            radius = diameter / 2.0
+        elif "radius" in cylinder_spec:
+            radius = mm_to_model_units(float(cylinder_spec["radius"]), units)
+        else:
+            raise ValueError("Cylinder boundary must provide a diameter or radius.")
+        if radius <= 0.0:
+            raise ValueError("Cylinder radius must be positive.")
+        cylinder = (center, radius)
+
     if bottom_pts is None and fluid_poly_pts is None:
         raise ValueError(
             "Spec must provide either wall_bottom/wall_top or fluid_polygon under boundaries."
         )
 
-    return case, units, geometry_type, bottom_pts, top_pts, fluid_poly_pts
+    return case, units, geometry_type, bottom_pts, top_pts, fluid_poly_pts, cylinder
+
+
+def validate_cylinder_inside_channel(
+    center: tuple[float, float],
+    radius: float,
+    bottom_pts: list[tuple[float, float]],
+    top_pts: list[tuple[float, float]],
+) -> None:
+    """Validate the cylinder against the rectangular channel generated here."""
+    x_min = min(bottom_pts[0][0], top_pts[0][0])
+    x_max = max(bottom_pts[-1][0], top_pts[-1][0])
+    y_min = min(p[1] for p in bottom_pts)
+    y_max = max(p[1] for p in top_pts)
+    x, y = center
+    tol = 1.0e-12
+    if x - radius < x_min - tol or x + radius > x_max + tol:
+        raise ValueError("Cylinder crosses the inlet or outlet boundary.")
+    if y - radius < y_min - tol or y + radius > y_max + tol:
+        raise ValueError("Cylinder crosses the top or bottom wall.")
 
 
 # ============================================================
@@ -377,7 +446,15 @@ def build_step_from_json(
     verbose: bool = True,
 ) -> Path:
     spec = load_json(spec_path)
-    case, units, geometry_type, bottom_pts, top_pts, fluid_poly_pts = extract_case_geometry(spec)
+    (
+        case,
+        units,
+        geometry_type,
+        bottom_pts,
+        top_pts,
+        fluid_poly_pts,
+        cylinder,
+    ) = extract_case_geometry(spec)
 
     if out_step is None:
         target = spec.get("metadata", {}).get("target_geometry_file")
@@ -400,7 +477,17 @@ def build_step_from_json(
     else:
         raise ValueError("Spec must provide wall_bottom/wall_top or fluid_polygon.")
 
-    face = build_face_from_wire(wire)
+    inner_wires = []
+    if cylinder is not None:
+        center, radius = cylinder
+        if bottom_pts is None or top_pts is None:
+            raise ValueError(
+                "Cylinder geometry requires wall_bottom and wall_top for containment validation."
+            )
+        validate_cylinder_inside_channel(center, radius, bottom_pts, top_pts)
+        inner_wires.append(make_circle_wire(center, radius))
+
+    face = build_face_from_wire(wire, inner_wires=inner_wires)
     export_step(face, out_step)
 
     if verbose:
@@ -411,6 +498,7 @@ def build_step_from_json(
             f"     bottom_points={bottom_count}",
             f"     top_points={top_count}",
             f"     constructed_edges={constructed_edges}",
+            f"     cylinder_holes={len(inner_wires)}",
             f"     wrote STEP: {out_step}",
         ]
         print("\n".join(log_lines))
@@ -473,7 +561,10 @@ def build_from_csv(csv_path: Path, verbose: bool = True) -> None:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Build refined 2D STEP geometry from JSON spec using 4 CAD edges."
+        description=(
+            "Build a 2D STEP channel from JSON, including an optional circular "
+            "cylinder hole."
+        )
     )
 
     group = parser.add_mutually_exclusive_group(required=True)

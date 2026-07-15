@@ -1,5 +1,3 @@
-# generate_2d_geometry_params.py
-
 import csv
 import json
 from pathlib import Path
@@ -7,304 +5,133 @@ from pathlib import Path
 import numpy as np
 
 
-# =========================================
-# CONFIG
-# =========================================
-AR = 10
+# Geometry dimensions (mm)
+CHANNEL_LENGTH = 1.0
+CHANNEL_HEIGHT = 0.1
+CYLINDER_DIAMETER = 0.025
+CYLINDER_RADIUS = CYLINDER_DIAMETER / 2.0
+CYLINDER_Y = CHANNEL_HEIGHT / 2.0
 
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-OUT_DIR = BASE_DIR / "2d_geometry_specs" / "channel_water"
-OUT_DIR.mkdir(parents=True, exist_ok=True)
-STEP_DIR = BASE_DIR / "2d_geometry_step" / "channel_water"
+OUT_DIR = BASE_DIR / "2d_geometry_specs" / "cylinder"
+STEP_DIR = BASE_DIR / "2d_geometry_step" / "cylinder"
 CSV_PATH = OUT_DIR / "designs.csv"
 
-# reproducibility
 SEED = 42
-rng = np.random.default_rng(SEED)
-
-# square side length
-L = 0.1  # mm
-MIN_SUBDOMAIN_WIDTH = 0.2 * L
-
-# number of designs
-START_CASE = 100
-N_CASES = 100
-
-# trapezoid offsets
-DELTA = L * 0.05
-
-# inlet velocity
-UIN = 1.0 # m/s
+START_CASE = 0
+N_CASES = 10
+UIN = 1.0  # m/s
 
 
 def make_case_name(i: int) -> str:
     return f"channel_{i:03d}"
 
 
-def validate_inputs(l: float) -> None:
-    if l <= 0.0:
-        raise ValueError(f"L must be positive, got {l}")
+def point(x: float, y: float) -> dict[str, float]:
+    return {"x": float(x), "y": float(y)}
 
 
-def sample_x_breakpoints(l: float, ar: int, min_width: float, rng_obj) -> list[float]:
-    """
-    Build AR+1 x locations over [0, L*AR]:
-      - include 0 and L*AR
-      - sample AR-1 interior points uniformly
-    """
-    if ar < 1:
-        raise ValueError(f"AR must be >= 1, got {ar}")
-
-    ref_len = float(l * ar)
-    if ar == 1:
-        return [0.0, ref_len]
-
-    min_total = ar * min_width
-    if min_total > ref_len:
-        raise ValueError(
-            "Infeasible subdomain constraints: "
-            "ar * min_subdomain_width must be <= total length."
-        )
-    slack = ref_len - min_total
-    extras = rng_obj.dirichlet(np.ones(ar, dtype=np.float64))
-    widths = min_width + slack * extras
-    edges = np.concatenate([[0.0], np.cumsum(widths)])
-    edges[-1] = ref_len
-    return edges.astype(np.float64).tolist()
+def validate_dimensions() -> None:
+    if CHANNEL_LENGTH <= 0.0 or CHANNEL_HEIGHT <= 0.0:
+        raise ValueError("Channel length and height must be positive.")
+    if CYLINDER_DIAMETER <= 0.0:
+        raise ValueError("Cylinder diameter must be positive.")
+    if CYLINDER_DIAMETER >= CHANNEL_HEIGHT:
+        raise ValueError("Cylinder diameter must be smaller than the channel height.")
+    if not CYLINDER_RADIUS <= CYLINDER_Y <= CHANNEL_HEIGHT - CYLINDER_RADIUS:
+        raise ValueError("Cylinder does not fit vertically inside the rectangle.")
+    if 2.0 * CYLINDER_RADIUS >= CHANNEL_LENGTH:
+        raise ValueError("Cylinder does not fit horizontally inside the rectangle.")
 
 
-def deduplicate_consecutive_points(pts, tol=1e-12):
-    if not pts:
-        return pts
+def make_geometry_spec(case: str, cylinder_x: float) -> dict:
+    """Return a rectangular 2D channel with one circular cylinder boundary."""
+    if not CYLINDER_RADIUS <= cylinder_x <= CHANNEL_LENGTH - CYLINDER_RADIUS:
+        raise ValueError("Cylinder does not fit horizontally inside the rectangle.")
 
-    out = [pts[0]]
-    for p in pts[1:]:
-        if abs(p[0] - out[-1][0]) > tol or abs(p[1] - out[-1][1]) > tol:
-            out.append(p)
-    return out
+    bottom = [point(0.0, 0.0), point(CHANNEL_LENGTH, 0.0)]
+    top = [point(0.0, CHANNEL_HEIGHT), point(CHANNEL_LENGTH, CHANNEL_HEIGHT)]
+    inlet = [point(0.0, 0.0), point(0.0, CHANNEL_HEIGHT)]
+    outlet = [point(CHANNEL_LENGTH, 0.0), point(CHANNEL_LENGTH, CHANNEL_HEIGHT)]
+    rectangle = [
+        point(0.0, 0.0),
+        point(CHANNEL_LENGTH, 0.0),
+        point(CHANNEL_LENGTH, CHANNEL_HEIGHT),
+        point(0.0, CHANNEL_HEIGHT),
+    ]
 
-
-def polygon_signed_area(poly):
-    """
-    Shoelace formula.
-    Positive area => counterclockwise orientation.
-    """
-    if len(poly) < 3:
-        return 0.0
-
-    area = 0.0
-    for i in range(len(poly)):
-        x1, y1 = poly[i]
-        x2, y2 = poly[(i + 1) % len(poly)]
-        area += x1 * y2 - x2 * y1
-    return 0.5 * area
-
-
-def make_piecewise_trapezoid_walls(l: float, x_points, deltas):
-    """
-    Build a long channel from connected trapezoids.
-    At each x_i except for inlet and outlet:
-      bottom y = -delta_i
-      top y    = L + delta_i
-    so local height is:
-      (L + delta_i) - (-delta_i) = L + 2*delta_i
-    """
-    validate_inputs(l)
-    if len(x_points) != len(deltas):
-        raise ValueError("x_points and deltas must have same length.")
-    if len(x_points) < 2:
-        raise ValueError("At least two x points are required.")
-
-    pts_bot = [(float(x), float(-d)) for x, d in zip(x_points, deltas)]
-    pts_top = [(float(x), float(l + d)) for x, d in zip(x_points, deltas)]
-
-    inlet = [pts_bot[0], pts_top[0]]      # bottom -> top
-    outlet = [pts_bot[-1], pts_top[-1]]   # bottom -> top
-
-    # Bottom left->right and top right->left forms a CCW loop.
-    fluid_polygon_ccw = pts_bot + list(reversed(pts_top))
-    if polygon_signed_area(fluid_polygon_ccw) < 0.0:
-        fluid_polygon_ccw = list(reversed(fluid_polygon_ccw))
-
-    if inlet[1][1] <= inlet[0][1]:
-        raise ValueError("Inlet has non-positive height.")
-    if outlet[1][1] <= outlet[0][1]:
-        raise ValueError("Outlet has non-positive height.")
-
-    return pts_bot, pts_top, inlet, outlet, fluid_polygon_ccw
-
-
-def validate_geometry(
-    pts_bot,
-    pts_top,
-    inlet,
-    outlet,
-    fluid_polygon,
-    channel_length: float,
-):
-    if len(pts_bot) != len(pts_top):
-        raise ValueError("Bottom and top wall point counts do not match.")
-
-    # x should be monotonic increasing for both walls
-    x_bot = [p[0] for p in pts_bot]
-    x_top = [p[0] for p in pts_top]
-
-    if any(x2 < x1 for x1, x2 in zip(x_bot[:-1], x_bot[1:])):
-        raise ValueError("Bottom wall x-coordinates are not monotonic increasing.")
-    if any(x2 < x1 for x1, x2 in zip(x_top[:-1], x_top[1:])):
-        raise ValueError("Top wall x-coordinates are not monotonic increasing.")
-
-    # top should always be above bottom
-    for (xb, yb), (xt, yt) in zip(pts_bot, pts_top):
-        if abs(xb - xt) > 1e-9:
-            raise ValueError("Bottom/top x-coordinate mismatch.")
-        if yt <= yb:
-            raise ValueError("Top wall is not above bottom wall at some x.")
-
-    # inlet/outlet should be located at x=0 and x=channel_length
-    if abs(inlet[0][0] - 0.0) > 1e-9 or abs(inlet[1][0] - 0.0) > 1e-9:
-        raise ValueError("Inlet is not located at x=0.")
-    if abs(outlet[0][0] - channel_length) > 1e-9 or abs(outlet[1][0] - channel_length) > 1e-9:
-        raise ValueError(f"Outlet is not located at x={channel_length}.")
-
-    # polygon orientation should be CCW
-    area = polygon_signed_area(fluid_polygon)
-    if area <= 0.0:
-        raise ValueError("Fluid polygon is not CCW or has zero area.")
-
-
-def point_list_to_dicts(pts):
-    return [{"x": float(x), "y": float(y)} for x, y in pts]
-
-
-def write_geometry_spec(
-    out_json: Path,
-    case: str,
-    pts_bot,
-    pts_top,
-    inlet,
-    outlet,
-    fluid_polygon,
-    meta: dict,
-):
-    payload = {
+    target_step = STEP_DIR / f"{case}.step"
+    return {
         "case": case,
         "units": "mm",
-        "geometry_type": "2d_connected_trapezoid_channel",
+        "geometry_type": "2d_rectangular_channel_with_cylinder",
         "topology": {
-            "fluid_region_type": "single_closed_polygon",
-            "boundary_order_ccw": [
-                "wall_bottom:left_to_right",
-                "wall_top:right_to_left",
-            ],
+            "fluid_region_type": "rectangle_with_one_circular_hole",
             "notes": (
-                "fluid_polygon is the authoritative closed loop for downstream "
-                "geometry creation. inlet/outlet are provided separately for "
-                "named boundary reconstruction."
+                "The cylinder is represented by a circular inner boundary removed "
+                "from the rectangular 2D fluid face."
             ),
         },
         "boundaries": {
-            "wall_bottom": point_list_to_dicts(pts_bot),      # left -> right
-            "wall_top": point_list_to_dicts(pts_top),         # left -> right
-            "inlet": point_list_to_dicts(inlet),              # bottom -> top
-            "outlet": point_list_to_dicts(outlet),            # bottom -> top
-            "fluid_polygon": point_list_to_dicts(fluid_polygon),
+            "wall_bottom": bottom,
+            "wall_top": top,
+            "inlet": inlet,
+            "outlet": outlet,
+            "fluid_polygon": rectangle,
+            "cylinder": {
+                "center": point(cylinder_x, CYLINDER_Y),
+                "diameter": CYLINDER_DIAMETER,
+            },
         },
-        "metadata": meta,
+        "metadata": {
+            "random_seed": SEED,
+            "channel_length_mm": CHANNEL_LENGTH,
+            "channel_height_mm": CHANNEL_HEIGHT,
+            "cylinder_center_x_mm": float(cylinder_x),
+            "cylinder_center_y_mm": CYLINDER_Y,
+            "cylinder_diameter_mm": CYLINDER_DIAMETER,
+            "Uin_mps": UIN,
+            "target_geometry_file": str(target_step),
+        },
     }
 
-    with open(out_json, "w") as f:
-        json.dump(payload, f, indent=2)
 
-
-def main():
+def main() -> None:
+    validate_dimensions()
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(SEED)
     rows = []
 
-    for i in range(START_CASE, N_CASES+START_CASE):
+    # Keep the complete cylinder inside the rectangle for every random sample.
+    x_min = CYLINDER_RADIUS
+    x_max = CHANNEL_LENGTH - CYLINDER_RADIUS - 0.3
+
+    for i in range(START_CASE, START_CASE + N_CASES):
         case = make_case_name(i)
-
-        ar = AR
-        x_points = sample_x_breakpoints(l=L, ar=ar, min_width=MIN_SUBDOMAIN_WIDTH, rng_obj=rng)
-        deltas = [float(d) for d in rng.uniform(-DELTA, DELTA, size=ar - 1)]
-        deltas = [0.0] + deltas + [0.0]
-        channel_length = float(L * ar)
-        uin = UIN
-
-        pts_bot, pts_top, inlet, outlet, fluid_polygon = make_piecewise_trapezoid_walls(
-            l=L,
-            x_points=x_points,
-            deltas=deltas,
-        )
-
-        validate_geometry(
-            pts_bot=pts_bot,
-            pts_top=pts_top,
-            inlet=inlet,
-            outlet=outlet,
-            fluid_polygon=fluid_polygon,
-            channel_length=channel_length,
-        )
-
-        inlet_height = float(inlet[1][1] - inlet[0][1])
-        outlet_height = float(outlet[1][1] - outlet[0][1])
-
+        cylinder_x = float(rng.uniform(x_min, x_max))
+        payload = make_geometry_spec(case, cylinder_x)
         spec_path = OUT_DIR / f"{case}.json"
 
-        meta = {
-            "random_seed": SEED,
-            "L_mm": L,
-            "AR": ar,
-            "channel_length_mm": channel_length,
-            "x_points_mm": x_points,
-            "deltas_mm": deltas,
-            "inlet_height_mm": inlet_height,
-            "outlet_height_mm": outlet_height,
-            "Uin_mps": uin,
-            "target_geometry_file": str(STEP_DIR / f"{case}.step"),
-        }
+        with open(spec_path, "w") as f:
+            json.dump(payload, f, indent=2)
 
-        write_geometry_spec(
-            out_json=spec_path,
-            case=case,
-            pts_bot=pts_bot,
-            pts_top=pts_top,
-            inlet=inlet,
-            outlet=outlet,
-            fluid_polygon=fluid_polygon,
-            meta=meta,
-        )
-
+        metadata = payload["metadata"]
         rows.append({
             "case": case,
             "geometry_spec": str(spec_path),
-            "target_geometry_file": str(STEP_DIR / f"{case}.step"),
-            "L_mm": L,
-            "AR": ar,
-            "channel_length_mm": channel_length,
-            "x_points_mm": json.dumps(x_points),
-            "deltas_mm": json.dumps(deltas),
-            "inlet_height_mm": inlet_height,
-            "Uin_mps": uin,
+            "target_geometry_file": metadata["target_geometry_file"],
+            "channel_length_mm": CHANNEL_LENGTH,
+            "channel_height_mm": CHANNEL_HEIGHT,
+            "cylinder_center_x_mm": cylinder_x,
+            "cylinder_center_y_mm": CYLINDER_Y,
+            "cylinder_diameter_mm": CYLINDER_DIAMETER,
+            "Uin_mps": UIN,
         })
-
         print(f"[OK] Wrote geometry spec: {spec_path}")
 
+    fieldnames = list(rows[0].keys()) if rows else []
     with open(CSV_PATH, "w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "case",
-                "geometry_spec",
-                "target_geometry_file",
-                "L_mm",
-                "AR",
-                "channel_length_mm",
-                "x_points_mm",
-                "deltas_mm",
-                "inlet_height_mm",
-                "Uin_mps",
-            ],
-        )
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
