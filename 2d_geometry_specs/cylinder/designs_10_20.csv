@@ -1,0 +1,11 @@
+case,geometry_spec,target_geometry_file,channel_length_mm,channel_height_mm,cylinder_center_x_mm,cylinder_center_y_mm,cylinder_diameter_mm,Uin_mps
+channel_010,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_010.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_010.step,1.0,0.1,0.5349203327752753,0.04755513759008209,0.025,1.0
+channel_011,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_011.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_011.step,1.0,0.1,0.5920535959401831,0.05789472116237456,0.025,1.0
+channel_012,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_012.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_012.step,1.0,0.1,0.07606970982416343,0.06902489406547024,0.025,1.0
+channel_013,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_013.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_013.step,1.0,0.1,0.5262692988434883,0.061442572211078156,0.025,1.0
+channel_014,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_014.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_014.step,1.0,0.1,0.09897670205599347,0.048015437515822684,0.025,1.0
+channel_015,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_015.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_015.step,1.0,0.1,0.2627886663569924,0.06707059955394408,0.025,1.0
+channel_016,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_016.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_016.step,1.0,0.1,0.4471089560544486,0.06291046453083321,0.025,1.0
+channel_017,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_017.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_017.step,1.0,0.1,0.31180458420844853,0.03908954887139107,0.025,1.0
+channel_018,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_018.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_018.step,1.0,0.1,0.3868447312356885,0.032552690244167015,0.025,1.0
+channel_019,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_019.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_019.step,1.0,0.1,0.5711510410949929,0.0552665759648826,0.025,1.0
