@@ -27,8 +27,8 @@ L = 0.1  # mm
 MIN_SUBDOMAIN_WIDTH = 0.2 * L
 
 # number of designs
-START_CASE = 0
-N_CASES = 50
+START_CASE = 20
+N_CASES = 20
 
 # trapezoid offsets
 DELTA = L * 0.05
@@ -258,7 +258,7 @@ def main():
         uin = UIN
 
         pts_bot, pts_top, inlet, outlet, fluid_polygon = make_piecewise_trapezoid_walls(
-            l=L,
+            l=l,
             x_points=x_points,
             deltas=deltas,
         )
@@ -279,7 +279,7 @@ def main():
 
         meta = {
             "random_seed": SEED,
-            "L_mm": L,
+            "L_mm": l,
             "AR": ar,
             "channel_length_mm": channel_length,
             "x_points_mm": x_points,
@@ -305,7 +305,7 @@ def main():
             "case": case,
             "geometry_spec": str(spec_path),
             "target_geometry_file": str(STEP_DIR / f"{case}.step"),
-            "L_mm": L,
+            "L_mm": l,
             "AR": ar,
             "channel_length_mm": channel_length,
             "x_points_mm": json.dumps(x_points),

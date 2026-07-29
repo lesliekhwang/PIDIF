@@ -49,6 +49,7 @@ top/bottom side.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
@@ -436,6 +437,148 @@ def sample_constrained_x_edges(
     return edges.astype(np.float64)
 
 
+def sample_cylinder_centered_x_edges(
+    xmin: float,
+    xmax: float,
+    cylinder_center_x: float,
+    cylinder_radius: float,
+    n_subdomains: int,
+    min_subdomain_width: float,
+    rng: np.random.Generator,
+    cylinder_subdomain_width: Optional[float] = None,
+) -> np.ndarray:
+    """Sample random x-strip edges with a cylinder-centered subdomain.
+
+    ``min_subdomain_width`` and ``cylinder_subdomain_width`` are fractions of
+    the full ``[xmin, xmax]`` span. When the cylinder width is omitted, the
+    nominal width ``1 / n_subdomains`` is used, enlarged when necessary to
+    contain the complete cylinder. The cylinder subdomain's two interfaces are
+    fixed first at ``center_x +/- width / 2``. Remaining interfaces are sampled
+    independently to its left and right with the requested physical minimum
+    width.
+
+    At least three subdomains are required so that the centered cylinder strip
+    has a subdomain on both sides and therefore two interior interfaces.
+    """
+    xmin = float(xmin)
+    xmax = float(xmax)
+    center_x = float(cylinder_center_x)
+    radius = float(cylinder_radius)
+    n_subdomains = int(n_subdomains)
+    min_width_fraction = float(min_subdomain_width)
+    span = xmax - xmin
+
+    if span <= 0.0:
+        raise ValueError("xmax must be greater than xmin")
+    if n_subdomains < 3:
+        raise ValueError(
+            "Cylinder-centered random placement requires n_subdomains >= 3 "
+            "so the cylinder strip has two interior interfaces"
+        )
+    if not xmin < center_x < xmax:
+        raise ValueError("cylinder_center_x must lie strictly inside [xmin, xmax]")
+    if radius <= 0.0 or center_x - radius <= xmin or center_x + radius >= xmax:
+        raise ValueError("The cylinder must have positive radius and lie strictly inside [xmin, xmax]")
+    if min_width_fraction < 0.0:
+        raise ValueError("min_subdomain_width must be non-negative")
+    if n_subdomains * min_width_fraction > 1.0 + 1.0e-12:
+        raise ValueError(
+            "Infeasible subdomain constraints: "
+            "n_subdomains * min_subdomain_width must be <= 1"
+        )
+
+    min_width = min_width_fraction * span
+    containment_clearance = max(1.0e-12 * span, np.finfo(np.float64).eps * span)
+    minimum_center_width = max(min_width, 2.0 * radius + 2.0 * containment_clearance)
+    if cylinder_subdomain_width is None:
+        requested_center_width = max(span / n_subdomains, minimum_center_width)
+        width_was_explicit = False
+    else:
+        requested_center_width = float(cylinder_subdomain_width) * span
+        width_was_explicit = True
+        if float(cylinder_subdomain_width) <= 0.0:
+            raise ValueError("cylinder_subdomain_width must be positive when provided")
+        if requested_center_width < minimum_center_width:
+            raise ValueError(
+                "cylinder_subdomain_width is too small: it must satisfy both "
+                "min_subdomain_width and the full cylinder diameter"
+            )
+
+    # Decide how many of the remaining strips lie on each side. For a proposed
+    # count, max_width is the largest centered strip that still leaves the
+    # physical minimum width for every left/right strip.
+    feasible_counts: List[Tuple[int, int, float]] = []
+    for n_left in range(1, n_subdomains - 1):
+        n_right = n_subdomains - 1 - n_left
+        max_width = 2.0 * min(
+            center_x - xmin - n_left * min_width,
+            xmax - center_x - n_right * min_width,
+        )
+        if max_width + 1.0e-12 * span >= minimum_center_width:
+            feasible_counts.append((n_left, n_right, max_width))
+    if not feasible_counts:
+        raise ValueError(
+            "Cannot place a cylinder-centered subdomain and the requested number "
+            "of left/right subdomains while maintaining min_subdomain_width"
+        )
+
+    largest_feasible_width = max(item[2] for item in feasible_counts)
+    if width_was_explicit and requested_center_width > largest_feasible_width + 1.0e-12 * span:
+        raise ValueError(
+            "cylinder_subdomain_width is too large to leave room for the other "
+            "subdomains at min_subdomain_width"
+        )
+    center_width = min(requested_center_width, largest_feasible_width)
+
+    candidates = [
+        (n_left, n_right, max_width)
+        for n_left, n_right, max_width in feasible_counts
+        if max_width + 1.0e-12 * span >= center_width
+    ]
+    center_left = center_x - 0.5 * center_width
+    center_right = center_x + 0.5 * center_width
+    nominal_width = span / n_subdomains
+
+    # Prefer the split count whose average left/right widths are closest to the
+    # nominal width. Randomness is then used only for the remaining interfaces.
+    def count_score(candidate: Tuple[int, int, float]) -> float:
+        n_left, n_right, _ = candidate
+        left_average = (center_left - xmin) / n_left
+        right_average = (xmax - center_right) / n_right
+        return (left_average - nominal_width) ** 2 + (right_average - nominal_width) ** 2
+
+    n_left, n_right, _ = min(candidates, key=count_score)
+
+    def sample_interval_edges(left: float, right: float, n_parts: int) -> np.ndarray:
+        interval_span = float(right) - float(left)
+        slack = interval_span - n_parts * min_width
+        tolerance = 1.0e-12 * span
+        if slack < -tolerance:
+            raise RuntimeError("Internal error: infeasible interval in cylinder-centered partition")
+        slack = max(slack, 0.0)
+        extras = rng.dirichlet(np.ones(n_parts, dtype=np.float64))
+        widths = min_width + slack * extras
+        edges = np.concatenate([[float(left)], float(left) + np.cumsum(widths)])
+        edges[-1] = float(right)
+        return edges.astype(np.float64)
+
+    left_edges = sample_interval_edges(xmin, center_left, n_left)
+    right_edges = sample_interval_edges(center_right, xmax, n_right)
+    edges = np.concatenate([left_edges, [center_right], right_edges[1:]])
+    edges[0] = xmin
+    edges[-1] = xmax
+
+    if edges.size != n_subdomains + 1 or np.any(np.diff(edges) < min_width - 1.0e-12 * span):
+        raise RuntimeError("Cylinder-centered random partition violated its edge/width invariants")
+    cylinder_index = int(np.searchsorted(edges, center_x, side="right") - 1)
+    cylinder_midpoint = 0.5 * (edges[cylinder_index] + edges[cylinder_index + 1])
+    if not np.isclose(cylinder_midpoint, center_x, rtol=0.0, atol=1.0e-12 * span):
+        raise RuntimeError("Cylinder is not centered in its designated subdomain")
+    if edges[cylinder_index] > center_x - radius or edges[cylinder_index + 1] < center_x + radius:
+        raise RuntimeError("Cylinder is not fully contained in its designated subdomain")
+    return edges.astype(np.float64)
+
+
 def _sharp_control_point_interfaces(
     x_points: np.ndarray,
     y_bottom_points: np.ndarray,
@@ -716,7 +859,7 @@ def _metis_partition_valid_cells(
         i1 = int(global_to_valid[c1]) if c1 < n_cells_total else -1
         if i0 < 0 or i1 < 0 or i0 == i1:
             continue
-        w = int(rng.integers(1, 101))
+        w = int(rng.integers(1, 1001))
         adj[i0][i1] = w
         adj[i1][i0] = w
 
@@ -734,7 +877,7 @@ def _metis_partition_valid_cells(
                                    xadj=xadj, 
                                    adjncy=adjncy, 
                                    eweights=eweights, 
-                                   contiguous=True, 
+                                #    contiguous=True,
                                    options=options
                                    )
     labels = np.asarray(labels, dtype=np.int64).reshape(-1)
@@ -1473,7 +1616,7 @@ def build_fluent_deeponet_dataset(
                     raise RuntimeError("Internal error: METIS mode missing mesh topology")
                 n_sub_eff = int(n_sub)
                 metis_options = {
-                    "ufactor": 500,
+                    "ufactor": 1000,
                     "ncuts": 1,
                     "niter": 10,
                     "seed": 42,
@@ -2199,3 +2342,904 @@ def deeponet_cell_collate_fn(batch, return_branch_mask: bool = True):
     if return_branch_mask:
         return branch, query_cat, target_cat, query_batch_id, sample_idx, branch_mask
     return branch, query_cat, target_cat, query_batch_id, sample_idx
+
+
+# -----------------------------------------------------------------------------
+# Transient ASCII-export dataset (rectangle with an interior cylinder)
+# -----------------------------------------------------------------------------
+
+TRANSIENT_OUTPUT_CHANNELS = ["pressure", "u", "v"]
+TRANSIENT_TRUNK_CHANNELS = ["x_local", "y_local", "time_local"]
+
+
+def make_transient_branch_channels(
+    output_fields: Sequence[str] = TRANSIENT_OUTPUT_CHANNELS,
+) -> List[str]:
+    """Return the feature layout used by transient branch/sensor points."""
+    names = [
+        "x_local",
+        "y_local",
+        "time_local",
+        "boundary_mask",
+        "wall_mask",
+        "interface_mask",
+        "initial_mask",
+        "cylinder_mask",
+    ]
+    names += [f"sensor_{name}" for name in output_fields]
+    names += [f"known_{name}" for name in output_fields]
+    names += ["local_aspect_ratio"]
+    return names
+
+
+TRANSIENT_BRANCH_CHANNELS = make_transient_branch_channels()
+
+_TRANSIENT_ASCII_COLUMNS = {
+    "pressure": "pressure",
+    "u": "x-velocity",
+    "v": "y-velocity",
+}
+
+_LENGTH_UNIT_TO_M = {
+    "m": 1.0,
+    "cm": 1.0e-2,
+    "mm": 1.0e-3,
+    "um": 1.0e-6,
+    "micron": 1.0e-6,
+}
+
+
+def _transient_step_from_path(path: PathLike) -> int:
+    """Extract the numeric snapshot/iteration suffix from ``case2d-0100``."""
+    path = _as_path(path)
+    match = re.search(r"-(\d+)$", path.name)
+    if match is None:
+        raise ValueError(f"Could not parse a numeric timestep suffix from {path.name!r}")
+    return int(match.group(1))
+
+
+def discover_fluent_transient_snapshots(
+    data_dir: PathLike,
+    pattern: str = "case2d-*",
+) -> List[Path]:
+    """Discover and numerically sort Fluent ASCII transient snapshots."""
+    data_dir = _as_path(data_dir)
+    paths = list(data_dir.glob(pattern))
+    if not paths:
+        raise FileNotFoundError(f"No transient snapshots matching {pattern!r} in {data_dir}")
+    return sorted(paths, key=_transient_step_from_path)
+
+
+def _infer_primary_fluent_ascii_zone_size(path: PathLike) -> int:
+    """Count the leading monotonically numbered cell zone in an ASCII export.
+
+    Fluent appends boundary-face zones after the fluid-cell zone in the supplied
+    exports.  Their ``cellnumber`` restarts at one, so reading every CSV row as a
+    cell would duplicate boundary locations and targets.
+    """
+    path = _as_path(path)
+    previous: Optional[int] = None
+    count = 0
+    with path.open("r") as stream:
+        header = stream.readline()
+        if not header:
+            raise ValueError(f"Empty Fluent ASCII snapshot: {path}")
+        for line_number, line in enumerate(stream, start=2):
+            token = line.split(",", 1)[0].strip()
+            if not token:
+                continue
+            try:
+                cell_id = int(token)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid cellnumber {token!r} at {path}:{line_number}"
+                ) from exc
+            if previous is not None and cell_id <= previous:
+                break
+            previous = cell_id
+            count += 1
+    if count == 0:
+        raise ValueError(f"No rows found in the primary fluid-cell zone of {path}")
+    return count
+
+
+def read_fluent_transient_snapshot(
+    path: PathLike,
+    n_cells: Optional[int] = None,
+    output_fields: Sequence[str] = TRANSIENT_OUTPUT_CHANNELS,
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, np.ndarray]]:
+    """Read the primary fluid-cell zone from one Fluent ASCII snapshot.
+
+    Returns ``(cell_ids, coordinates, fields)``. Coordinates remain in the
+    ASCII file's native unit. The trailing boundary-face zones are deliberately
+    excluded; ``case2d.cas.h5`` and ``*.msh.h5`` are not needed.
+    """
+    path = _as_path(path)
+    if n_cells is None:
+        n_cells = _infer_primary_fluent_ascii_zone_size(path)
+    n_cells = int(n_cells)
+    if n_cells < 1:
+        raise ValueError("n_cells must be positive")
+
+    with path.open("r") as stream:
+        column_names = [name.strip() for name in stream.readline().split(",")]
+    required = ["cellnumber", "x-coordinate", "y-coordinate"]
+    required += [_TRANSIENT_ASCII_COLUMNS[name] for name in output_fields]
+    missing = [name for name in required if name not in column_names]
+    if missing:
+        raise KeyError(f"Missing column(s) {missing} in {path}; found {column_names}")
+
+    usecols = [column_names.index(name) for name in required]
+    data = np.loadtxt(
+        path,
+        delimiter=",",
+        skiprows=1,
+        max_rows=n_cells,
+        usecols=usecols,
+        dtype=np.float64,
+        ndmin=2,
+    )
+    if data.shape[0] != n_cells:
+        raise ValueError(f"Expected {n_cells} fluid cells in {path}, read {data.shape[0]}")
+
+    cell_ids = data[:, 0].astype(np.int64)
+    if np.any(np.diff(cell_ids) <= 0):
+        raise ValueError(f"Primary fluid-cell IDs are not strictly increasing in {path}")
+    coordinates = data[:, 1:3].astype(np.float64, copy=False)
+    fields = {
+        name: data[:, 3 + i].astype(np.float32, copy=False)
+        for i, name in enumerate(output_fields)
+    }
+    return cell_ids, coordinates, fields
+
+
+def load_rect_cylinder_geometry(
+    config_path: PathLike,
+    coordinate_unit: str = "m",
+) -> Dict[str, object]:
+    """Load an axis-aligned rectangle-with-cylinder JSON geometry.
+
+    Geometry coordinates are converted from ``config["units"]`` to the native
+    coordinate unit used by the ASCII snapshots.
+    """
+    config_path = _as_path(config_path)
+    with config_path.open("r") as stream:
+        config = json.load(stream)
+
+    source_unit = str(config.get("units", "m")).lower()
+    coordinate_unit = str(coordinate_unit).lower()
+    if source_unit not in _LENGTH_UNIT_TO_M or coordinate_unit not in _LENGTH_UNIT_TO_M:
+        raise ValueError(f"Unsupported geometry unit conversion: {source_unit!r} -> {coordinate_unit!r}")
+    scale = _LENGTH_UNIT_TO_M[source_unit] / _LENGTH_UNIT_TO_M[coordinate_unit]
+
+    boundaries = config.get("boundaries", {})
+    polygon = boundaries.get("fluid_polygon")
+    cylinder = boundaries.get("cylinder")
+    if not polygon or cylinder is None:
+        raise KeyError(
+            f"{config_path} must define boundaries.fluid_polygon and boundaries.cylinder"
+        )
+
+    polygon_xy = np.asarray(
+        [[point["x"], point["y"]] for point in polygon], dtype=np.float64
+    ) * scale
+    xmin, xmax = float(polygon_xy[:, 0].min()), float(polygon_xy[:, 0].max())
+    ymin, ymax = float(polygon_xy[:, 1].min()), float(polygon_xy[:, 1].max())
+    if xmax <= xmin or ymax <= ymin:
+        raise ValueError(f"Degenerate fluid rectangle in {config_path}")
+    rectangle_corners = {
+        (xmin, ymin),
+        (xmax, ymin),
+        (xmax, ymax),
+        (xmin, ymax),
+    }
+    supplied_corners = {(float(x), float(y)) for x, y in polygon_xy}
+    if supplied_corners != rectangle_corners:
+        raise ValueError(
+            "Transient x-strip construction currently requires an axis-aligned rectangular fluid_polygon"
+        )
+
+    center = cylinder["center"]
+    cx = float(center["x"]) * scale
+    cy = float(center["y"]) * scale
+    radius = 0.5 * float(cylinder["diameter"]) * scale
+    if radius <= 0.0:
+        raise ValueError(f"Cylinder diameter must be positive in {config_path}")
+    if cx - radius <= xmin or cx + radius >= xmax or cy - radius <= ymin or cy + radius >= ymax:
+        raise ValueError(f"Cylinder must lie strictly inside the fluid rectangle in {config_path}")
+
+    return {
+        "config_path": str(config_path),
+        "coordinate_unit": coordinate_unit,
+        "xmin": xmin,
+        "xmax": xmax,
+        "ymin": ymin,
+        "ymax": ymax,
+        "cylinder_center_x": cx,
+        "cylinder_center_y": cy,
+        "cylinder_radius": radius,
+        "inlet_u": float(config.get("metadata", {}).get("Uin_mps", 1.0)),
+        "raw": config,
+    }
+
+
+def _sample_evenly(values: np.ndarray, n: int) -> np.ndarray:
+    """Select ``n`` approximately equispaced entries, repeating if needed."""
+    values = np.asarray(values)
+    n = int(n)
+    if n <= 0:
+        return values[:0]
+    if values.shape[0] == 0:
+        raise ValueError("Cannot sample from an empty array")
+    indices = np.linspace(0, values.shape[0] - 1, n).round().astype(np.int64)
+    return values[indices]
+
+
+def _sample_vertical_fluid_line(
+    x_value: float,
+    geometry: Mapping[str, object],
+    n: int,
+) -> np.ndarray:
+    """Sample a vertical rectangle cut while excluding the cylinder interior."""
+    ymin = float(geometry["ymin"])
+    ymax = float(geometry["ymax"])
+    cx = float(geometry["cylinder_center_x"])
+    cy = float(geometry["cylinder_center_y"])
+    radius = float(geometry["cylinder_radius"])
+    dense_n = max(8 * int(n), 1024)
+    y = np.linspace(ymin, ymax, dense_n, dtype=np.float64)
+    dx = float(x_value) - cx
+    if abs(dx) < radius:
+        half_chord = np.sqrt(max(radius * radius - dx * dx, 0.0))
+        y = y[(y <= cy - half_chord) | (y >= cy + half_chord)]
+    return np.column_stack(
+        [np.full(int(n), float(x_value), dtype=np.float64), _sample_evenly(y, int(n))]
+    )
+
+
+def _sample_cylinder_arc_in_strip(
+    x_left: float,
+    x_right: float,
+    geometry: Mapping[str, object],
+    n: int,
+) -> np.ndarray:
+    """Sample the portion of the cylinder boundary belonging to one x-strip."""
+    cx = float(geometry["cylinder_center_x"])
+    cy = float(geometry["cylinder_center_y"])
+    radius = float(geometry["cylinder_radius"])
+    theta = np.linspace(0.0, 2.0 * np.pi, max(32 * int(n), 4096), endpoint=False)
+    points = np.column_stack([cx + radius * np.cos(theta), cy + radius * np.sin(theta)])
+    tolerance = 1.0e-12 * max(float(geometry["xmax"]) - float(geometry["xmin"]), 1.0)
+    points = points[
+        (points[:, 0] >= float(x_left) - tolerance)
+        & (points[:, 0] <= float(x_right) + tolerance)
+    ]
+    if points.shape[0] == 0:
+        return np.empty((0, 2), dtype=np.float64)
+    return _sample_evenly(points, int(n)).astype(np.float64, copy=False)
+
+
+def _stack_transient_branch_features(
+    coordinates_local: np.ndarray,
+    time_local: np.ndarray,
+    values: np.ndarray,
+    known: np.ndarray,
+    local_aspect_ratio: float,
+    *,
+    boundary_mask: float = 0.0,
+    wall_mask: float = 0.0,
+    interface_mask: float = 0.0,
+    initial_mask: float = 0.0,
+    cylinder_mask: float = 0.0,
+) -> np.ndarray:
+    coordinates_local = np.asarray(coordinates_local, dtype=np.float32).reshape(-1, 2)
+    time_local = np.asarray(time_local, dtype=np.float32).reshape(-1)
+    values = np.asarray(values, dtype=np.float32)
+    known = np.asarray(known, dtype=np.float32)
+    n = coordinates_local.shape[0]
+    if time_local.size != n or values.shape[0] != n or known.shape != values.shape:
+        raise ValueError("Transient branch coordinate/time/value arrays have incompatible shapes")
+    masks = np.column_stack(
+        [
+            np.full(n, boundary_mask, dtype=np.float32),
+            np.full(n, wall_mask, dtype=np.float32),
+            np.full(n, interface_mask, dtype=np.float32),
+            np.full(n, initial_mask, dtype=np.float32),
+            np.full(n, cylinder_mask, dtype=np.float32),
+        ]
+    )
+    return np.column_stack(
+        [
+            coordinates_local,
+            time_local,
+            masks,
+            values,
+            known,
+            np.full(n, float(local_aspect_ratio), dtype=np.float32),
+        ]
+    ).astype(np.float32, copy=False)
+
+
+def _transient_boundary_values(
+    side: str,
+    n: int,
+    output_fields: Sequence[str],
+    inlet_u: float,
+    outlet_p: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Return p/u/v values and known masks for a physical boundary."""
+    field_index = {name: i for i, name in enumerate(output_fields)}
+    values = np.zeros((int(n), len(output_fields)), dtype=np.float32)
+    known = np.zeros_like(values)
+
+    def set_field(name: str, value: float) -> None:
+        if name in field_index:
+            j = field_index[name]
+            values[:, j] = float(value)
+            known[:, j] = 1.0
+
+    if side == "inlet":
+        set_field("u", inlet_u)
+        set_field("v", 0.0)
+    elif side == "outlet":
+        set_field("pressure", outlet_p)
+    elif side in {"wall", "cylinder"}:
+        set_field("u", 0.0)
+        set_field("v", 0.0)
+    else:
+        raise ValueError(f"Unknown transient boundary side: {side!r}")
+    return values, known
+
+
+def _resolve_transient_case_paths(
+    case: Mapping[str, object],
+    snapshot_pattern: str,
+) -> List[Path]:
+    if "snapshots" in case:
+        paths = [_as_path(path) for path in case["snapshots"]]  # type: ignore[index]
+        if not paths:
+            raise ValueError("case['snapshots'] must be non-empty")
+        return sorted(paths, key=_transient_step_from_path)
+    data_dir = case.get("data_dir", case.get("data"))
+    if data_dir is None:
+        raise KeyError("Each transient case must define 'data_dir'/'data' or 'snapshots'")
+    return discover_fluent_transient_snapshots(data_dir, pattern=snapshot_pattern)  # type: ignore[arg-type]
+
+
+def build_fluent_transient_deeponet_dataset(
+    case_files: Mapping[object, Mapping[str, object]],
+    case_ids: Optional[Sequence[object]] = None,
+    n_subdomains: int = 10,
+    interface_placement: str = "fixed",
+    min_subdomain_width: float = 0.01,
+    cylinder_subdomain_width: Optional[float] = None,
+    snapshots_per_sample: int = 10,
+    window_stride: Optional[int] = None,
+    n_interface_points: int = 128,
+    n_boundary_points: int = 128,
+    n_initial_points: Optional[int] = 2048,
+    snapshot_pattern: str = "case2d-*",
+    data_coordinate_unit: str = "m",
+    output_fields: Sequence[str] = TRANSIENT_OUTPUT_CHANNELS,
+    outlet_p: float = 0.0,
+    coordinate_tolerance: float = 1.0e-10,
+    rng: Optional[np.random.Generator] = None,
+) -> Dict[str, object]:
+    """Build compact spatiotemporal DeepONet samples from Fluent ASCII files.
+
+    One sample is one x-strip subdomain over one temporal window. The compact
+    representation stores ``spatial_query`` as ``(Q, 2)``, ``time_query`` as
+    ``(T,)``, and targets as ``(T, Q, F)`` instead of materializing repeated
+    ``(x, y, t)`` rows. :class:`TransientDeepONetCellDataset` flattens or
+    randomly samples these coordinates for training.
+
+    The branch input contains:
+
+    * sampled initial-condition cell values from the first snapshot in a window,
+    * time-dependent values on interior x-strip interfaces, and
+    * prescribed inlet, outlet, rectangle-wall, and cylinder-wall conditions.
+
+    ``interface_placement="random"`` reserves a subdomain centered exactly on
+    the JSON cylinder center before sampling any other interfaces. Its width is
+    ``cylinder_subdomain_width`` (a fraction of total channel length), or the
+    nominal ``1 / n_subdomains`` width when omitted. The width is enlarged if
+    needed to contain the cylinder. Remaining left/right interfaces are random
+    while every subdomain retains at least ``min_subdomain_width`` times the
+    total channel length.
+
+    With 100 snapshots, ``snapshots_per_sample=10``, ``window_stride=10``, and
+    ``n_subdomains=10``, the result contains exactly 100 samples per case.
+    Set ``window_stride=1`` for 91 overlapping windows (910 samples per case).
+    """
+    if rng is None:
+        rng = np.random.default_rng(0)
+    n_subdomains = int(n_subdomains)
+    interface_placement = str(interface_placement).lower()
+    min_subdomain_width = float(min_subdomain_width)
+    if interface_placement not in {"fixed", "random"}:
+        raise ValueError("Transient interface_placement must be 'fixed' or 'random'")
+    if min_subdomain_width < 0.0:
+        raise ValueError("min_subdomain_width must be non-negative")
+    if cylinder_subdomain_width is not None and float(cylinder_subdomain_width) <= 0.0:
+        raise ValueError("cylinder_subdomain_width must be positive when provided")
+    if interface_placement != "random" and cylinder_subdomain_width is not None:
+        raise ValueError(
+            "cylinder_subdomain_width only applies when interface_placement='random'"
+        )
+    snapshots_per_sample = int(snapshots_per_sample)
+    window_stride = snapshots_per_sample if window_stride is None else int(window_stride)
+    n_interface_points = int(n_interface_points)
+    n_boundary_points = int(n_boundary_points)
+    if n_subdomains < 1 or snapshots_per_sample < 1 or window_stride < 1:
+        raise ValueError("n_subdomains, snapshots_per_sample, and window_stride must be positive")
+    if n_interface_points < 1 or n_boundary_points < 1:
+        raise ValueError("n_interface_points and n_boundary_points must be positive")
+    if n_initial_points is not None and int(n_initial_points) < 1:
+        raise ValueError("n_initial_points must be positive or None")
+
+    output_fields = list(output_fields)
+    unsupported = [name for name in output_fields if name not in _TRANSIENT_ASCII_COLUMNS]
+    if unsupported or not output_fields:
+        raise ValueError(
+            f"output_fields must be a non-empty subset of {list(_TRANSIENT_ASCII_COLUMNS)}; got {output_fields}"
+        )
+    branch_channel_names = make_transient_branch_channels(output_fields)
+    if case_ids is None:
+        case_ids = list(case_files.keys())
+
+    samples: List[Dict[str, np.ndarray]] = []
+    metadata: List[Dict[str, object]] = []
+    snapshots_per_case: Dict[str, int] = {}
+    windows_per_case: Dict[str, int] = {}
+
+    from scipy.spatial import cKDTree
+
+    for case_id in case_ids:
+        if case_id not in case_files:
+            raise KeyError(f"Transient case {case_id!r} is not present in case_files")
+        case = case_files[case_id]
+        design_path = case.get("design", case.get("config"))
+        if design_path is None:
+            raise KeyError(f"Transient case {case_id!r} requires a rectangle/cylinder design JSON")
+        geometry = load_rect_cylinder_geometry(design_path, coordinate_unit=data_coordinate_unit)  # type: ignore[arg-type]
+        paths = _resolve_transient_case_paths(case, snapshot_pattern)
+        if len(paths) < snapshots_per_sample:
+            raise ValueError(
+                f"Case {case_id!r} has {len(paths)} snapshots, fewer than snapshots_per_sample={snapshots_per_sample}"
+            )
+        steps = np.asarray([_transient_step_from_path(path) for path in paths], dtype=np.int64)
+        if np.any(np.diff(steps) <= 0):
+            raise ValueError(f"Snapshot steps for case {case_id!r} must be strictly increasing")
+
+        n_cells = _infer_primary_fluent_ascii_zone_size(paths[0])
+        cell_ids, coordinates, first_fields = read_fluent_transient_snapshot(
+            paths[0], n_cells=n_cells, output_fields=output_fields
+        )
+        first_values = _ordered_values_from_fields(first_fields, output_fields).astype(np.float32)
+        finite = np.all(np.isfinite(coordinates), axis=1) & np.all(np.isfinite(first_values), axis=1)
+        if not np.all(finite):
+            cell_ids = cell_ids[finite]
+            coordinates = coordinates[finite]
+            first_values = first_values[finite]
+        n_valid_cells = int(coordinates.shape[0])
+
+        xmin, xmax = float(geometry["xmin"]), float(geometry["xmax"])
+        ymin, ymax = float(geometry["ymin"]), float(geometry["ymax"])
+        span_x = xmax - xmin
+        span_y = ymax - ymin
+        absolute_tolerance = float(coordinate_tolerance) * max(span_x, span_y, 1.0e-30)
+        if (
+            coordinates[:, 0].min() < xmin - absolute_tolerance
+            or coordinates[:, 0].max() > xmax + absolute_tolerance
+            or coordinates[:, 1].min() < ymin - absolute_tolerance
+            or coordinates[:, 1].max() > ymax + absolute_tolerance
+        ):
+            raise ValueError(
+                f"ASCII coordinates for case {case_id!r} do not fit the JSON rectangle after unit conversion; "
+                f"check data_coordinate_unit={data_coordinate_unit!r}"
+            )
+
+        if interface_placement == "fixed":
+            x_edges = np.linspace(xmin, xmax, n_subdomains + 1, dtype=np.float64)
+        else:
+            x_edges = sample_cylinder_centered_x_edges(
+                xmin=xmin,
+                xmax=xmax,
+                cylinder_center_x=float(geometry["cylinder_center_x"]),
+                cylinder_radius=float(geometry["cylinder_radius"]),
+                n_subdomains=n_subdomains,
+                min_subdomain_width=min_subdomain_width,
+                cylinder_subdomain_width=cylinder_subdomain_width,
+                rng=rng,
+            )
+        cylinder_subdomain_id = int(
+            np.searchsorted(x_edges, float(geometry["cylinder_center_x"]), side="right") - 1
+        )
+        cylinder_subdomain_actual_width = float(
+            x_edges[cylinder_subdomain_id + 1] - x_edges[cylinder_subdomain_id]
+        )
+        cell_indices: List[np.ndarray] = []
+        spatial_queries: List[np.ndarray] = []
+        initial_sensor_local_indices: List[np.ndarray] = []
+        static_boundary_specs: List[List[Tuple[str, np.ndarray]]] = []
+        interface_specs: List[List[Tuple[np.ndarray, np.ndarray]]] = []
+        tree = cKDTree(coordinates)
+
+        for subdomain_id, (x_left, x_right) in enumerate(zip(x_edges[:-1], x_edges[1:])):
+            if subdomain_id == n_subdomains - 1:
+                mask = (coordinates[:, 0] >= x_left) & (coordinates[:, 0] <= x_right)
+            else:
+                mask = (coordinates[:, 0] >= x_left) & (coordinates[:, 0] < x_right)
+            indices = np.flatnonzero(mask).astype(np.int64)
+            if indices.size == 0:
+                raise ValueError(f"Subdomain {subdomain_id} of case {case_id!r} contains no cells")
+            cell_indices.append(indices)
+            width = float(x_right - x_left)
+            spatial_queries.append(
+                np.column_stack(
+                    [
+                        (coordinates[indices, 0] - x_left) / width,
+                        (coordinates[indices, 1] - ymin) / span_y,
+                    ]
+                ).astype(np.float32)
+            )
+
+            desired_initial = indices.size if n_initial_points is None else min(int(n_initial_points), indices.size)
+            chosen = rng.choice(indices.size, size=desired_initial, replace=False)
+            initial_sensor_local_indices.append(np.sort(chosen.astype(np.int64)))
+
+            boundary: List[Tuple[str, np.ndarray]] = []
+            x_wall = np.linspace(x_left, x_right, n_boundary_points, dtype=np.float64)
+            boundary.append(("wall", np.column_stack([x_wall, np.full_like(x_wall, ymin)])))
+            boundary.append(("wall", np.column_stack([x_wall, np.full_like(x_wall, ymax)])))
+            if subdomain_id == 0:
+                boundary.append(("inlet", _sample_vertical_fluid_line(xmin, geometry, n_boundary_points)))
+            if subdomain_id == n_subdomains - 1:
+                boundary.append(("outlet", _sample_vertical_fluid_line(xmax, geometry, n_boundary_points)))
+            cylinder_points = _sample_cylinder_arc_in_strip(
+                float(x_left), float(x_right), geometry, n_boundary_points
+            )
+            if cylinder_points.size:
+                boundary.append(("cylinder", cylinder_points))
+            static_boundary_specs.append(boundary)
+
+            interfaces: List[Tuple[np.ndarray, np.ndarray]] = []
+            if subdomain_id > 0:
+                points = _sample_vertical_fluid_line(float(x_left), geometry, n_interface_points)
+                interfaces.append((points, tree.query(points)[1].astype(np.int64)))
+            if subdomain_id < n_subdomains - 1:
+                points = _sample_vertical_fluid_line(float(x_right), geometry, n_interface_points)
+                interfaces.append((points, tree.query(points)[1].astype(np.int64)))
+            interface_specs.append(interfaces)
+
+        window_starts = list(range(0, len(paths) - snapshots_per_sample + 1, window_stride))
+        snapshots_per_case[str(case_id)] = len(paths)
+        windows_per_case[str(case_id)] = len(window_starts)
+
+        for window_id, window_start in enumerate(window_starts):
+            window_paths = paths[window_start : window_start + snapshots_per_sample]
+            window_steps = steps[window_start : window_start + snapshots_per_sample]
+            denominator = float(window_steps[-1] - window_steps[0])
+            if denominator > 0.0:
+                time_query = ((window_steps - window_steps[0]) / denominator).astype(np.float32)
+            else:
+                time_query = np.zeros(window_steps.size, dtype=np.float32)
+
+            window_values = np.empty(
+                (snapshots_per_sample, n_valid_cells, len(output_fields)), dtype=np.float32
+            )
+            for time_index, path in enumerate(window_paths):
+                if window_start == 0 and time_index == 0:
+                    values = first_values
+                else:
+                    ids_now, coordinates_now, fields_now = read_fluent_transient_snapshot(
+                        path, n_cells=n_cells, output_fields=output_fields
+                    )
+                    if not np.all(finite):
+                        ids_now = ids_now[finite]
+                        coordinates_now = coordinates_now[finite]
+                    if not np.array_equal(ids_now, cell_ids):
+                        raise ValueError(f"Fluid-cell IDs changed between snapshots in case {case_id!r}: {path}")
+                    if not np.allclose(
+                        coordinates_now,
+                        coordinates,
+                        rtol=0.0,
+                        atol=absolute_tolerance,
+                    ):
+                        raise ValueError(f"Cell coordinates changed between snapshots in case {case_id!r}: {path}")
+                    values = _ordered_values_from_fields(fields_now, output_fields).astype(np.float32)
+                    if not np.all(finite):
+                        values = values[finite]
+                if not np.all(np.isfinite(values)):
+                    raise ValueError(f"Non-finite solution values in transient snapshot {path}")
+                window_values[time_index] = values
+
+            for subdomain_id, (x_left, x_right) in enumerate(zip(x_edges[:-1], x_edges[1:])):
+                indices = cell_indices[subdomain_id]
+                width = float(x_right - x_left)
+                local_aspect = width / span_y
+
+                def to_local(points: np.ndarray) -> np.ndarray:
+                    points = np.asarray(points, dtype=np.float64).reshape(-1, 2)
+                    return np.column_stack(
+                        [
+                            (points[:, 0] - x_left) / width,
+                            (points[:, 1] - ymin) / span_y,
+                        ]
+                    ).astype(np.float32)
+
+                branch_parts: List[np.ndarray] = []
+                chosen_local = initial_sensor_local_indices[subdomain_id]
+                chosen_global = indices[chosen_local]
+                initial_values = window_values[0, chosen_global]
+                branch_parts.append(
+                    _stack_transient_branch_features(
+                        to_local(coordinates[chosen_global]),
+                        np.zeros(chosen_global.size, dtype=np.float32),
+                        initial_values,
+                        np.ones_like(initial_values),
+                        local_aspect,
+                        initial_mask=1.0,
+                    )
+                )
+
+                for points, nearest_indices in interface_specs[subdomain_id]:
+                    local_points = to_local(points)
+                    repeated_points = np.tile(local_points, (snapshots_per_sample, 1))
+                    repeated_time = np.repeat(time_query, points.shape[0])
+                    interface_values = window_values[:, nearest_indices, :].reshape(
+                        -1, len(output_fields)
+                    )
+                    branch_parts.append(
+                        _stack_transient_branch_features(
+                            repeated_points,
+                            repeated_time,
+                            interface_values,
+                            np.ones_like(interface_values),
+                            local_aspect,
+                            interface_mask=1.0,
+                        )
+                    )
+
+                for side, points in static_boundary_specs[subdomain_id]:
+                    local_points = to_local(points)
+                    repeated_points = np.tile(local_points, (snapshots_per_sample, 1))
+                    repeated_time = np.repeat(time_query, points.shape[0])
+                    boundary_values, boundary_known = _transient_boundary_values(
+                        side,
+                        repeated_points.shape[0],
+                        output_fields,
+                        inlet_u=float(geometry["inlet_u"]),
+                        outlet_p=float(outlet_p),
+                    )
+                    branch_parts.append(
+                        _stack_transient_branch_features(
+                            repeated_points,
+                            repeated_time,
+                            boundary_values,
+                            boundary_known,
+                            local_aspect,
+                            boundary_mask=1.0,
+                            wall_mask=float(side in {"wall", "cylinder"}),
+                            cylinder_mask=float(side == "cylinder"),
+                        )
+                    )
+
+                target = window_values[:, indices, :].astype(np.float32, copy=True)
+                samples.append(
+                    {
+                        "branch": np.concatenate(branch_parts, axis=0).astype(np.float32, copy=False),
+                        "spatial_query": spatial_queries[subdomain_id],
+                        "time_query": time_query.copy(),
+                        "target": target,
+                    }
+                )
+                metadata.append(
+                    {
+                        "case_id": case_id,
+                        "subdomain_id": int(subdomain_id),
+                        "interface_placement": interface_placement,
+                        "window_id": int(window_id),
+                        "window_start_index": int(window_start),
+                        "step_start": int(window_steps[0]),
+                        "step_end": int(window_steps[-1]),
+                        "time_steps": [int(value) for value in window_steps],
+                        "geometry_config": str(design_path),
+                        "x_left": float(x_left),
+                        "x_right": float(x_right),
+                        "cylinder_center_x": float(geometry["cylinder_center_x"]),
+                        "cylinder_center_y": float(geometry["cylinder_center_y"]),
+                        "cylinder_radius": float(geometry["cylinder_radius"]),
+                        "cylinder_subdomain_id": int(cylinder_subdomain_id),
+                        "is_cylinder_subdomain": bool(subdomain_id == cylinder_subdomain_id),
+                        "cylinder_subdomain_width": cylinder_subdomain_actual_width,
+                        "cylinder_center_offset": float(
+                            geometry["cylinder_center_x"] - 0.5 * (x_left + x_right)
+                        ),
+                        "local_aspect_ratio": float(local_aspect),
+                        "n_cells": int(indices.size),
+                        "n_times": int(snapshots_per_sample),
+                        "n_query_points": int(indices.size * snapshots_per_sample),
+                    }
+                )
+
+    if not samples:
+        raise ValueError("No transient samples were constructed")
+    return {
+        "samples": samples,
+        "metadata": metadata,
+        "branch_channel_names": branch_channel_names,
+        "trunk_channel_names": list(TRANSIENT_TRUNK_CHANNELS),
+        "output_channel_names": output_fields,
+        "n_subdomains": n_subdomains,
+        "interface_placement": interface_placement,
+        "min_subdomain_width": min_subdomain_width,
+        "cylinder_subdomain_width": cylinder_subdomain_width,
+        "snapshots_per_sample": snapshots_per_sample,
+        "window_stride": window_stride,
+        "n_interface_points": n_interface_points,
+        "n_boundary_points": n_boundary_points,
+        "n_initial_points": n_initial_points,
+        "data_coordinate_unit": data_coordinate_unit,
+        "snapshots_per_case": snapshots_per_case,
+        "windows_per_case": windows_per_case,
+    }
+
+
+class TransientDeepONetCellDataset(torch.utils.data.Dataset):
+    """PyTorch adapter for compact transient samples.
+
+    ``n_query_points`` samples from the Cartesian product of time snapshots and
+    spatial cells without first materializing all repeated coordinates.
+    """
+
+    def __init__(
+        self,
+        samples: Sequence[Mapping[str, np.ndarray]],
+        sample_indices: Optional[Sequence[int]] = None,
+        n_query_points: Optional[int] = 8192,
+        random_query: bool = True,
+    ):
+        self.samples = list(samples)
+        self.indices = (
+            np.arange(len(self.samples), dtype=np.int64)
+            if sample_indices is None
+            else np.asarray(sample_indices, dtype=np.int64)
+        )
+        self.n_query_points = n_query_points
+        self.random_query = bool(random_query)
+
+    def __len__(self) -> int:
+        return int(self.indices.size)
+
+    def __getitem__(self, index: int):
+        sample_index = int(self.indices[int(index)])
+        sample = self.samples[sample_index]
+        branch = np.asarray(sample["branch"], dtype=np.float32)
+        spatial = np.asarray(sample["spatial_query"], dtype=np.float32)
+        time = np.asarray(sample["time_query"], dtype=np.float32).reshape(-1)
+        target = np.asarray(sample["target"], dtype=np.float32)
+        if target.shape[:2] != (time.size, spatial.shape[0]):
+            raise ValueError(
+                f"Transient target shape {target.shape} does not match time/spatial query shapes "
+                f"{time.shape}/{spatial.shape}"
+            )
+
+        total = int(time.size * spatial.shape[0])
+        if self.n_query_points is None or int(self.n_query_points) >= total:
+            flat_indices = np.arange(total, dtype=np.int64)
+        elif self.random_query:
+            flat_indices = np.random.choice(total, size=int(self.n_query_points), replace=False)
+        else:
+            flat_indices = np.linspace(0, total - 1, int(self.n_query_points)).astype(np.int64)
+        time_indices, spatial_indices = np.divmod(flat_indices, spatial.shape[0])
+        query = np.column_stack(
+            [spatial[spatial_indices], time[time_indices]]
+        ).astype(np.float32, copy=False)
+        target_flat = target[time_indices, spatial_indices]
+        return (
+            torch.from_numpy(branch).float(),
+            torch.from_numpy(query).float(),
+            torch.from_numpy(target_flat).float(),
+            torch.tensor(sample_index, dtype=torch.long),
+        )
+
+
+def save_transient_deeponet_dataset_h5(
+    dataset: Mapping[str, object],
+    output_path: PathLike,
+) -> None:
+    """Save a compact transient dataset to HDF5."""
+    output_path = _as_path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    samples = list(dataset["samples"])
+    metadata = list(dataset["metadata"])
+    with h5py.File(output_path, "w") as file:
+        file.attrs["dataset_type"] = "transient_compact"
+        file.attrs["branch_channel_names"] = "\n".join(dataset["branch_channel_names"])
+        file.attrs["trunk_channel_names"] = "\n".join(dataset["trunk_channel_names"])
+        file.attrs["output_channel_names"] = "\n".join(dataset["output_channel_names"])
+        file.attrs["n_samples"] = len(samples)
+        for key in (
+            "n_subdomains",
+            "snapshots_per_sample",
+            "window_stride",
+            "n_interface_points",
+            "n_boundary_points",
+        ):
+            file.attrs[key] = int(dataset[key])
+        file.attrs["n_initial_points"] = (
+            -1 if dataset.get("n_initial_points") is None else int(dataset["n_initial_points"])
+        )
+        file.attrs["interface_placement"] = str(dataset.get("interface_placement", "fixed"))
+        file.attrs["min_subdomain_width"] = float(dataset.get("min_subdomain_width", 0.01))
+        file.attrs["cylinder_subdomain_width"] = (
+            -1.0
+            if dataset.get("cylinder_subdomain_width") is None
+            else float(dataset["cylinder_subdomain_width"])
+        )
+        file.attrs["data_coordinate_unit"] = str(dataset["data_coordinate_unit"])
+        file.attrs["snapshots_per_case_json"] = json.dumps(dataset.get("snapshots_per_case", {}))
+        file.attrs["windows_per_case_json"] = json.dumps(dataset.get("windows_per_case", {}))
+
+        sample_group = file.create_group("samples")
+        for index, sample in enumerate(samples):
+            group = sample_group.create_group(str(index))
+            for key in ("branch", "spatial_query", "time_query", "target"):
+                group.create_dataset(
+                    key,
+                    data=np.asarray(sample[key], dtype=np.float32),
+                    compression="gzip",
+                    compression_opts=4,
+                )
+        string_dtype = h5py.string_dtype("utf-8")
+        file.create_dataset(
+            "metadata_json",
+            data=np.asarray([json.dumps(row) for row in metadata], dtype=string_dtype),
+        )
+
+
+def load_transient_deeponet_dataset_h5(path: PathLike) -> Dict[str, object]:
+    """Load a compact transient dataset saved by the companion HDF5 writer."""
+    path = _as_path(path)
+    with h5py.File(path, "r") as file:
+        if str(file.attrs.get("dataset_type", "")) != "transient_compact":
+            raise ValueError(f"{path} is not a compact transient DeepONet dataset")
+        n_samples = int(file.attrs["n_samples"])
+        samples = []
+        for index in range(n_samples):
+            group = file["samples"][str(index)]
+            samples.append(
+                {
+                    key: group[key][:].astype(np.float32)
+                    for key in ("branch", "spatial_query", "time_query", "target")
+                }
+            )
+        metadata = []
+        for value in file["metadata_json"][:]:
+            if isinstance(value, bytes):
+                value = value.decode("utf-8")
+            metadata.append(json.loads(str(value)))
+        n_initial_points = int(file.attrs["n_initial_points"])
+        cylinder_subdomain_width = float(file.attrs.get("cylinder_subdomain_width", -1.0))
+        return {
+            "samples": samples,
+            "metadata": metadata,
+            "branch_channel_names": str(file.attrs["branch_channel_names"]).split("\n"),
+            "trunk_channel_names": str(file.attrs["trunk_channel_names"]).split("\n"),
+            "output_channel_names": str(file.attrs["output_channel_names"]).split("\n"),
+            "n_subdomains": int(file.attrs["n_subdomains"]),
+            "snapshots_per_sample": int(file.attrs["snapshots_per_sample"]),
+            "window_stride": int(file.attrs["window_stride"]),
+            "n_interface_points": int(file.attrs["n_interface_points"]),
+            "n_boundary_points": int(file.attrs["n_boundary_points"]),
+            "n_initial_points": None if n_initial_points < 0 else n_initial_points,
+            "interface_placement": str(file.attrs.get("interface_placement", "fixed")),
+            "min_subdomain_width": float(file.attrs.get("min_subdomain_width", 0.01)),
+            "cylinder_subdomain_width": (
+                None if cylinder_subdomain_width < 0.0 else cylinder_subdomain_width
+            ),
+            "data_coordinate_unit": str(file.attrs["data_coordinate_unit"]),
+            "snapshots_per_case": json.loads(str(file.attrs.get("snapshots_per_case_json", "{}"))),
+            "windows_per_case": json.loads(str(file.attrs.get("windows_per_case_json", "{}"))),
+        }

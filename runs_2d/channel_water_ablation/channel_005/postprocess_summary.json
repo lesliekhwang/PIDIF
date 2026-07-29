@@ -1,0 +1,63 @@
+{
+  "case": "channel_005",
+  "boundaries": {
+    "inlet": "open_cascade_step_translator_7.5",
+    "outlet": "open_cascade_step_translator_7.3",
+    "wall_top": "open_cascade_step_translator_7.4",
+    "wall_bottom": "open_cascade_step_translator_7.2",
+    "inlet_zones": [
+      "open_cascade_step_translator_7.5"
+    ],
+    "outlet_zones": [
+      "open_cascade_step_translator_7.3"
+    ],
+    "wall_top_zones": [
+      "open_cascade_step_translator_7.4"
+    ],
+    "wall_bottom_zones": [
+      "open_cascade_step_translator_7.2"
+    ]
+  },
+  "inlet": {
+    "pressure_pa": 1166.2176,
+    "velocity_mps": 1.0,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/pin.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/vin.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/vin_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/vin_y.txt"
+    }
+  },
+  "outlet": {
+    "pressure_pa": 0.0,
+    "velocity_mps": 1.0002819,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/pout.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/vout.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/vout_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/vout_y.txt"
+    }
+  },
+  "derived": {
+    "dp_pa": 1166.2176
+  },
+  "physics_checks": {
+    "dp_pa": 1166.2176,
+    "dp_positive": true,
+    "mass_flux_in_per_depth_m2ps": 0.0001,
+    "mass_flux_out_per_depth_m2ps": 0.00010002622000000001,
+    "mass_conservation_rel_error": 0.0002622000000000464,
+    "mass_conserved": true,
+    "reynolds_number": 199.0428713858425,
+    "flow_regime": "laminar",
+    "laminar_assumption_valid": true,
+    "physics_ok": true
+  },
+  "residual_files": {
+    "combined_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/residuals.csv",
+    "plot_png": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/residuals.png",
+    "pressure_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/pressure.csv",
+    "x_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/x-velocity.csv",
+    "y_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_005/y-velocity.csv"
+  }
+}

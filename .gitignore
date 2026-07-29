@@ -3,3 +3,4 @@ checkpoints/
 .vscode
 __pycache__
 .DS_Store
+runs_2d/cylinder/*
