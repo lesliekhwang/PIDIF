@@ -1587,3 +1587,387 @@ def physics_unknown_interface_inference(
         "layout": layout,
         "config": config,
     }
+
+
+# ============================================================================
+# Schwarz Neural Iteration (SNI) interface inference
+# ============================================================================
+#
+# This is the evaluation-time replacement for the physics-based optimizer above.
+# Instead of optimizing interior interface Dirichlet values with a differentiable
+# traction/flux loss, SNI runs a relaxed Schwarz fixed-point iteration directly
+# on the pre-decomposed subdomains (see arXiv:2504.00510, "Schwarz Neural
+# Inference"):
+#
+#   1. Write the current interior-interface values into every subdomain's branch.
+#   2. Run the frozen operator on every subdomain and evaluate the predicted
+#      field on both sides of each shared interface.
+#   3. Update each interior interface as the (relaxed) average of its two
+#      neighbours' predicted traces:  z <- (1 - tau) * z + tau * 0.5 * (uL + uR).
+#   4. Repeat until the interface mismatch stagnates / falls below tolerance.
+#
+# Adjacent subdomains (ordered left-to-right by subdomain_id) share a vertical
+# interface: subdomain k's right edge coincides with subdomain k+1's left edge,
+# sampled at the same interface sensor points. Because those sensor points are
+# baked into the branch, we evaluate the shared trace directly with
+# ``predict_edge_profiles`` (no interpolation needed).
+
+
+@dataclass
+class SNIInterfaceConfig:
+    """Configuration for Schwarz Neural Iteration on unknown interior interfaces.
+
+    The trained DeepONet stays frozen; SNI only updates the shared interior
+    interface values written into the branch tensor via a relaxed Schwarz
+    fixed-point map.
+    """
+
+    max_iter: int = 200
+    tau: float = 0.5  # Schwarz relaxation parameter in (0, 1]
+    tol: float = 1.0e-6  # convergence tolerance on the mean interface residual
+    random_seed: int = 0
+
+    # Initialization of the unknown interior interfaces (same options as the
+    # physics path). "fixed_with_noise" + init_value=[0,0,0] reproduces the
+    # zero start used by the reference Schwarz driver.
+    init_mode: str = "fixed_with_noise"
+    init_std_scale: float = 1.0
+    init_value: Optional[Union[float, Sequence[float], Array]] = None
+    init_noise_std: float = 0.0
+    init_gaussian_center_y: float = 0.5
+    init_gaussian_var_y: float = 0.02
+    preserve_wall_corners: bool = False
+
+    # Which interface branch fields participate in the Schwarz exchange. None
+    # means every predicted output field (e.g. pressure/u/v).
+    optimize_fields: Optional[Sequence[str]] = None
+
+    # Stagnation-based early stop on the (rounded) mean interface residual.
+    stagnation_window: int = 10
+    stagnation_decimals: int = 6
+
+    query_batch_size: int = 65536
+    verbose: bool = True
+    verbose_every: int = 25
+
+    def __post_init__(self) -> None:
+        self.max_iter = int(self.max_iter)
+        self.tau = float(self.tau)
+        self.tol = float(self.tol)
+        self.random_seed = int(self.random_seed)
+        self.init_mode = str(self.init_mode).lower()
+        self.init_std_scale = float(self.init_std_scale)
+        self.init_noise_std = float(self.init_noise_std)
+        self.init_gaussian_center_y = float(self.init_gaussian_center_y)
+        self.init_gaussian_var_y = float(self.init_gaussian_var_y)
+        self.preserve_wall_corners = bool(self.preserve_wall_corners)
+        self.stagnation_window = int(self.stagnation_window)
+        self.stagnation_decimals = int(self.stagnation_decimals)
+        self.query_batch_size = int(self.query_batch_size)
+        self.verbose = bool(self.verbose)
+        self.verbose_every = int(self.verbose_every)
+
+        aliases = {
+            "pointwise_normal": "pointwise_random",
+            "pointwise_random_normal": "pointwise_random",
+            "pointwise_fixed": "fixed_with_noise",
+            "fixed": "fixed_with_noise",
+            "fixed_value": "fixed_with_noise",
+            "interface_wise_random": "interfacewise_random",
+            "interfacewise_normal": "interfacewise_random",
+            "interface_wise_normal": "interfacewise_random",
+            "truth": "dataset_truth",
+        }
+        self.init_mode = aliases.get(self.init_mode, self.init_mode)
+        if not (0.0 < self.tau <= 1.0):
+            raise ValueError("tau must be in (0, 1]")
+        if self.max_iter < 0:
+            raise ValueError("max_iter must be >= 0")
+        if self.query_batch_size <= 0:
+            raise ValueError("query_batch_size must be positive")
+
+
+def _interfaces_from_branch(
+    branch: Array,
+    layout: EdgeLayout,
+    opt_branch_channels: Array,
+) -> Array:
+    """Read the current shared interior interface profiles from a branch.
+
+    Returns an array of shape ``(n_interfaces, n_interface_points, n_opt)`` where
+    interface ``k`` is the average of subdomain ``k``'s right edge and subdomain
+    ``k+1``'s left edge over the optimized value channels.
+    """
+    branch = np.asarray(branch, dtype=np.float32)
+    n_sub = branch.shape[0]
+    n_opt = int(np.asarray(opt_branch_channels).size)
+    if n_sub <= 1:
+        return np.zeros((0, int(layout.right.size), n_opt), dtype=np.float32)
+
+    profiles = []
+    for interface_id in range(1, n_sub):
+        right = branch[interface_id - 1][np.ix_(layout.right, opt_branch_channels)]
+        left = branch[interface_id][np.ix_(layout.left, opt_branch_channels)]
+        profiles.append(0.5 * (right + left))
+    return np.stack(profiles, axis=0).astype(np.float32)
+
+
+def _write_interfaces_to_branch(
+    branch: Array,
+    interfaces: Array,
+    layout: EdgeLayout,
+    opt_branch_channels: Array,
+) -> Array:
+    """Write shared interface profiles into both sides of every interior interface."""
+    branch = np.asarray(branch, dtype=np.float32)
+    opt_branch_channels = np.asarray(opt_branch_channels, dtype=np.int64)
+    for local_i, interface_id in enumerate(range(1, branch.shape[0])):
+        profile = np.asarray(interfaces[local_i], dtype=np.float32)
+        _set_edge_profile(branch[interface_id - 1], layout.right, opt_branch_channels, profile)
+        _set_edge_profile(branch[interface_id], layout.left, opt_branch_channels, profile)
+        if layout.known_channels is not None:
+            branch[interface_id - 1][np.ix_(layout.right, layout.known_channels)] = 1.0
+            branch[interface_id][np.ix_(layout.left, layout.known_channels)] = 1.0
+    return branch
+
+
+def sni_unknown_interface_inference(
+    model: DeepONet,
+    samples: Sequence[Mapping[str, Array]],
+    branch_channel_names: Sequence[str],
+    output_channel_names: Sequence[str],
+    device: Union[str, torch.device],
+    y_normalizer: FeatureNormalizer,
+    metadata: Optional[Sequence[Mapping[str, object]]] = None,
+    local_aspect_mean: Optional[float] = None,
+    local_aspect_std: Optional[float] = None,
+    config: Optional[SNIInterfaceConfig] = None,
+) -> Dict[str, object]:
+    """Schwarz Neural Iteration for unknown interior interface values.
+
+    Drop-in replacement for :func:`physics_unknown_interface_inference`.  It
+    freezes the trained DeepONet and solves for shared interior interface branch
+    values with a relaxed Schwarz fixed-point iteration instead of a physics
+    optimizer.  ``metadata`` is accepted for signature compatibility but is not
+    used (SNI needs no physical-unit gradients).
+
+    Returns a dictionary with the same main keys as
+    :func:`physics_unknown_interface_inference` (``pred_samples``,
+    ``branch_final``, ``pred_left_interface``, ``pred_right_interface``,
+    ``interface_mse_history`` ...), plus SNI-specific ``sni_history`` and
+    ``metric_history``.
+    """
+    if config is None:
+        config = SNIInterfaceConfig()
+    device = torch.device(device)
+    torch.manual_seed(int(config.random_seed))
+
+    model = model.to(device)
+    model.eval()
+    for p in model.parameters():
+        p.requires_grad_(False)
+    y_normalizer = y_normalizer.to(device)
+
+    branches = np.stack([np.asarray(s["branch"], dtype=np.float32) for s in samples], axis=0)
+    layout = infer_edge_layout(branches[0], branch_channel_names)
+    fields, opt_branch_ch, opt_out_ch = _select_optimize_indices(
+        branch_channel_names=branch_channel_names,
+        output_channel_names=output_channel_names,
+        optimize_fields=config.optimize_fields
+        if config.optimize_fields is not None
+        else list(output_channel_names),
+    )
+
+    if config.init_mode == "dataset_truth":
+        init_branch = branches.copy()
+    else:
+        init_branch = initialize_unknown_interior_interfaces(
+            branches,
+            layout=layout,
+            y_normalizer=y_normalizer,
+            random_seed=config.random_seed,
+            init_mode=config.init_mode,
+            init_std_scale=config.init_std_scale,
+            init_value=config.init_value,
+            init_noise_std=config.init_noise_std,
+            init_gaussian_center_y=config.init_gaussian_center_y,
+            init_gaussian_var_y=config.init_gaussian_var_y,
+            preserve_wall_corners=config.preserve_wall_corners,
+        )
+
+    n_sub = init_branch.shape[0]
+    n_iface = n_sub - 1
+
+    # Physical-space mean/std for the optimized output channels (for decoding
+    # normalized edge predictions into the physical values stored in the branch).
+    mean_full, std_full = _output_mean_std_np(y_normalizer)  # (1, C_out)
+    mean_full = mean_full.reshape(1, 1, -1)
+    std_full = std_full.reshape(1, 1, -1)
+    opt_out_arr = np.asarray(opt_out_ch, dtype=np.int64)
+    mean_opt = mean_full[..., opt_out_arr]
+    std_opt = std_full[..., opt_out_arr]
+
+    branch = init_branch.copy()
+
+    def _final_outputs(branch_final: Array, sni_history, metric_history,
+                       n_iter_done: int, converged: bool) -> Dict[str, object]:
+        pred_left, pred_right = predict_edge_profiles(
+            model=model,
+            branch_inputs=branch_final,
+            layout=layout,
+            branch_channel_names=branch_channel_names,
+            device=device,
+            y_normalizer=y_normalizer,
+            local_aspect_mean=local_aspect_mean,
+            local_aspect_std=local_aspect_std,
+        )
+        mse_total, mse_by_channel = compute_interface_mse_from_edges(pred_left, pred_right)
+        pred_samples = predict_cell_samples_physical(
+            model=model,
+            samples=samples,
+            branch_inputs=branch_final,
+            branch_channel_names=branch_channel_names,
+            device=device,
+            y_normalizer=y_normalizer,
+            local_aspect_mean=local_aspect_mean,
+            local_aspect_std=local_aspect_std,
+            query_batch_size=config.query_batch_size,
+        )
+        interfaces_final = _interfaces_from_branch(branch_final, layout, opt_branch_ch)
+        if interfaces_final.size:
+            z_final = ((interfaces_final - mean_opt) / std_opt).astype(np.float32)
+        else:
+            z_final = interfaces_final.astype(np.float32)
+        mse_hist = (
+            np.asarray([row["interface_mse_by_channel"] for row in sni_history], dtype=np.float32)
+            if sni_history
+            else np.asarray([mse_by_channel], dtype=np.float32)
+        )
+        mse_total_hist = (
+            np.asarray([row["interface_mse"] for row in sni_history], dtype=np.float32)
+            if sni_history
+            else np.asarray([mse_total], dtype=np.float32)
+        )
+        return {
+            "pred_samples": pred_samples,
+            "branch_initial": init_branch,
+            "branch_initial_random": init_branch,
+            "branch_final": branch_final,
+            "z_final_normalized": z_final,
+            "optimized_fields": fields,
+            "pressure_offsets": None,
+            "pred_left_interface": pred_left,
+            "pred_right_interface": pred_right,
+            "interface_mse_history": mse_total_hist,
+            "interface_mse_by_channel_history": mse_hist,
+            "sni_history": sni_history,
+            "metric_history": metric_history,
+            "tau": float(config.tau),
+            "converged": bool(converged),
+            "n_iter": int(n_iter_done),
+            "layout": layout,
+            "config": config,
+        }
+
+    # Single subdomain: nothing to iterate, just predict.
+    if n_iface == 0:
+        return _final_outputs(branch, sni_history=[], metric_history=[],
+                              n_iter_done=0, converged=True)
+
+    # Current shared interface profiles (physical units), initialized from branch.
+    interfaces = _interfaces_from_branch(branch, layout, opt_branch_ch)
+
+    sni_history: List[Dict[str, float]] = []
+    metric_history: List[float] = []
+    converged = False
+    n_iter_done = 0
+    stop_reason = "max_iter"
+
+    for iteration in range(1, int(config.max_iter) + 1):
+        n_iter_done = iteration
+
+        # Write current interface state and evaluate both traces of every interface.
+        branch = _write_interfaces_to_branch(branch, interfaces, layout, opt_branch_ch)
+        pred_left_norm, pred_right_norm = predict_edge_profiles(
+            model=model,
+            branch_inputs=branch,
+            layout=layout,
+            branch_channel_names=branch_channel_names,
+            device=device,
+            y_normalizer=y_normalizer,
+            local_aspect_mean=local_aspect_mean,
+            local_aspect_std=local_aspect_std,
+        )
+
+        # Interface mismatch residual (normalized units), the natural SNI metric.
+        mse_total, mse_by_channel = compute_interface_mse_from_edges(pred_left_norm, pred_right_norm)
+        mean_residual = float(np.mean(mse_total)) if mse_total.size else 0.0
+
+        # Decode predicted traces to physical units and select optimized fields.
+        pred_left_phys = pred_left_norm * std_full + mean_full
+        pred_right_phys = pred_right_norm * std_full + mean_full
+        left_opt = pred_left_phys[..., opt_out_arr]
+        right_opt = pred_right_phys[..., opt_out_arr]
+
+        # Relaxed Schwarz update: interface k blends subdomain k's right trace and
+        # subdomain k+1's left trace.
+        new_interfaces = np.empty_like(interfaces)
+        for k in range(n_iface):
+            target = 0.5 * (right_opt[k] + left_opt[k + 1])
+            new_interfaces[k] = (1.0 - config.tau) * interfaces[k] + config.tau * target
+
+        update_norm = float(np.sqrt(np.sum((new_interfaces - interfaces) ** 2)))
+        ref_norm = float(np.sqrt(np.sum(new_interfaces ** 2))) + 1.0e-12
+        update_rel = update_norm / ref_norm
+        interfaces = new_interfaces
+
+        metric_history.append(mean_residual)
+        sni_history.append({
+            "iteration": float(iteration),
+            "interface_mse": float(mean_residual),
+            "interface_mse_by_channel": np.asarray(np.mean(mse_by_channel, axis=0), dtype=np.float32)
+            if mse_by_channel.size
+            else np.zeros((left_opt.shape[-1],), dtype=np.float32),
+            "update_rel": float(update_rel),
+        })
+
+        if config.verbose and (
+            iteration == 1
+            or iteration % max(config.verbose_every, 1) == 0
+            or iteration == config.max_iter
+        ):
+            print(
+                f"iter={iteration:04d} | interface_mse={mean_residual:.6e} | "
+                f"update_rel={update_rel:.6e}",
+                flush=True,
+            )
+
+        if not np.isfinite(mean_residual):
+            stop_reason = "nonfinite_metric"
+            break
+
+        if mean_residual <= config.tol:
+            converged = True
+            stop_reason = "tolerance"
+            break
+
+        if len(metric_history) >= config.stagnation_window:
+            recent = round(metric_history[-1], config.stagnation_decimals)
+            past = round(metric_history[-config.stagnation_window], config.stagnation_decimals)
+            if recent == past:
+                converged = True
+                stop_reason = "metric_stagnation"
+                break
+
+    # Final assembly with the converged interface values.
+    branch = _write_interfaces_to_branch(branch, interfaces, layout, opt_branch_ch)
+    if config.verbose:
+        print(
+            f"SNI finished: iters={n_iter_done} stop={stop_reason} "
+            f"final_interface_mse={metric_history[-1] if metric_history else float('nan'):.6e}",
+            flush=True,
+        )
+    result = _final_outputs(branch, sni_history=sni_history, metric_history=metric_history,
+                            n_iter_done=n_iter_done, converged=converged)
+    result["stop_reason"] = stop_reason
+    return result

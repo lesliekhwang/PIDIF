@@ -462,6 +462,552 @@ def boundary_loss(
     return F.mse_loss(pred_bc, target_bc)
 
 
+def _field_index(
+    output_channel_names: Sequence[str],
+    *aliases: str,
+) -> int:
+    names = list(output_channel_names)
+    for name in aliases:
+        if name in names:
+            return names.index(name)
+    raise ValueError(
+        f"Required output field is missing; expected one of {aliases}, got {names}"
+    )
+
+
+def _physics_batch_parameter(
+    value,
+    sample_indices: torch.Tensor,
+    batch_size: int,
+    reference: torch.Tensor,
+    name: str,
+) -> torch.Tensor:
+    """Resolve a scalar or dataset-length physics parameter for this batch."""
+    tensor = torch.as_tensor(
+        value,
+        device=reference.device,
+        dtype=reference.dtype,
+    )
+    if tensor.numel() == 1:
+        return tensor.reshape(1).expand(batch_size)
+
+    tensor = tensor.reshape(-1)
+    indices = sample_indices.to(device=tensor.device, dtype=torch.long)
+    if indices.numel() != batch_size:
+        raise ValueError(
+            f"sample_indices has {indices.numel()} values for batch size {batch_size}"
+        )
+    if indices.numel() and int(indices.min()) < 0:
+        raise ValueError("sample_indices must be non-negative")
+    if indices.numel() and int(indices.max()) >= tensor.numel():
+        raise ValueError(
+            f"Physics parameter {name!r} has {tensor.numel()} values but "
+            f"sample index {int(indices.max())} was requested"
+        )
+    return tensor[indices]
+
+
+def _sample_pde_query_indices(
+    query_batch_id: torch.Tensor,
+    batch_size: int,
+    max_points_per_sample: Optional[int],
+) -> torch.Tensor:
+    if max_points_per_sample is None:
+        return torch.arange(query_batch_id.numel(), device=query_batch_id.device)
+    max_points = int(max_points_per_sample)
+    if max_points < 1:
+        raise ValueError("max_points_per_sample must be >= 1 or None")
+
+    selected = []
+    for batch_id in range(batch_size):
+        indices = torch.where(query_batch_id == batch_id)[0]
+        if indices.numel() > max_points:
+            order = torch.randperm(indices.numel(), device=indices.device)[:max_points]
+            indices = indices[order]
+        selected.append(indices)
+    if not selected:
+        return torch.empty(0, dtype=torch.long, device=query_batch_id.device)
+    return torch.cat(selected)
+
+
+def _query_gradient(
+    output: torch.Tensor,
+    query: torch.Tensor,
+    retain_graph: bool = True,
+) -> torch.Tensor:
+    """Pointwise derivatives for a point-independent DeepONet trunk evaluation."""
+    if not output.requires_grad:
+        return torch.zeros_like(query)
+    gradient = torch.autograd.grad(
+        output.sum(),
+        query,
+        create_graph=True,
+        retain_graph=retain_graph,
+        allow_unused=True,
+    )[0]
+    if gradient is None:
+        return torch.zeros_like(query) + output.sum() * 0.0
+    return gradient
+
+
+def steady_deeponet_pde_loss(
+    model: nn.Module,
+    branch: torch.Tensor,
+    query: torch.Tensor,
+    query_batch_id: torch.Tensor,
+    sample_indices: torch.Tensor,
+    output_channel_names: Sequence[str],
+    y_normalizer: FeatureNormalizer,
+    physics: Mapping[str, object],
+    branch_mask: Optional[torch.Tensor] = None,
+    residual_weights: Optional[Mapping[str, float]] = None,
+    max_points_per_sample: Optional[int] = None,
+) -> Dict[str, torch.Tensor]:
+    """Steady incompressible Navier--Stokes residual on ragged DeepONet queries.
+
+    ``query`` contains each subdomain's local coordinates in ``[0, 1]^2``.
+    Predictions are decoded to physical units and then nondimensionalized with
+    each sample's velocity and length scales. This gives the same aspect-ratio
+    form used by ``PINN/Modules/loss/loss_2dns.py`` while remaining correct when
+    output channels are standardized for supervised training.
+
+    Required ``physics`` entries are ``density`` (kg/m^3),
+    ``kinematic_viscosity`` (m^2/s), ``x_length`` (m), ``y_length`` (m), and
+    ``velocity_scale`` (m/s). Each may be a scalar or a dataset-length sequence
+    indexed by ``sample_indices``. If a temperature output and
+    ``thermal_diffusivity`` are both present, the steady advection-diffusion
+    residual is included as ``energy``.
+    """
+    required_physics = (
+        "density",
+        "kinematic_viscosity",
+        "x_length",
+        "y_length",
+        "velocity_scale",
+    )
+    missing = [name for name in required_physics if name not in physics]
+    if missing:
+        raise ValueError(f"Missing PDE physics parameters: {missing}")
+
+    batch_size = int(branch.shape[0])
+    selected = _sample_pde_query_indices(
+        query_batch_id=query_batch_id,
+        batch_size=batch_size,
+        max_points_per_sample=max_points_per_sample,
+    )
+    if selected.numel() == 0:
+        raise ValueError("Cannot compute PDE loss for an empty query batch")
+
+    pde_query = query[selected].detach().clone().requires_grad_(True)
+    pde_batch_id = query_batch_id[selected]
+    pred_normalized = model(
+        branch,
+        pde_query,
+        query_batch_id=pde_batch_id,
+        branch_mask=branch_mask,
+    )
+
+    mean = y_normalizer.mean.to(
+        device=pred_normalized.device,
+        dtype=pred_normalized.dtype,
+    )
+    std = y_normalizer.std.to(
+        device=pred_normalized.device,
+        dtype=pred_normalized.dtype,
+    )
+    pred_physical = pred_normalized * std.reshape(1, -1) + mean.reshape(1, -1)
+
+    density = _physics_batch_parameter(
+        physics["density"], sample_indices, batch_size, pred_physical, "density"
+    )
+    viscosity = _physics_batch_parameter(
+        physics["kinematic_viscosity"],
+        sample_indices,
+        batch_size,
+        pred_physical,
+        "kinematic_viscosity",
+    )
+    x_length = _physics_batch_parameter(
+        physics["x_length"], sample_indices, batch_size, pred_physical, "x_length"
+    )
+    y_length = _physics_batch_parameter(
+        physics["y_length"], sample_indices, batch_size, pred_physical, "y_length"
+    )
+    velocity_scale = _physics_batch_parameter(
+        physics["velocity_scale"],
+        sample_indices,
+        batch_size,
+        pred_physical,
+        "velocity_scale",
+    )
+    for name, value in (
+        ("density", density),
+        ("kinematic_viscosity", viscosity),
+        ("x_length", x_length),
+        ("y_length", y_length),
+        ("velocity_scale", velocity_scale),
+    ):
+        if torch.any(value <= 0):
+            raise ValueError(f"PDE physics parameter {name!r} must be positive")
+
+    density_q = density[pde_batch_id].unsqueeze(-1)
+    x_length_q = x_length[pde_batch_id].unsqueeze(-1)
+    y_length_q = y_length[pde_batch_id].unsqueeze(-1)
+    velocity_q = velocity_scale[pde_batch_id].unsqueeze(-1)
+    gamma = x_length_q / y_length_q
+    inverse_reynolds = (
+        viscosity[pde_batch_id].unsqueeze(-1) / (velocity_q * x_length_q)
+    )
+
+    p_idx = _field_index(output_channel_names, "pressure", "p")
+    u_idx = _field_index(output_channel_names, "u", "u_velocity")
+    v_idx = _field_index(output_channel_names, "v", "v_velocity")
+    pressure = pred_physical[:, p_idx : p_idx + 1] / (
+        density_q * velocity_q.square()
+    )
+    u_velocity = pred_physical[:, u_idx : u_idx + 1] / velocity_q
+    v_velocity = pred_physical[:, v_idx : v_idx + 1] / velocity_q
+
+    pressure_grad = _query_gradient(pressure, pde_query)
+    u_grad = _query_gradient(u_velocity, pde_query)
+    v_grad = _query_gradient(v_velocity, pde_query)
+    u_x, u_y = u_grad[:, 0:1], u_grad[:, 1:2]
+    v_x, v_y = v_grad[:, 0:1], v_grad[:, 1:2]
+    p_x, p_y = pressure_grad[:, 0:1], pressure_grad[:, 1:2]
+
+    u_x_grad = _query_gradient(u_x, pde_query)
+    u_y_grad = _query_gradient(u_y, pde_query)
+    v_x_grad = _query_gradient(v_x, pde_query)
+    v_y_grad = _query_gradient(v_y, pde_query)
+    u_xx, u_yy = u_x_grad[:, 0:1], u_y_grad[:, 1:2]
+    v_xx, v_yy = v_x_grad[:, 0:1], v_y_grad[:, 1:2]
+
+    residuals = {
+        "continuity": u_x + gamma * v_y,
+        "x_momentum": (
+            u_velocity * u_x
+            + gamma * v_velocity * u_y
+            + p_x
+            - inverse_reynolds * (u_xx + gamma.square() * u_yy)
+        ),
+        "y_momentum": (
+            u_velocity * v_x
+            + gamma * v_velocity * v_y
+            + gamma * p_y
+            - inverse_reynolds * (v_xx + gamma.square() * v_yy)
+        ),
+    }
+
+    temperature_name = next(
+        (name for name in ("temperature", "T") if name in output_channel_names),
+        None,
+    )
+    if temperature_name is not None and "thermal_diffusivity" in physics:
+        temperature_idx = list(output_channel_names).index(temperature_name)
+        temperature_scale = physics.get(
+            "temperature_scale",
+            float(std[temperature_idx].detach().clamp_min(1.0e-12)),
+        )
+        temperature_scale_batch = _physics_batch_parameter(
+            temperature_scale,
+            sample_indices,
+            batch_size,
+            pred_physical,
+            "temperature_scale",
+        )
+        thermal_diffusivity = _physics_batch_parameter(
+            physics["thermal_diffusivity"],
+            sample_indices,
+            batch_size,
+            pred_physical,
+            "thermal_diffusivity",
+        )
+        if torch.any(temperature_scale_batch <= 0) or torch.any(
+            thermal_diffusivity <= 0
+        ):
+            raise ValueError(
+                "temperature_scale and thermal_diffusivity must be positive"
+            )
+        temperature = pred_physical[
+            :, temperature_idx : temperature_idx + 1
+        ] / temperature_scale_batch[pde_batch_id].unsqueeze(-1)
+        temperature_grad = _query_gradient(temperature, pde_query)
+        temperature_x = temperature_grad[:, 0:1]
+        temperature_y = temperature_grad[:, 1:2]
+        temperature_xx = _query_gradient(temperature_x, pde_query)[:, 0:1]
+        temperature_yy = _query_gradient(temperature_y, pde_query)[:, 1:2]
+        inverse_peclet = (
+            thermal_diffusivity[pde_batch_id].unsqueeze(-1)
+            / (velocity_q * x_length_q)
+        )
+        residuals["energy"] = (
+            u_velocity * temperature_x
+            + gamma * v_velocity * temperature_y
+            - inverse_peclet
+            * (temperature_xx + gamma.square() * temperature_yy)
+        )
+
+    weights = {
+        "continuity": 1.0,
+        "x_momentum": 1.0,
+        "y_momentum": 1.0,
+        "energy": 1.0,
+    }
+    if residual_weights is not None:
+        unknown_weights = set(residual_weights) - set(weights)
+        if unknown_weights:
+            raise ValueError(
+                f"Unknown PDE residual weights: {sorted(unknown_weights)}"
+            )
+        weights.update({name: float(value) for name, value in residual_weights.items()})
+
+    loss_terms = {
+        name: ragged_mse_loss(
+            residual,
+            torch.zeros_like(residual),
+            pde_batch_id,
+            batch_size,
+        )
+        for name, residual in residuals.items()
+    }
+    loss_terms["loss"] = sum(
+        weights[name] * term for name, term in loss_terms.items()
+    )
+    return loss_terms
+
+
+def transient_condition_losses(
+    model: nn.Module,
+    branch: torch.Tensor,
+    branch_channel_names: Sequence[str],
+    output_channel_names: Sequence[str],
+    branch_mask: Optional[torch.Tensor] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Return boundary and initial-condition MSE for transient branch sensors.
+
+    Transient branch points store ``(x_local, y_local, time_local)`` along with
+    ``boundary_mask``/``initial_mask``, normalized ``sensor_<field>`` values,
+    and ``known_<field>`` flags. Only prescribed fields contribute:
+
+    * inlet: known velocity components,
+    * outlet: known pressure,
+    * channel/cylinder walls: known velocity components,
+    * initial sensors: all supplied solution fields.
+
+    Boundary and initial points are gathered into one ragged model call so the
+    point-set branch encoder is evaluated only once for both condition losses.
+    """
+    if branch.ndim != 3:
+        raise ValueError(f"Expected branch shape (B,M,C), got {tuple(branch.shape)}")
+
+    names = list(branch_channel_names)
+    output_names = list(output_channel_names)
+    required = [
+        "x_local",
+        "y_local",
+        "time_local",
+        "boundary_mask",
+        "initial_mask",
+    ]
+    required += [f"sensor_{name}" for name in output_names]
+    required += [f"known_{name}" for name in output_names]
+    missing = [name for name in required if name not in names]
+    if missing:
+        raise ValueError(
+            "Transient condition loss requires transient branch channels; "
+            f"missing {missing}"
+        )
+
+    if branch_mask is None:
+        valid_points = torch.ones(
+            branch.shape[:2], dtype=torch.bool, device=branch.device
+        )
+    else:
+        if branch_mask.shape != branch.shape[:2]:
+            raise ValueError(
+                f"branch_mask shape {tuple(branch_mask.shape)} does not match "
+                f"branch shape {tuple(branch.shape[:2])}"
+            )
+        valid_points = branch_mask.to(device=branch.device, dtype=torch.bool)
+
+    boundary_idx = names.index("boundary_mask")
+    initial_idx = names.index("initial_mask")
+    boundary_points = valid_points & (branch[..., boundary_idx] > 0.5)
+    initial_points = valid_points & (branch[..., initial_idx] > 0.5)
+    condition_points = boundary_points | initial_points
+
+    point_indices = torch.nonzero(condition_points, as_tuple=False)
+    if point_indices.numel() == 0:
+        zero = branch.sum() * 0.0
+        return zero, zero
+
+    batch_indices = point_indices[:, 0]
+    sensor_indices = point_indices[:, 1]
+    condition_features = branch[batch_indices, sensor_indices]
+
+    query_channels = [
+        names.index("x_local"),
+        names.index("y_local"),
+        names.index("time_local"),
+    ]
+    value_channels = [names.index(f"sensor_{name}") for name in output_names]
+    known_channels = [names.index(f"known_{name}") for name in output_names]
+
+    condition_query = condition_features[:, query_channels]
+    condition_target = condition_features[:, value_channels]
+    known = condition_features[:, known_channels]
+    condition_pred = model(
+        branch,
+        condition_query,
+        query_batch_id=batch_indices,
+        branch_mask=branch_mask,
+    )
+
+    squared_error = (condition_pred - condition_target) ** 2
+    boundary_weight = (
+        boundary_points[batch_indices, sensor_indices]
+        .to(dtype=branch.dtype)
+        .unsqueeze(-1)
+        * known
+    )
+    initial_weight = (
+        initial_points[batch_indices, sensor_indices]
+        .to(dtype=branch.dtype)
+        .unsqueeze(-1)
+        * known
+    )
+
+    boundary_denom = boundary_weight.sum()
+    initial_denom = initial_weight.sum()
+    boundary_mse = (
+        (squared_error * boundary_weight).sum()
+        / boundary_denom.clamp_min(1.0)
+    )
+    initial_mse = (
+        (squared_error * initial_weight).sum()
+        / initial_denom.clamp_min(1.0)
+    )
+    return boundary_mse, initial_mse
+
+
+def transient_boundary_loss(
+    model: nn.Module,
+    branch: torch.Tensor,
+    branch_channel_names: Sequence[str],
+    output_channel_names: Sequence[str],
+    branch_mask: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """Return the masked transient physical-boundary loss."""
+    boundary_mse, _ = transient_condition_losses(
+        model=model,
+        branch=branch,
+        branch_channel_names=branch_channel_names,
+        output_channel_names=output_channel_names,
+        branch_mask=branch_mask,
+    )
+    return boundary_mse
+
+
+def transient_initial_condition_loss(
+    model: nn.Module,
+    branch: torch.Tensor,
+    branch_channel_names: Sequence[str],
+    output_channel_names: Sequence[str],
+    branch_mask: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """Return the masked transient initial-condition loss."""
+    _, initial_mse = transient_condition_losses(
+        model=model,
+        branch=branch,
+        branch_channel_names=branch_channel_names,
+        output_channel_names=output_channel_names,
+        branch_mask=branch_mask,
+    )
+    return initial_mse
+
+
+def train_transient_deeponet_one_epoch(
+    model: nn.Module,
+    loader: torch.utils.data.DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: Union[str, torch.device],
+    loss_type: str = "mse",
+    lambda_bc: float = 1.0,
+    lambda_ic: float = 1.0,
+    branch_channel_names: Optional[Sequence[str]] = None,
+    output_channel_names: Optional[Sequence[str]] = None,
+) -> Tuple[float, float, float]:
+    """Train one transient epoch and return field, weighted BC, and weighted IC losses."""
+    if branch_channel_names is None:
+        raise ValueError("branch_channel_names is required for transient condition losses")
+    if output_channel_names is None:
+        raise ValueError("output_channel_names is required for transient condition losses")
+    if float(lambda_bc) < 0.0 or float(lambda_ic) < 0.0:
+        raise ValueError("lambda_bc and lambda_ic must be non-negative")
+
+    model.train()
+    device = torch.device(device)
+    total_field_loss = 0.0
+    total_bc_loss = 0.0
+    total_ic_loss = 0.0
+    count = 0
+
+    for batch in loader:
+        if len(batch) == 6:
+            branch, query, target, query_batch_id, _sample_idx, branch_mask = batch
+        elif len(batch) == 5:
+            branch, query, target, query_batch_id, _sample_idx = batch
+            branch_mask = None
+        else:
+            raise ValueError(f"Expected 5 or 6 elements in batch, got {len(batch)}")
+
+        batch_size = int(branch.shape[0])
+        branch = branch.to(device)
+        query = query.to(device)
+        target = target.to(device)
+        query_batch_id = query_batch_id.to(device)
+        if branch_mask is not None:
+            branch_mask = branch_mask.to(device)
+
+        optimizer.zero_grad(set_to_none=True)
+        pred = model(branch, query, query_batch_id, branch_mask)
+        if loss_type.lower() == "relative_l2":
+            field_loss = ragged_relative_l2_loss(
+                pred, target, query_batch_id, batch_size
+            )
+        else:
+            field_loss = ragged_mse_loss(
+                pred, target, query_batch_id, batch_size
+            )
+
+        boundary_mse, initial_mse = transient_condition_losses(
+            model=model,
+            branch=branch,
+            branch_channel_names=branch_channel_names,
+            output_channel_names=output_channel_names,
+            branch_mask=branch_mask,
+        )
+        weighted_bc_loss = float(lambda_bc) * boundary_mse
+        weighted_ic_loss = float(lambda_ic) * initial_mse
+        loss = field_loss + weighted_bc_loss + weighted_ic_loss
+
+        loss.backward()
+        optimizer.step()
+
+        total_field_loss += float(field_loss.item()) * batch_size
+        total_bc_loss += float(weighted_bc_loss.item()) * batch_size
+        total_ic_loss += float(weighted_ic_loss.item()) * batch_size
+        count += batch_size
+
+    denominator = max(count, 1)
+    return (
+        total_field_loss / denominator,
+        total_bc_loss / denominator,
+        total_ic_loss / denominator,
+    )
+
+
+
 def train_deeponet_one_epoch(
     model: nn.Module,
     loader: torch.utils.data.DataLoader,
@@ -469,13 +1015,29 @@ def train_deeponet_one_epoch(
     device: Union[str, torch.device],
     loss_type: str = "mse",
     lambda_bc: float = 0.0,
+    lambda_pde: float = 0.0,
     branch_channel_names: Optional[Sequence[str]] = None,
     output_channel_names: Optional[Sequence[str]] = None,
-) -> tuple[float, float]:
-    """Train for one epoch and return average loss."""
+    y_normalizer: Optional[FeatureNormalizer] = None,
+    pde_physics: Optional[Mapping[str, object]] = None,
+    pde_residual_weights: Optional[Mapping[str, float]] = None,
+    n_pde_points: Optional[int] = None,
+) -> tuple[float, float, float]:
+    """Train one steady epoch and return field, weighted BC, and weighted PDE loss."""
+    if float(lambda_bc) < 0.0 or float(lambda_pde) < 0.0:
+        raise ValueError("lambda_bc and lambda_pde must be non-negative")
+    if lambda_pde > 0.0:
+        if output_channel_names is None:
+            raise ValueError("output_channel_names is required when PDE loss is active")
+        if y_normalizer is None:
+            raise ValueError("y_normalizer is required when PDE loss is active")
+        if pde_physics is None:
+            raise ValueError("pde_physics is required when PDE loss is active")
+
     model.train()
     device = torch.device(device)
     total_bc_loss = 0.0
+    total_pde_loss = 0.0
     total_field_loss = 0.0
     count = 0
 
@@ -492,6 +1054,7 @@ def train_deeponet_one_epoch(
         query = query.to(device)
         target = target.to(device)
         query_batch_id = query_batch_id.to(device)
+        sample_idx = _sample_idx.to(device)
         if branch_mask is not None:
             branch_mask = branch_mask.to(device)
 
@@ -521,11 +1084,37 @@ def train_deeponet_one_epoch(
             total_bc_loss += float(bc_loss.item()) * bs
             loss = loss + bc_loss
 
+        if lambda_pde > 0.0:
+            assert output_channel_names is not None
+            assert y_normalizer is not None
+            assert pde_physics is not None
+            pde_terms = steady_deeponet_pde_loss(
+                model=model,
+                branch=branch,
+                query=query,
+                query_batch_id=query_batch_id,
+                sample_indices=sample_idx,
+                output_channel_names=output_channel_names,
+                y_normalizer=y_normalizer,
+                physics=pde_physics,
+                branch_mask=branch_mask,
+                residual_weights=pde_residual_weights,
+                max_points_per_sample=n_pde_points,
+            )
+            pde_loss = float(lambda_pde) * pde_terms["loss"]
+            total_pde_loss += float(pde_loss.item()) * bs
+            loss = loss + pde_loss
+
         loss.backward()
         optimizer.step()
         count += bs
 
-    return total_field_loss / max(count, 1), total_bc_loss / max(count, 1)
+    denominator = max(count, 1)
+    return (
+        total_field_loss / denominator,
+        total_bc_loss / denominator,
+        total_pde_loss / denominator,
+    )
 
 
 @torch.no_grad()

@@ -579,6 +579,124 @@ def sample_cylinder_centered_x_edges(
     return edges.astype(np.float64)
 
 
+def sample_cylinder_split_x_edges(
+    xmin: float,
+    xmax: float,
+    cylinder_center_x: float,
+    cylinder_radius: float,
+    n_subdomains: int,
+    min_subdomain_width: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Sample random x-strip edges with an interface through the cylinder center.
+
+    The cylinder-center x-coordinate is always an interior edge. All other
+    interfaces are random, subject to ``min_subdomain_width`` and the additional
+    constraint that they remain outside the cylinder. Consequently, the two
+    strips adjacent to the center interface contain exactly the left and right
+    cylinder halves.
+
+    ``min_subdomain_width`` is a fraction of the full ``[xmin, xmax]`` span.
+    At least two subdomains are required, with at least one on each side of the
+    cylinder-center interface.
+    """
+    xmin = float(xmin)
+    xmax = float(xmax)
+    center_x = float(cylinder_center_x)
+    radius = float(cylinder_radius)
+    n_subdomains = int(n_subdomains)
+    min_width_fraction = float(min_subdomain_width)
+    span = xmax - xmin
+
+    if span <= 0.0:
+        raise ValueError("xmax must be greater than xmin")
+    if n_subdomains < 2:
+        raise ValueError("Split-cylinder random placement requires n_subdomains >= 2")
+    if not xmin < center_x < xmax:
+        raise ValueError("cylinder_center_x must lie strictly inside [xmin, xmax]")
+    if radius <= 0.0 or center_x - radius <= xmin or center_x + radius >= xmax:
+        raise ValueError("The cylinder must have positive radius and lie strictly inside [xmin, xmax]")
+    if min_width_fraction < 0.0:
+        raise ValueError("min_subdomain_width must be non-negative")
+    if n_subdomains * min_width_fraction > 1.0 + 1.0e-12:
+        raise ValueError(
+            "Infeasible subdomain constraints: "
+            "n_subdomains * min_subdomain_width must be <= 1"
+        )
+
+    min_width = min_width_fraction * span
+    clearance = max(1.0e-12 * span, np.finfo(np.float64).eps * span)
+    adjacent_min_width = max(min_width, radius + clearance)
+    left_span = center_x - xmin
+    right_span = xmax - center_x
+
+    feasible_counts: List[Tuple[int, int]] = []
+    for n_left in range(1, n_subdomains):
+        n_right = n_subdomains - n_left
+        left_required = (n_left - 1) * min_width + adjacent_min_width
+        right_required = (n_right - 1) * min_width + adjacent_min_width
+        if (
+            left_required <= left_span + 1.0e-12 * span
+            and right_required <= right_span + 1.0e-12 * span
+        ):
+            feasible_counts.append((n_left, n_right))
+    if not feasible_counts:
+        raise ValueError(
+            "Cannot place the cylinder-center interface and the requested number "
+            "of subdomains while keeping all other interfaces outside the "
+            "cylinder and maintaining min_subdomain_width"
+        )
+
+    nominal_width = span / n_subdomains
+
+    def count_score(candidate: Tuple[int, int]) -> float:
+        n_left, n_right = candidate
+        return (
+            (left_span / n_left - nominal_width) ** 2
+            + (right_span / n_right - nominal_width) ** 2
+        )
+
+    n_left, n_right = min(feasible_counts, key=count_score)
+
+    def sample_widths(total: float, lower_bounds: np.ndarray) -> np.ndarray:
+        slack = float(total) - float(lower_bounds.sum())
+        tolerance = 1.0e-12 * span
+        if slack < -tolerance:
+            raise RuntimeError("Internal error: infeasible interval in split-cylinder partition")
+        slack = max(slack, 0.0)
+        extras = rng.dirichlet(np.ones(lower_bounds.size, dtype=np.float64))
+        return lower_bounds + slack * extras
+
+    left_lower = np.full(n_left, min_width, dtype=np.float64)
+    left_lower[-1] = adjacent_min_width
+    right_lower = np.full(n_right, min_width, dtype=np.float64)
+    right_lower[0] = adjacent_min_width
+    left_widths = sample_widths(left_span, left_lower)
+    right_widths = sample_widths(right_span, right_lower)
+
+    left_edges = np.concatenate([[xmin], xmin + np.cumsum(left_widths)])
+    right_edges = np.concatenate([[center_x], center_x + np.cumsum(right_widths)])
+    left_edges[-1] = center_x
+    right_edges[-1] = xmax
+    edges = np.concatenate([left_edges, right_edges[1:]])
+
+    tolerance = 1.0e-12 * span
+    if edges.size != n_subdomains + 1 or np.any(np.diff(edges) < min_width - tolerance):
+        raise RuntimeError("Split-cylinder random partition violated its edge/width invariants")
+    center_edge_indices = np.flatnonzero(
+        np.isclose(edges, center_x, rtol=0.0, atol=tolerance)
+    )
+    if center_edge_indices.size != 1 or not 0 < center_edge_indices[0] < n_subdomains:
+        raise RuntimeError("Cylinder center is not exactly one interior interface")
+    center_edge_index = int(center_edge_indices[0])
+    if (
+        edges[center_edge_index - 1] > center_x - radius
+        or edges[center_edge_index + 1] < center_x + radius
+    ):
+        raise RuntimeError("An additional interface intersects the cylinder")
+    return edges.astype(np.float64)
+
+
 def _sharp_control_point_interfaces(
     x_points: np.ndarray,
     y_bottom_points: np.ndarray,
@@ -2708,23 +2826,24 @@ def _resolve_transient_case_paths(
 
 def build_fluent_transient_deeponet_dataset(
     case_files: Mapping[object, Mapping[str, object]],
-    case_ids: Optional[Sequence[object]] = None,
+    case_ids: Sequence[object] | None = None,
     n_subdomains: int = 10,
     interface_placement: str = "fixed",
     min_subdomain_width: float = 0.01,
-    cylinder_subdomain_width: Optional[float] = None,
+    cylinder_subdomain_width: float | None = None,
     snapshots_per_sample: int = 10,
-    window_stride: Optional[int] = None,
+    window_stride: int | None = None,
     n_interface_points: int = 128,
     n_boundary_points: int = 128,
-    n_initial_points: Optional[int] = 2048,
+    n_initial_points: int | None = 2048,
+    n_realizations: int = 1,
     snapshot_pattern: str = "case2d-*",
     data_coordinate_unit: str = "m",
     output_fields: Sequence[str] = TRANSIENT_OUTPUT_CHANNELS,
     outlet_p: float = 0.0,
     coordinate_tolerance: float = 1.0e-10,
-    rng: Optional[np.random.Generator] = None,
-) -> Dict[str, object]:
+    rng: np.random.Generator | None = None,
+) -> dict[str, object]:
     """Build compact spatiotemporal DeepONet samples from Fluent ASCII files.
 
     One sample is one x-strip subdomain over one temporal window. The compact
@@ -2747,6 +2866,16 @@ def build_fluent_transient_deeponet_dataset(
     while every subdomain retains at least ``min_subdomain_width`` times the
     total channel length.
 
+    ``interface_placement="random_split_cylinder"`` instead fixes one interface
+    at the cylinder-center x-coordinate and samples every other interface
+    randomly. The other interfaces are kept outside the cylinder, so its left
+    and right halves belong to exactly two adjacent subdomains.
+
+    ``n_realizations`` repeats each case with independently sampled random
+    interfaces and initial-condition sensors. As in
+    :func:`build_fluent_deeponet_dataset`, deterministic fixed interface
+    placement is reduced to one realization.
+
     With 100 snapshots, ``snapshots_per_sample=10``, ``window_stride=10``, and
     ``n_subdomains=10``, the result contains exactly 100 samples per case.
     Set ``window_stride=1`` for 91 overlapping windows (910 samples per case).
@@ -2756,8 +2885,11 @@ def build_fluent_transient_deeponet_dataset(
     n_subdomains = int(n_subdomains)
     interface_placement = str(interface_placement).lower()
     min_subdomain_width = float(min_subdomain_width)
-    if interface_placement not in {"fixed", "random"}:
-        raise ValueError("Transient interface_placement must be 'fixed' or 'random'")
+    if interface_placement not in {"fixed", "random", "random_split_cylinder"}:
+        raise ValueError(
+            "Transient interface_placement must be 'fixed', 'random', "
+            "or 'random_split_cylinder'"
+        )
     if min_subdomain_width < 0.0:
         raise ValueError("min_subdomain_width must be non-negative")
     if cylinder_subdomain_width is not None and float(cylinder_subdomain_width) <= 0.0:
@@ -2770,12 +2902,18 @@ def build_fluent_transient_deeponet_dataset(
     window_stride = snapshots_per_sample if window_stride is None else int(window_stride)
     n_interface_points = int(n_interface_points)
     n_boundary_points = int(n_boundary_points)
+    n_realizations = int(n_realizations)
     if n_subdomains < 1 or snapshots_per_sample < 1 or window_stride < 1:
         raise ValueError("n_subdomains, snapshots_per_sample, and window_stride must be positive")
     if n_interface_points < 1 or n_boundary_points < 1:
         raise ValueError("n_interface_points and n_boundary_points must be positive")
     if n_initial_points is not None and int(n_initial_points) < 1:
         raise ValueError("n_initial_points must be positive or None")
+    if interface_placement == "fixed":
+        n_realizations = 1
+        print("Setting n_realizations to 1 for fixed interface placement")
+    if n_realizations < 1:
+        raise ValueError("n_realizations must be >= 1")
 
     output_fields = list(output_fields)
     unsupported = [name for name in output_fields if name not in _TRANSIENT_ASCII_COLUMNS]
@@ -2786,6 +2924,11 @@ def build_fluent_transient_deeponet_dataset(
     branch_channel_names = make_transient_branch_channels(output_fields)
     if case_ids is None:
         case_ids = list(case_files.keys())
+    case_realizations = [
+        (case_id, realization_id)
+        for case_id in case_ids
+        for realization_id in range(n_realizations)
+    ]
 
     samples: List[Dict[str, np.ndarray]] = []
     metadata: List[Dict[str, object]] = []
@@ -2794,9 +2937,14 @@ def build_fluent_transient_deeponet_dataset(
 
     from scipy.spatial import cKDTree
 
-    for case_id in case_ids:
+    for case_id, realization_id in case_realizations:
         if case_id not in case_files:
             raise KeyError(f"Transient case {case_id!r} is not present in case_files")
+        print(
+            f"Processing transient case {case_id} realization={realization_id} "
+            f"(n_subdomains={n_subdomains})",
+            flush=True,
+        )
         case = case_files[case_id]
         design_path = case.get("design", case.get("config"))
         if design_path is None:
@@ -2841,7 +2989,7 @@ def build_fluent_transient_deeponet_dataset(
 
         if interface_placement == "fixed":
             x_edges = np.linspace(xmin, xmax, n_subdomains + 1, dtype=np.float64)
-        else:
+        elif interface_placement == "random":
             x_edges = sample_cylinder_centered_x_edges(
                 xmin=xmin,
                 xmax=xmax,
@@ -2852,9 +3000,30 @@ def build_fluent_transient_deeponet_dataset(
                 cylinder_subdomain_width=cylinder_subdomain_width,
                 rng=rng,
             )
+        else:
+            x_edges = sample_cylinder_split_x_edges(
+                xmin=xmin,
+                xmax=xmax,
+                cylinder_center_x=float(geometry["cylinder_center_x"]),
+                cylinder_radius=float(geometry["cylinder_radius"]),
+                n_subdomains=n_subdomains,
+                min_subdomain_width=min_subdomain_width,
+                rng=rng,
+            )
         cylinder_subdomain_id = int(
             np.searchsorted(x_edges, float(geometry["cylinder_center_x"]), side="right") - 1
         )
+        if interface_placement == "random_split_cylinder":
+            cylinder_subdomain_ids = [
+                cylinder_subdomain_id - 1,
+                cylinder_subdomain_id,
+            ]
+        else:
+            cylinder_subdomain_ids = [cylinder_subdomain_id]
+        cylinder_subdomain_widths = [
+            float(x_edges[index + 1] - x_edges[index])
+            for index in cylinder_subdomain_ids
+        ]
         cylinder_subdomain_actual_width = float(
             x_edges[cylinder_subdomain_id + 1] - x_edges[cylinder_subdomain_id]
         )
@@ -3038,6 +3207,7 @@ def build_fluent_transient_deeponet_dataset(
                     {
                         "case_id": case_id,
                         "subdomain_id": int(subdomain_id),
+                        "realization_id": int(realization_id),
                         "interface_placement": interface_placement,
                         "window_id": int(window_id),
                         "window_start_index": int(window_start),
@@ -3051,7 +3221,16 @@ def build_fluent_transient_deeponet_dataset(
                         "cylinder_center_y": float(geometry["cylinder_center_y"]),
                         "cylinder_radius": float(geometry["cylinder_radius"]),
                         "cylinder_subdomain_id": int(cylinder_subdomain_id),
-                        "is_cylinder_subdomain": bool(subdomain_id == cylinder_subdomain_id),
+                        "cylinder_subdomain_ids": cylinder_subdomain_ids,
+                        "cylinder_subdomain_widths": cylinder_subdomain_widths,
+                        "is_cylinder_subdomain": bool(
+                            subdomain_id in cylinder_subdomain_ids
+                        ),
+                        "cylinder_split_interface_x": (
+                            float(geometry["cylinder_center_x"])
+                            if interface_placement == "random_split_cylinder"
+                            else None
+                        ),
                         "cylinder_subdomain_width": cylinder_subdomain_actual_width,
                         "cylinder_center_offset": float(
                             geometry["cylinder_center_x"] - 0.5 * (x_left + x_right)
@@ -3068,6 +3247,9 @@ def build_fluent_transient_deeponet_dataset(
     return {
         "samples": samples,
         "metadata": metadata,
+        "realization_id": np.asarray(
+            [row["realization_id"] for row in metadata], dtype=np.int32
+        ),
         "branch_channel_names": branch_channel_names,
         "trunk_channel_names": list(TRANSIENT_TRUNK_CHANNELS),
         "output_channel_names": output_fields,
@@ -3080,6 +3262,7 @@ def build_fluent_transient_deeponet_dataset(
         "n_interface_points": n_interface_points,
         "n_boundary_points": n_boundary_points,
         "n_initial_points": n_initial_points,
+        "n_realizations": n_realizations,
         "data_coordinate_unit": data_coordinate_unit,
         "snapshots_per_case": snapshots_per_case,
         "windows_per_case": windows_per_case,
