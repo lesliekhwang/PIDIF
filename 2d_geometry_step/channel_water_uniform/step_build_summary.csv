@@ -1,0 +1,11 @@
+case,geometry_spec,step_file,status
+channel_00,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_00.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_00.step,ok
+channel_01,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_01.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_01.step,ok
+channel_02,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_02.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_02.step,ok
+channel_03,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_03.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_03.step,ok
+channel_04,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_04.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_04.step,ok
+channel_05,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_05.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_05.step,ok
+channel_06,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_06.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_06.step,ok
+channel_07,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_07.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_07.step,ok
+channel_08,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_08.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_08.step,ok
+channel_09,/home/hantianl/Documents/PIDIF/2d_geometry_specs/channel_water_uniform/channel_09.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_uniform/channel_09.step,ok

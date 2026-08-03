@@ -1,0 +1,11 @@
+case,geometry_spec,target_geometry_file,channel_length_mm,channel_height_mm,cylinder_center_x_mm,cylinder_center_y_mm,cylinder_diameter_mm,Uin_mps
+channel_000,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_000.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_000.step,1.0,0.1,0.5349203327752753,0.05,0.025,1.0
+channel_001,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_001.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_001.step,1.0,0.1,0.30874294683263537,0.05,0.025,1.0
+channel_002,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_002.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_002.step,1.0,0.1,0.5920535959401831,0.05,0.025,1.0
+channel_003,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_003.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_003.step,1.0,0.1,0.4832234196150707,0.05,0.025,1.0
+channel_004,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_004.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_004.step,1.0,0.1,0.07606970982416343,0.05,0.025,1.0
+channel_005,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_005.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_005.step,1.0,0.1,0.6710450873548103,0.05,0.025,1.0
+channel_006,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_006.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_006.step,1.0,0.1,0.5262692988434883,0.05,0.025,1.0
+channel_007,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_007.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_007.step,1.0,0.1,0.5430934060619438,0.05,0.025,1.0
+channel_008,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_008.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_008.step,1.0,0.1,0.09897670205599347,0.05,0.025,1.0
+channel_009,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_009.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_009.step,1.0,0.1,0.31651050807950787,0.05,0.025,1.0

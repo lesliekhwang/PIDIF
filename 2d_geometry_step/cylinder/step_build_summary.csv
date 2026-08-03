@@ -1,0 +1,11 @@
+case,geometry_spec,step_file,status
+channel_010,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_010.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_010.step,ok
+channel_011,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_011.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_011.step,ok
+channel_012,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_012.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_012.step,ok
+channel_013,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_013.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_013.step,ok
+channel_014,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_014.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_014.step,ok
+channel_015,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_015.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_015.step,ok
+channel_016,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_016.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_016.step,ok
+channel_017,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_017.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_017.step,ok
+channel_018,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_018.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_018.step,ok
+channel_019,/home/hantianl/Documents/PIDIF/2d_geometry_specs/cylinder/channel_019.json,/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_019.step,ok
