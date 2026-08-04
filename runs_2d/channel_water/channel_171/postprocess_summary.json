@@ -1,0 +1,63 @@
+{
+  "case": "channel_171",
+  "boundaries": {
+    "inlet": "open_cascade_step_translator_7.5",
+    "outlet": "open_cascade_step_translator_7.3",
+    "wall_top": "open_cascade_step_translator_7.4",
+    "wall_bottom": "open_cascade_step_translator_7.2",
+    "inlet_zones": [
+      "open_cascade_step_translator_7.5"
+    ],
+    "outlet_zones": [
+      "open_cascade_step_translator_7.3"
+    ],
+    "wall_top_zones": [
+      "open_cascade_step_translator_7.4"
+    ],
+    "wall_bottom_zones": [
+      "open_cascade_step_translator_7.2"
+    ]
+  },
+  "inlet": {
+    "pressure_pa": 1835.9205,
+    "velocity_mps": 1.0,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/pin.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/vin.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/vin_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/vin_y.txt"
+    }
+  },
+  "outlet": {
+    "pressure_pa": 0.0,
+    "velocity_mps": 1.0006306,
+    "txt_files": {
+      "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/pout.txt",
+      "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/vout.txt",
+      "x-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/vout_x.txt",
+      "y-velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/vout_y.txt"
+    }
+  },
+  "derived": {
+    "dp_pa": 1835.9205
+  },
+  "physics_checks": {
+    "dp_pa": 1835.9205,
+    "dp_positive": true,
+    "mass_flux_in_per_depth_m2ps": 0.0001,
+    "mass_flux_out_per_depth_m2ps": 0.00010003903000000001,
+    "mass_conservation_rel_error": 0.000390300000000063,
+    "mass_conserved": true,
+    "reynolds_number": 199.0428713858425,
+    "flow_regime": "laminar",
+    "laminar_assumption_valid": true,
+    "physics_ok": true
+  },
+  "residual_files": {
+    "combined_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/residuals.csv",
+    "plot_png": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/residuals.png",
+    "pressure_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/pressure.csv",
+    "x_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/x-velocity.csv",
+    "y_velocity_csv": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water/channel_171/y-velocity.csv"
+  }
+}
