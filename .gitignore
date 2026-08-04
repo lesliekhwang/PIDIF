@@ -1,0 +1,19 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Jupyter temporary files
+.ipynb_checkpoints/
+
+# Editor and operating-system files
+.vscode/
+.DS_Store
+
+# Active diffusion datasets, checkpoints, and historical evaluations
+channel_diffusion_dataset/
+
+# Future standardized experiment outputs
+results/*
+!results/README.md
+
+PROJECT.local.md
