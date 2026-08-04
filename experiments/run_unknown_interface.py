@@ -1133,6 +1133,24 @@ def reconstruct(case: CaseData, final_prediction: Mapping[str, torch.Tensor]) ->
         "pointwise_order_policy": "concatenated_subdomain_order",
         "seam_policy": "no_average_no_overwrite",
         "coordinate_policy": "local_query_to_global_mm_using_hdf5_metadata",
+        "field_names": list(OUTPUT_CHANNEL_NAMES),
+        "field_units": ["Pa", "m/s", "m/s"],
+        "geometry": {
+            "units": "mm",
+            "x_points_mm": case.geometry.x_points_mm.astype(np.float64, copy=True),
+            "wall_bottom_y_mm": case.geometry.bottom_y_mm.astype(np.float64, copy=True),
+            "wall_top_y_mm": case.geometry.top_y_mm.astype(np.float64, copy=True),
+            "internal_interface_x_mm": case.geometry.x_points_mm[1:-1].astype(np.float64, copy=True),
+        },
+        "plotting": {
+            "grid_resolution": [1200, 300],
+            "interpolation": "linear",
+            "nearest_fallback": True,
+            "imshow_interpolation": "bilinear",
+            "colormap": "jet",
+            "geometry_mask": "piecewise_linear_channel_walls",
+            "pointwise_metrics_mask": "inside_geometry_mask",
+        },
     }
 
 
