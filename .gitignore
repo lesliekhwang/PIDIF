@@ -17,3 +17,6 @@ results/*
 !results/README.md
 
 PROJECT.local.md
+
+# Local temporary validation artifacts
+tmp/
