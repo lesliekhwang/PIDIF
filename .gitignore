@@ -20,3 +20,4 @@ PROJECT.local.md
 
 # Local temporary validation artifacts
 tmp/
+logs/
