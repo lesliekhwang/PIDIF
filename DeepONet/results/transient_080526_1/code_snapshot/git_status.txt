@@ -1,0 +1,42 @@
+On branch Alan
+Your branch is up to date with 'origin/Alan'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    results/transient_072726_1/checkpoint.pt
+	deleted:    results/transient_072726_1/code_snapshot/git_commit.txt
+	deleted:    results/transient_072726_1/code_snapshot/git_diff.patch
+	deleted:    results/transient_072726_1/code_snapshot/git_diff_cached.patch
+	deleted:    results/transient_072726_1/code_snapshot/git_status.txt
+	deleted:    results/transient_072726_1/loss_history.png
+	deleted:    results/transient_072726_1/predictions/test/channel_001_step10000.png
+	deleted:    results/transient_072726_1/predictions/validation/channel_009_step10000.png
+	deleted:    results/transient_072726_1/training.log
+	deleted:    results/transient_072826_1/checkpoint.pt
+	deleted:    results/transient_072826_1/code_snapshot/git_commit.txt
+	deleted:    results/transient_072826_1/code_snapshot/git_diff.patch
+	deleted:    results/transient_072826_1/code_snapshot/git_diff_cached.patch
+	deleted:    results/transient_072826_1/code_snapshot/git_status.txt
+	deleted:    results/transient_072826_1/training.log
+	modified:   train_deeponet.ipynb
+	modified:   train_transient_deeponet.ipynb
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	SNI_EVAL_METIS_PIPELINE.md
+	data/
+	draft.ipynb
+	generate_sni_eval_metis.ipynb
+	generate_sni_eval_metis.py
+	results/073126_1/
+	results/080426_1/
+	results/sni_metis_080526_164308/
+	results/transient_080526_1/
+	results/transient_080526_2/
+	sni_eval_dataset.py
+	train_sni_eval_deeponet.ipynb
+	train_sni_eval_deeponet.py
+	train_transient_deeponet copy.ipynb
+
+no changes added to commit (use "git add" and/or "git commit -a")
