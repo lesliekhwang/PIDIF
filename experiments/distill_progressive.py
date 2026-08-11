@@ -1,2133 +1,2348 @@
-"""Run the first Python implementation of progressive diffusion distillation."""
+"""Progressive nested-schedule distillation for PIDIF field diffusion.
+
+This script distills the frozen field-diffusion baseline in two stages:
+
+    Stage 1: nested 20-NFE teacher -> nested 10-NFE student
+    Stage 2: distilled nested 10-NFE teacher -> nested 5-NFE student
+
+The 20-NFE anchor schedule is the same round-and-reverse DDIM schedule used by
+``evaluate_diffusion_generation.py``.  The 10-NFE and 5-NFE schedules are
+strict nested subsets of that anchor.  Every student model evaluation therefore
+matches exactly two teacher model evaluations, including the final clean
+projection.
+
+Training uses direct state matching in normalized p/u/v space:
+
+    teacher: x_t -> x_mid -> x_target
+    student: x_t ----------> x_target
+
+For the final slot, ``x_target`` is the clean projection.  No CFD truth loss,
+physics loss, boundary auxiliary loss, or test data is used by the distillation
+objective.  CFD truth from the canonical randomized validation set is used only
+for deterministic rollout validation and checkpoint selection.
+
+Without ``--run``, the script performs CPU-only protocol validation and prints
+the exact distillation plan.  It does not create a result directory or start
+training.
+"""
 
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
 import random
 import re
 import sys
-import tempfile
-from dataclasses import asdict, dataclass, field
+import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Sequence
 
+import h5py
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from pidiffusion.artifacts import update_manifest, write_manifest  # noqa: E402
-from pidiffusion.data import (  # noqa: E402
-    DiffusionCaseSplit,
-    DiffusionCellDataset,
-    FeatureNormalizer,
-    build_case_split,
-    collate_diffusion_batch,
-    fit_train_normalizers,
-    load_diffusion_dataset,
-)
-from pidiffusion.diffusion import (  # noqa: E402
-    DiffusionSchedule,
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from pidiffusion.artifacts import update_manifest, write_manifest
+from pidiffusion.data import FeatureNormalizer, normalize_diffusion_branch
+from pidiffusion.diffusion import (
     build_ddim_timesteps,
-    build_integer_segment_schedule,
     build_linear_schedule,
     ddim_step,
-    equivalent_epsilon_target,
     final_clean_projection,
 )
-from pidiffusion.model import PointSetDiffusionDenoiser  # noqa: E402
-from pidiffusion.provenance import (  # noqa: E402
-    file_identity,
-    git_state,
-    runtime_environment,
-    sha256_file,
+from pidiffusion.model import PointSetDiffusionDenoiser
+from pidiffusion.provenance import file_identity, git_state, runtime_environment
+
+
+PROTOCOL_VERSION = "field_diffusion_progressive_nested_distillation_v1"
+CHECKPOINT_SCHEMA_VERSION = "progressive_distillation_checkpoint_v1"
+MANIFEST_SCHEMA_VERSION = "pidiffusion_run_manifest_v1"
+SCHEDULE_FAMILY = "progressive_nested20"
+ANCHOR_NFE = 20
+STAGE1_TEACHER_NFE = 20
+STAGE1_STUDENT_NFE = 10
+STAGE2_TEACHER_NFE = 10
+STAGE2_STUDENT_NFE = 5
+EXPECTED_PARAMETER_COUNT = 382_083
+EXPECTED_OUTPUTS = ("pressure", "u", "v")
+EXPECTED_TRUNK = ("x_local", "y_local")
+EXPECTED_TRAIN_SAMPLES = 16_000
+EXPECTED_VAL_SAMPLES = 1_000
+
+DEFAULT_BASE_CHECKPOINT = (
+    REPO_ROOT
+    / "results/train_diffusion/field_diffusion_baseline_long_seed0"
+    / "diffusion_best.pt"
 )
-
-try:  # Reuse the canonical baseline constructor without importing data.
-    from experiments.train_diffusion import build_diffusion_model  # noqa: E402
-except ModuleNotFoundError:  # pragma: no cover - direct script fallback
-    from train_diffusion import build_diffusion_model  # type: ignore  # noqa: E402
-
-
-DEFAULT_DATASET_PATH = (
-    REPOSITORY_ROOT
-    / "channel_diffusion_dataset"
-    / "deeponet_style_dataset"
-    / "channel_deeponet_style_pressure_u_v_controlpoints.h5"
+DEFAULT_TRAIN_H5 = (
+    REPO_ROOT
+    / "channel_diffusion_dataset/deeponet_style_dataset"
+    / "channel_deeponet_style_pressure_u_v_random10_train.h5"
 )
-DEFAULT_BASELINE_CHECKPOINT = (
-    REPOSITORY_ROOT
-    / "channel_diffusion_dataset"
-    / "point_diffusion_deeponet_style_puv_baseline_long"
-    / "checkpoints"
-    / "point_diffusion_baseline_long_best.pt"
+DEFAULT_VAL_H5 = (
+    REPO_ROOT
+    / "channel_diffusion_dataset/deeponet_style_dataset"
+    / "channel_deeponet_style_pressure_u_v_random5_val.h5"
 )
-DEFAULT_RESULTS_ROOT = REPOSITORY_ROOT / "results"
-TRUSTED_CHECKPOINT_ROOT = REPOSITORY_ROOT / "channel_diffusion_dataset"
+DEFAULT_RESULTS_ROOT = REPO_ROOT / "results"
 
-_SAFE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-_AMBIGUOUS_RUN_IDS = {"latest", "final", "new", "updated"}
+FIELD_UNITS = ("Pa", "m/s", "m/s")
+_SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 @dataclass(frozen=True)
-class ProgressiveDistillationConfig:
-    """Typed configuration for one one-epoch progressive distillation stage."""
+class Config:
+    base_checkpoint: Path
+    train_h5: Path
+    val_h5: Path
+    results_root: Path
+    device: str
+    run_id: str | None
+    seed: int
+    validation_sampling_seed: int
+    batch_size: int
+    query_points: int
+    epochs_stage1: int
+    epochs_stage2: int
+    learning_rate: float
+    weight_decay: float
+    grad_clip: float
+    scheduler_factor: float
+    scheduler_patience: int
+    scheduler_threshold: float
+    min_lr: float
+    min_lr_early_stop_patience: int
+    validation_every: int
+    num_workers: int
+    max_train_samples: int | None
+    max_batches_per_epoch: int | None
+    validation_max_samples: int | None
+    progress_every_batches: int
+    progress_every_validation_samples: int
+    stage1_only: bool
+    stage2_only: bool
+    stage1_checkpoint: Path | None
 
-    stage: Optional[int] = None
-    dataset_path: Path = field(default_factory=lambda: DEFAULT_DATASET_PATH)
-    baseline_checkpoint: Path = field(
-        default_factory=lambda: DEFAULT_BASELINE_CHECKPOINT
+
+@dataclass(frozen=True)
+class H5Protocol:
+    path: Path
+    dataset_role: str
+    split_role: str
+    n_samples: int
+    branch_channel_names: tuple[str, ...]
+    trunk_channel_names: tuple[str, ...]
+    output_channel_names: tuple[str, ...]
+    attrs: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class StageSchedule:
+    stage: int
+    teacher_nfe: int
+    student_nfe: int
+    teacher_sources: tuple[int, ...]
+    student_sources: tuple[int, ...]
+
+
+@dataclass
+class ValidationSummary:
+    balanced_norm_mse: float
+    balanced_rmse_pressure: float
+    balanced_rmse_u: float
+    balanced_rmse_v: float
+    n_samples: int
+    n_points: int
+
+
+class RandomQueryH5Dataset(Dataset):
+    """Lazy HDF5 dataset with deterministic epoch-dependent query sampling."""
+
+    def __init__(
+        self,
+        path: Path,
+        indices: Sequence[int],
+        branch_channel_names: Sequence[str],
+        normalizer: FeatureNormalizer,
+        local_aspect_mean: float,
+        local_aspect_std: float,
+        target_mean: np.ndarray,
+        target_std: np.ndarray,
+        query_points: int,
+        base_seed: int,
+        stage: int,
+    ) -> None:
+        self.path = Path(path)
+        self.indices = tuple(int(x) for x in indices)
+        self.branch_channel_names = tuple(branch_channel_names)
+        self.normalizer = normalizer
+        self.local_aspect_mean = float(local_aspect_mean)
+        self.local_aspect_std = float(local_aspect_std)
+        self.target_mean = np.asarray(target_mean, dtype=np.float32).reshape(1, -1)
+        self.target_std = np.asarray(target_std, dtype=np.float32).reshape(1, -1)
+        self.query_points = int(query_points)
+        self.base_seed = int(base_seed)
+        self.stage = int(stage)
+        self.epoch = 0
+        self._handle: h5py.File | None = None
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = int(epoch)
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+    def _h5(self) -> h5py.File:
+        if self._handle is None:
+            self._handle = h5py.File(self.path, "r")
+        return self._handle
+
+    def __getstate__(self):
+        state = dict(self.__dict__)
+        state["_handle"] = None
+        return state
+
+    def __del__(self):
+        handle = getattr(self, "_handle", None)
+        if handle is not None:
+            try:
+                handle.close()
+            except Exception:
+                pass
+
+    def _query_indices(self, n_query: int, sample_index: int) -> np.ndarray:
+        if self.query_points <= 0 or n_query <= self.query_points:
+            return np.arange(n_query, dtype=np.int64)
+        seed = stable_int_seed(
+            f"query:{self.base_seed}:{self.stage}:{self.epoch}:{sample_index}"
+        )
+        rng = np.random.default_rng(seed)
+        values = rng.choice(
+            n_query,
+            size=self.query_points,
+            replace=False,
+        )
+        values.sort()
+        return values.astype(np.int64, copy=False)
+
+    def __getitem__(self, position: int):
+        sample_index = self.indices[position]
+        group = self._h5()["samples"][str(sample_index)]
+
+        branch = group["branch"][:].astype(np.float32)
+        query_ds = group["query"]
+        target_ds = group["target"]
+        selection = self._query_indices(len(query_ds), sample_index)
+        query = query_ds[selection].astype(np.float32)
+        target = target_ds[selection].astype(np.float32)
+
+        branch = normalize_diffusion_branch(
+            branch,
+            branch_channel_names=list(self.branch_channel_names),
+            target_normalizer=self.normalizer,
+            local_aspect_mean=self.local_aspect_mean,
+            local_aspect_std=self.local_aspect_std,
+        ).astype(np.float32, copy=False)
+        target = (
+            (target - self.target_mean) / self.target_std
+        ).astype(np.float32, copy=False)
+
+        if not (
+            np.isfinite(branch).all()
+            and np.isfinite(query).all()
+            and np.isfinite(target).all()
+        ):
+            raise ValueError(f"Sample {sample_index} contains non-finite values")
+
+        return branch, query, target, sample_index
+
+
+def collate_random_query_batch(batch):
+    if not batch:
+        raise ValueError("Cannot collate an empty batch")
+
+    batch_size = len(batch)
+    branch_dim = batch[0][0].shape[1]
+    max_branch = max(item[0].shape[0] for item in batch)
+
+    branch = np.zeros(
+        (batch_size, max_branch, branch_dim),
+        dtype=np.float32,
     )
-    stage1_checkpoint: Optional[Path] = None
-    stage2_checkpoint: Optional[Path] = None
-    results_root: Path = field(default_factory=lambda: DEFAULT_RESULTS_ROOT)
-    device: str = "cuda:1"
-    run_id: Optional[str] = None
-    global_seed: int = 42
-    split_seed: int = 42
-    diffusion_steps: int = 1000
-    beta_start: float = 1.0e-4
-    beta_end: float = 2.0e-2
-    teacher_sampling_steps: int = 50
-    student_sampling_steps: int = 5
-    student_timesteps: tuple[int, ...] = (999, 749, 500, 250, 0)
-    teacher_transition_counts: tuple[int, ...] = (12, 12, 12, 13)
-    batch_size: int = 4
-    num_query_points: int = 8192
-    num_workers: int = 0
-    epochs: int = 1
-    weight_decay: float = 1.0e-4
-    grad_clip: float = 1.0
-    validation_noise_seed: int = 5000
+    branch_mask = np.zeros(
+        (batch_size, max_branch),
+        dtype=np.bool_,
+    )
 
-    @property
-    def learning_rate(self) -> float:
-        return {1: 1.0e-5, 2: 3.0e-6, 3: 1.0e-6}.get(
-            self.stage or 1, 1.0e-5
+    query_parts = []
+    target_parts = []
+    batch_id_parts = []
+    sample_indices = []
+
+    for batch_id, (b, q, y, sample_index) in enumerate(batch):
+        n_branch = b.shape[0]
+        branch[batch_id, :n_branch] = b
+        branch_mask[batch_id, :n_branch] = True
+        query_parts.append(q)
+        target_parts.append(y)
+        batch_id_parts.append(
+            np.full(len(q), batch_id, dtype=np.int64)
         )
+        sample_indices.append(sample_index)
 
-    @property
-    def noise_seed_start(self) -> int:
-        return {1: 3000, 2: 4000, 3: 7000}.get(self.stage or 1, 3000)
-
-    @property
-    def trajectory_target_weights(self) -> tuple[float, ...]:
-        if self.stage == 1:
-            return (0.25, 0.25, 0.25, 0.25, 0.0)
-        return (0.2375, 0.2375, 0.2375, 0.2375, 0.05)
-
-    @property
-    def trajectory_field_weights(self) -> tuple[float, ...]:
-        return (1.0, 1.0, 1.0)
-
-    @property
-    def cfd_field_weights(self) -> tuple[float, ...]:
-        return (1.0, 1.0, 1.0)
-
-    @property
-    def lambda_cfd(self) -> float:
-        return 0.05 if self.stage == 3 else 0.0
+    return (
+        torch.from_numpy(branch),
+        torch.from_numpy(np.concatenate(query_parts, axis=0)),
+        torch.from_numpy(np.concatenate(target_parts, axis=0)),
+        torch.from_numpy(np.concatenate(batch_id_parts, axis=0)),
+        torch.tensor(sample_indices, dtype=torch.long),
+        torch.from_numpy(branch_mask),
+    )
 
 
-def _resolve_repo_path(raw_path: str | Path) -> Path:
-    path = Path(raw_path).expanduser()
-    if not path.is_absolute():
-        path = REPOSITORY_ROOT / path
-    return path.resolve(strict=False)
-
-
-def _manifest_path(path: Path) -> str:
-    try:
-        return str(path.resolve(strict=False).relative_to(REPOSITORY_ROOT))
-    except ValueError:
-        return str(path)
-
-
-def _require_file(path: Path, role: str) -> None:
-    if not path.exists():
-        raise FileNotFoundError(f"{role} does not exist: {path}")
-    if not path.is_file():
-        raise IsADirectoryError(f"{role} is not a regular file: {path}")
-
-
-def _validate_component(value: str, name: str) -> str:
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{name} must be a non-empty string")
-    if value.lower() in _AMBIGUOUS_RUN_IDS:
-        raise ValueError(f"{name} cannot use ambiguous value: {value!r}")
-    if not _SAFE_COMPONENT.fullmatch(value):
-        raise ValueError(
-            f"{name} contains unsafe characters: {value!r}; use letters, numbers, "
-            "'.', '_' or '-'."
-        )
-    return value
-
-
-def _utc_now() -> str:
+def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _build_run_id(config: ProgressiveDistillationConfig) -> str:
-    if config.run_id is not None:
-        return _validate_component(config.run_id, "run_id")
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return f"{timestamp}_distill_progressive_stage{config.stage}"
+def resolve_path(path: Path) -> Path:
+    path = path.expanduser()
+    if path.is_absolute():
+        return path.resolve(strict=False)
+    return (REPO_ROOT / path).resolve(strict=False)
 
 
-def _print_resolved_config(config: ProgressiveDistillationConfig) -> None:
-    values = asdict(config)
-    def display_path(path: Optional[Path]) -> Optional[str]:
-        return None if path is None else str(_resolve_repo_path(path))
-
-    values.update(
-        {
-            "dataset_path": str(_resolve_repo_path(config.dataset_path)),
-            "baseline_checkpoint": display_path(config.baseline_checkpoint),
-            "stage1_checkpoint": display_path(config.stage1_checkpoint),
-            "stage2_checkpoint": display_path(config.stage2_checkpoint),
-            "results_root": str(_resolve_repo_path(config.results_root)),
-            "learning_rate": config.learning_rate,
-            "noise_seed_start": config.noise_seed_start,
-            "trajectory_target_weights": config.trajectory_target_weights,
-            "trajectory_field_weights": config.trajectory_field_weights,
-            "cfd_field_weights": config.cfd_field_weights,
-            "lambda_cfd": config.lambda_cfd,
-        }
-    )
-    print(json.dumps(values, indent=2, sort_keys=True, default=str))
+def require_file(path: Path, label: str) -> None:
+    if not path.is_file():
+        raise FileNotFoundError(f"{label} is not a file: {path}")
 
 
-def parse_args(argv: Optional[Sequence[str]] = None) -> tuple[ProgressiveDistillationConfig, bool]:
-    """Parse a side-effect-free preview configuration or a formal run request."""
-
-    parser = argparse.ArgumentParser(
-        description=(
-            "Run one progressive distillation stage. Without --run, only the "
-            "resolved configuration is printed."
-        )
-    )
-    parser.add_argument(
-        "--run",
-        action="store_true",
-        help="Enable data loading, checkpoint loading, artifact creation, and training.",
-    )
-    parser.add_argument(
-        "--stage",
-        type=int,
-        choices=(1, 2, 3),
-        help="Progressive stage; required together with --run.",
-    )
-    parser.add_argument("--device", default="cuda:1", help="Torch device, for example cuda:1 or cpu.")
-    parser.add_argument("--dataset", default=str(DEFAULT_DATASET_PATH), help="Existing HDF5 dataset path.")
-    parser.add_argument(
-        "--teacher-checkpoint",
-        dest="baseline_checkpoint",
-        default=str(DEFAULT_BASELINE_CHECKPOINT),
-        help=(
-            "Baseline diffusion checkpoint for the frozen teacher and Stage 1 initialization; "
-            "loaded with weights_only=True."
-        ),
-    )
-    parser.add_argument(
-        "--stage1-checkpoint",
-        default=None,
-        help=(
-            "Current Python pipeline new-format Stage 1 initialization checkpoint for Stage 2. "
-            "Historical notebook distillation checkpoints are unsupported."
-        ),
-    )
-    parser.add_argument(
-        "--stage2-checkpoint",
-        default=None,
-        help=(
-            "Current Python pipeline new-format Stage 2 initialization checkpoint for Stage 3. "
-            "Historical notebook distillation checkpoints are unsupported."
-        ),
-    )
-    parser.add_argument(
-        "--results-root",
-        default=str(DEFAULT_RESULTS_ROOT),
-        help="Root directory under which results/distill_progressive/<run_id> is created.",
-    )
-    parser.add_argument("--run-id", default=None, help="Optional unique filesystem-safe run identifier.")
-    args = parser.parse_args(argv)
-    if args.run and args.stage is None:
-        parser.error("--stage is required when --run is supplied")
-    config = ProgressiveDistillationConfig(
-        stage=args.stage,
-        dataset_path=Path(args.dataset),
-        baseline_checkpoint=Path(args.baseline_checkpoint),
-        stage1_checkpoint=Path(args.stage1_checkpoint) if args.stage1_checkpoint else None,
-        stage2_checkpoint=Path(args.stage2_checkpoint) if args.stage2_checkpoint else None,
-        results_root=Path(args.results_root),
-        device=args.device,
-        run_id=args.run_id,
-    )
-    return config, bool(args.run)
+def decode_text(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    if isinstance(value, np.bytes_):
+        return value.tobytes().decode("utf-8")
+    return str(value)
 
 
-def resolve_device(raw_device: str) -> torch.device:
-    """Validate a requested device before reading HDF5 or checkpoint data."""
+def decode_attr(value: Any) -> Any:
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    if isinstance(value, np.bytes_):
+        return value.tobytes().decode("utf-8")
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
 
-    try:
-        device = torch.device(raw_device)
-    except (TypeError, RuntimeError) as exc:
-        raise ValueError(f"Invalid torch device: {raw_device!r}") from exc
-    if device.type == "cuda":
-        if device.index is None:
-            raise ValueError(
-                "CUDA device must include an explicit index, for example cuda:0"
-            )
-        if not torch.cuda.is_available():
-            raise RuntimeError(
-                f"Requested device {raw_device!r}, but CUDA is not available; use --device cpu"
-            )
-        count = int(torch.cuda.device_count())
-        if device.index < 0 or device.index >= count:
-            raise RuntimeError(
-                f"Requested CUDA device index {device.index}, but only {count} device(s) are available"
-            )
-    elif device.type != "cpu":
-        raise ValueError(f"Only CPU and explicitly indexed CUDA devices are supported, got {raw_device!r}")
-    return device
+
+def stable_int_seed(text: str) -> int:
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "little", signed=False) % (2**63 - 1)
+
+
+def stable_sample_seed(base_seed: int, sample_index: int) -> int:
+    return stable_int_seed(f"{base_seed}:{sample_index}")
 
 
 def set_global_seed(seed: int) -> None:
-    """Set global RNGs while preserving legacy global NumPy query sampling."""
-
-    random.seed(int(seed))
-    np.random.seed(int(seed))
-    torch.manual_seed(int(seed))
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
     if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(int(seed))
+        torch.cuda.manual_seed_all(seed)
 
 
-def _trusted_checkpoint_path(path: str | Path, role: str) -> Path:
-    resolved = _resolve_repo_path(path)
-    try:
-        resolved.relative_to(TRUSTED_CHECKPOINT_ROOT.resolve())
-    except ValueError as exc:
-        raise ValueError(
-            f"{role} must be an explicitly supplied file under {TRUSTED_CHECKPOINT_ROOT}"
-        ) from exc
-    _require_file(resolved, role)
-    return resolved
+def resolve_device(text: str) -> torch.device:
+    device = torch.device(text)
+    if device.type == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError(f"Requested {device}, but CUDA is unavailable")
+        if device.index is not None and device.index >= torch.cuda.device_count():
+            raise RuntimeError(
+                f"Requested {device}, but only {torch.cuda.device_count()} "
+                "CUDA device(s) are visible"
+            )
+    return device
 
 
-def _stage_checkpoint_path(path: str | Path, role: str) -> Path:
-    """Resolve an explicitly supplied current-stage checkpoint path."""
-
-    resolved = _resolve_repo_path(path)
-    _require_file(resolved, role)
-    return resolved
-
-
-def load_baseline_checkpoint(path: str | Path) -> Mapping[str, Any]:
-    """Load the trusted local baseline diffusion checkpoint."""
-
-    resolved = _trusted_checkpoint_path(path, "Baseline diffusion checkpoint")
-    checkpoint = torch.load(resolved, map_location="cpu", weights_only=True)
+def load_checkpoint(path: Path) -> Mapping[str, Any]:
+    checkpoint = torch.load(path, map_location="cpu", weights_only=True)
     if not isinstance(checkpoint, Mapping):
-        raise TypeError(
-            "Baseline diffusion checkpoint must contain a mapping, "
-            f"got {type(checkpoint).__name__}"
-        )
+        raise TypeError(f"Checkpoint is not a mapping: {path}")
     return checkpoint
 
 
-def load_new_stage_checkpoint(path: str | Path, expected_stage: int) -> Mapping[str, Any]:
-    """Load a current Python new-format checkpoint for one exact stage."""
-
-    resolved = _stage_checkpoint_path(
-        path, f"Current Python Stage {expected_stage} checkpoint"
-    )
-    try:
-        checkpoint = torch.load(resolved, map_location="cpu", weights_only=True)
-    except Exception as exc:
-        raise ValueError(
-            "Stage initialization checkpoint is not a current Python new-format "
-            "checkpoint; historical notebook distillation checkpoints are unsupported."
-        ) from exc
-    if not isinstance(checkpoint, Mapping):
-        raise TypeError(
-            "Current Python stage checkpoint must contain a mapping, "
-            f"got {type(checkpoint).__name__}"
-        )
-    stored_stage = checkpoint.get("stage")
-    if stored_stage is None:
-        raise KeyError("Checkpoint is missing required field: stage")
-    if int(stored_stage) != expected_stage:
-        raise ValueError(
-            f"Checkpoint stage {stored_stage!r} does not match requested stage {expected_stage}"
-        )
-    if checkpoint.get("schema_version") != "progressive_distillation_stage_v1":
-        raise ValueError(
-            "Stage initialization checkpoint is not a current Python new-format "
-            "checkpoint; historical notebook distillation checkpoints are unsupported."
-        )
-    if checkpoint.get("stage_identity_source") != "explicit_new_checkpoint":
-        raise ValueError(
-            "Stage initialization checkpoint does not declare the current Python "
-            "checkpoint identity source"
-        )
-    return checkpoint
-
-
-def _require_field(checkpoint: Mapping[str, Any], name: str) -> Any:
+def require_checkpoint_field(checkpoint: Mapping[str, Any], name: str) -> Any:
     if name not in checkpoint:
-        raise KeyError(f"Checkpoint is missing required field: {name}")
+        raise KeyError(f"Checkpoint missing required field: {name}")
     return checkpoint[name]
 
 
-def _as_list(value: Any, name: str) -> list[Any]:
-    if torch.is_tensor(value):
-        value = value.detach().cpu().tolist()
-    elif isinstance(value, np.ndarray):
-        value = value.tolist()
-    if not isinstance(value, (list, tuple)):
-        raise TypeError(f"Checkpoint field {name} must be a list-like value")
-    return list(value)
-
-
-def _compare_exact(name: str, expected: Any, actual: Any) -> None:
-    if actual != expected:
-        raise ValueError(f"Checkpoint field {name!r} does not match the current protocol")
-
-
-def _compare_numeric(name: str, expected: Any, actual: Any) -> None:
-    try:
-        expected_tensor = torch.as_tensor(expected, dtype=torch.float64, device="cpu")
-        actual_tensor = torch.as_tensor(actual, dtype=torch.float64, device="cpu")
-    except (TypeError, ValueError, RuntimeError) as exc:
-        raise TypeError(f"Checkpoint field {name!r} is not numeric") from exc
-    if expected_tensor.shape != actual_tensor.shape or not torch.allclose(
-        expected_tensor,
-        actual_tensor,
-        rtol=1.0e-6,
-        atol=1.0e-8,
-        equal_nan=False,
-    ):
-        raise ValueError(f"Checkpoint field {name!r} does not match the current protocol")
-
-
-def _compare_state_dict(
-    model: PointSetDiffusionDenoiser,
-    state_dict: Any,
-    field_name: str,
-) -> None:
-    if not isinstance(state_dict, Mapping):
-        raise TypeError(f"Checkpoint field {field_name} must be a mapping")
-    expected = model.state_dict()
-    if set(state_dict) != set(expected):
-        missing = sorted(set(expected).difference(state_dict))
-        unexpected = sorted(set(state_dict).difference(expected))
-        raise ValueError(
-            f"{field_name} keys do not match the canonical model; missing={missing}, unexpected={unexpected}"
+def read_h5_protocol(path: Path) -> H5Protocol:
+    with h5py.File(path, "r") as handle:
+        attrs = {key: decode_attr(value) for key, value in handle.attrs.items()}
+        n_samples = int(attrs.get("n_samples", len(handle["samples"])))
+        branch_names = tuple(
+            decode_text(attrs["branch_channel_names"]).split("\n")
         )
-    expected_parameters = 0
-    actual_parameters = 0
-    for name, expected_tensor in expected.items():
-        actual_tensor = state_dict[name]
-        if not torch.is_tensor(actual_tensor):
-            raise TypeError(f"{field_name}[{name!r}] must be a tensor")
-        if tuple(actual_tensor.shape) != tuple(expected_tensor.shape):
+        trunk_names = tuple(
+            decode_text(attrs["trunk_channel_names"]).split("\n")
+        )
+        output_names = tuple(
+            decode_text(attrs["output_channel_names"]).split("\n")
+        )
+        return H5Protocol(
+            path=path,
+            dataset_role=decode_text(attrs.get("dataset_role", "")),
+            split_role=decode_text(attrs.get("split_role", "")),
+            n_samples=n_samples,
+            branch_channel_names=branch_names,
+            trunk_channel_names=trunk_names,
+            output_channel_names=output_names,
+            attrs=attrs,
+        )
+
+
+def checkpoint_path_field(checkpoint: Mapping[str, Any], name: str) -> Path:
+    return Path(str(require_checkpoint_field(checkpoint, name))).expanduser().resolve(
+        strict=False
+    )
+
+
+def validate_base_protocol(
+    checkpoint: Mapping[str, Any],
+    train_h5: Path,
+    val_h5: Path,
+    train_protocol: H5Protocol,
+    val_protocol: H5Protocol,
+) -> None:
+    if "test" in str(train_h5).lower() or "test" in str(val_h5).lower():
+        raise ValueError("Test datasets are forbidden in distillation")
+
+    if train_protocol.n_samples != EXPECTED_TRAIN_SAMPLES:
+        raise ValueError(
+            f"Expected {EXPECTED_TRAIN_SAMPLES} training samples, "
+            f"got {train_protocol.n_samples}"
+        )
+    if val_protocol.n_samples != EXPECTED_VAL_SAMPLES:
+        raise ValueError(
+            f"Expected {EXPECTED_VAL_SAMPLES} validation samples, "
+            f"got {val_protocol.n_samples}"
+        )
+    if "test" in train_protocol.split_role.lower():
+        raise ValueError("Training HDF5 advertises a test split")
+    if "test" in val_protocol.split_role.lower():
+        raise ValueError("Validation HDF5 advertises a test split")
+    if val_protocol.split_role.lower() != "validation":
+        raise ValueError(
+            f"Expected validation split_role, got {val_protocol.split_role!r}"
+        )
+
+    for protocol in (train_protocol, val_protocol):
+        if protocol.output_channel_names != EXPECTED_OUTPUTS:
             raise ValueError(
-                f"{field_name}[{name!r}] shape {tuple(actual_tensor.shape)} does not match "
-                f"{tuple(expected_tensor.shape)}"
+                f"Unexpected output channels in {protocol.path.name}: "
+                f"{protocol.output_channel_names}"
             )
-        expected_parameters += int(expected_tensor.numel())
-        actual_parameters += int(actual_tensor.numel())
-    if expected_parameters != actual_parameters:
-        raise ValueError(f"{field_name} parameter count does not match the canonical model")
-
-
-def _expected_diffusion_config(config: ProgressiveDistillationConfig) -> dict[str, Any]:
-    return {
-        "T": int(config.diffusion_steps),
-        "beta_start": float(config.beta_start),
-        "beta_end": float(config.beta_end),
-    }
-
-
-def validate_baseline_checkpoint(
-    checkpoint: Mapping[str, Any],
-    checkpoint_path: Path,
-    *,
-    model: PointSetDiffusionDenoiser,
-    model_config: Mapping[str, Any],
-    diffusion_config: Mapping[str, Any],
-    data: Mapping[str, Any],
-    split: DiffusionCaseSplit,
-    normalizer: FeatureNormalizer,
-    local_aspect_mean: float,
-    local_aspect_std: float,
-    dataset_path: Path,
-) -> dict[str, Any]:
-    _compare_exact("model_config", dict(model_config), dict(_require_field(checkpoint, "model_config")))
-    _compare_exact(
-        "diffusion_config",
-        dict(diffusion_config),
-        dict(_require_field(checkpoint, "diffusion_config")),
-    )
-    for name, expected in (
-        ("branch_channel_names", list(data["branch_channel_names"])),
-        ("trunk_channel_names", list(data["trunk_channel_names"])),
-        ("output_channel_names", list(data["output_channel_names"])),
-        ("train_cases", list(split.train_cases)),
-        ("val_cases", list(split.val_cases)),
-        ("test_cases", list(split.test_cases)),
-    ):
-        _compare_exact(name, expected, _as_list(_require_field(checkpoint, name), name))
-    stored_normalizer = _require_field(checkpoint, "y_normalizer")
-    if not isinstance(stored_normalizer, Mapping):
-        raise TypeError("Checkpoint y_normalizer must be a mapping")
-    _compare_numeric(
-        "y_normalizer.mean",
-        normalizer.mean.detach().cpu(),
-        _require_field(stored_normalizer, "mean"),
-    )
-    _compare_numeric(
-        "y_normalizer.std",
-        normalizer.std.detach().cpu(),
-        _require_field(stored_normalizer, "std"),
-    )
-    _compare_numeric("local_aspect_mean", local_aspect_mean, _require_field(checkpoint, "local_aspect_mean"))
-    _compare_numeric("local_aspect_std", local_aspect_std, _require_field(checkpoint, "local_aspect_std"))
-    dataset_reference = Path(str(_require_field(checkpoint, "dataset_h5"))).expanduser().resolve(strict=False)
-    if dataset_reference != dataset_path.resolve(strict=False):
-        raise ValueError(
-            f"Checkpoint dataset_h5 {dataset_reference} does not match {dataset_path.resolve(strict=False)}"
-        )
-    state_dict = _require_field(checkpoint, "model_state_dict")
-    _compare_state_dict(model, state_dict, "model_state_dict")
-    model.load_state_dict(state_dict, strict=True)
-    epoch = int(_require_field(checkpoint, "epoch"))
-    val_loss = float(_require_field(checkpoint, "val_loss"))
-    best_val_loss = float(
-        checkpoint.get("best_val_loss", checkpoint.get("run_best_val_loss", float("nan")))
-    )
-    if not math.isfinite(val_loss) or not math.isfinite(best_val_loss):
-        raise ValueError("Baseline checkpoint validation values must be finite")
-    dataset_checksum = checkpoint.get("dataset_sha256")
-    return {
-        "path": _manifest_path(checkpoint_path),
-        "sha256": sha256_file(checkpoint_path),
-        "epoch": epoch,
-        "validation_loss": val_loss,
-        "best_validation_loss": best_val_loss,
-        "dataset_path": _manifest_path(dataset_path),
-        "dataset_sha256": dataset_checksum if isinstance(dataset_checksum, str) else None,
-        "dataset_checksum_available": isinstance(dataset_checksum, str),
-    }
-
-
-def _split_indices_from_checkpoint(
-    checkpoint: Mapping[str, Any],
-    split: DiffusionCaseSplit,
-) -> None:
-    stored = _require_field(checkpoint, "split_indices")
-    if not isinstance(stored, Mapping):
-        raise TypeError("Checkpoint split_indices must be a mapping")
-    expected = {
-        "train_idx": list(split.train_indices),
-        "val_idx": list(split.val_indices),
-        "test_idx": list(split.test_indices),
-    }
-    for name, expected_indices in expected.items():
-        actual = [
-            int(value)
-            for value in _as_list(_require_field(stored, name), f"split_indices.{name}")
-        ]
-        _compare_exact(f"split_indices.{name}", expected_indices, actual)
-
-
-def _normalization_from_checkpoint(
-    checkpoint: Mapping[str, Any],
-    normalizer: FeatureNormalizer,
-    local_aspect_mean: float,
-    local_aspect_std: float,
-) -> None:
-    normalization = _require_field(checkpoint, "normalization")
-    if not isinstance(normalization, Mapping):
-        raise TypeError("Checkpoint normalization must be a mapping")
-    _compare_numeric("normalization.target_mean", normalizer.mean.detach().cpu(), _require_field(normalization, "target_mean"))
-    _compare_numeric("normalization.target_std", normalizer.std.detach().cpu(), _require_field(normalization, "target_std"))
-    _compare_numeric("normalization.local_aspect_mean", local_aspect_mean, _require_field(normalization, "local_aspect_mean"))
-    _compare_numeric("normalization.local_aspect_std", local_aspect_std, _require_field(normalization, "local_aspect_std"))
-
-
-def _expected_segment_schedules(config: ProgressiveDistillationConfig, device: torch.device) -> list[torch.Tensor]:
-    boundaries = tuple(int(value) for value in config.student_timesteps)
-    if len(boundaries) != len(config.teacher_transition_counts) + 1:
-        raise ValueError("Student timestep count must be one greater than segment count")
-    if boundaries[0] != config.diffusion_steps - 1 or boundaries[-1] != 0:
-        raise ValueError("Student timestep schedule must include the diffusion endpoints")
-    if any(left <= right for left, right in zip(boundaries, boundaries[1:])):
-        raise ValueError("Student timestep schedule must be strictly descending")
-    if sum(int(value) for value in config.teacher_transition_counts) != config.teacher_sampling_steps - 1:
-        raise ValueError("Teacher transition counts must sum to teacher_sampling_steps - 1")
-    return [
-        build_integer_segment_schedule(
-            boundaries[index],
-            boundaries[index + 1],
-            int(config.teacher_transition_counts[index]),
-            device=device,
-        )
-        for index in range(len(config.teacher_transition_counts))
-    ]
-
-
-def _compare_schedule_list(name: str, actual: Any, expected: Sequence[torch.Tensor]) -> None:
-    actual_list = _as_list(actual, name)
-    if len(actual_list) != len(expected):
-        raise ValueError(f"Checkpoint field {name!r} has the wrong number of segments")
-    for index, (actual_segment, expected_segment) in enumerate(zip(actual_list, expected)):
-        _compare_exact(
-            f"{name}[{index}]",
-            expected_segment.detach().cpu().tolist(),
-            _as_list(actual_segment, f"{name}[{index}]"),
-        )
-
-
-def validate_stage_checkpoint(
-    checkpoint: Mapping[str, Any],
-    checkpoint_path: Path,
-    *,
-    stage: int,
-    model: PointSetDiffusionDenoiser,
-    model_config: Mapping[str, Any],
-    diffusion_config: Mapping[str, Any],
-    data: Mapping[str, Any],
-    split: DiffusionCaseSplit,
-    normalizer: FeatureNormalizer,
-    local_aspect_mean: float,
-    local_aspect_std: float,
-    dataset_identity: Mapping[str, Any],
-    baseline_identity: Mapping[str, Any],
-    expected_initialization_path: Optional[Path],
-    config: ProgressiveDistillationConfig,
-    segment_schedules: Sequence[torch.Tensor],
-) -> dict[str, Any]:
-    _compare_exact(
-        "schema_version",
-        "progressive_distillation_stage_v1",
-        _require_field(checkpoint, "schema_version"),
-    )
-    _compare_exact("stage", stage, _require_field(checkpoint, "stage"))
-    stage_identity_source = _require_field(checkpoint, "stage_identity_source")
-    _compare_exact("stage_identity_source", "explicit_new_checkpoint", stage_identity_source)
-    _compare_exact("model_config", dict(model_config), dict(_require_field(checkpoint, "model_config")))
-    _compare_exact("diffusion_config", dict(diffusion_config), dict(_require_field(checkpoint, "diffusion_config")))
-    state_dict = _require_field(checkpoint, "student_model_state_dict")
-    _compare_state_dict(model, state_dict, "student_model_state_dict")
-    for name, expected in (
-        ("branch_channel_names", list(data["branch_channel_names"])),
-        ("trunk_channel_names", list(data["trunk_channel_names"])),
-        ("output_channel_names", list(data["output_channel_names"])),
-    ):
-        _compare_exact(name, expected, _as_list(_require_field(checkpoint, name), name))
-    stored_split = _require_field(checkpoint, "split_case_ids")
-    if not isinstance(stored_split, Mapping):
-        raise TypeError("Checkpoint split_case_ids must be a mapping")
-    for name, expected in (
-        ("train", list(split.train_cases)),
-        ("val", list(split.val_cases)),
-        ("test", list(split.test_cases)),
-    ):
-        _compare_exact(
-            f"split_case_ids.{name}",
-            expected,
-            _as_list(_require_field(stored_split, name), f"split_case_ids.{name}"),
-        )
-    stored_dataset = _require_field(checkpoint, "dataset_identity")
-    if not isinstance(stored_dataset, Mapping):
-        raise TypeError("Checkpoint dataset_identity must be a mapping")
-    for name in ("path", "resolved_path", "size_bytes", "sha256"):
-        _compare_exact(
-            f"dataset_identity.{name}",
-            _require_field(dataset_identity, name),
-            _require_field(stored_dataset, name),
-        )
-    _split_indices_from_checkpoint(checkpoint, split)
-    _normalization_from_checkpoint(checkpoint, normalizer, local_aspect_mean, local_aspect_std)
-    _compare_exact(
-        "student_timesteps",
-        list(config.student_timesteps),
-        [int(value) for value in _as_list(_require_field(checkpoint, "student_timesteps"), "student_timesteps")],
-    )
-    _compare_schedule_list(
-        "teacher_segment_schedules",
-        _require_field(checkpoint, "teacher_segment_schedules"),
-        segment_schedules,
-    )
-    _compare_exact(
-        "student_sampling_steps",
-        config.student_sampling_steps,
-        int(_require_field(checkpoint, "student_sampling_steps")),
-    )
-    _compare_exact(
-        "teacher_sampling_steps",
-        config.teacher_sampling_steps,
-        _require_field(checkpoint, "teacher_sampling_steps"),
-    )
-    _compare_exact(
-        "teacher_transition_counts",
-        list(config.teacher_transition_counts),
-        [
-            int(value)
-            for value in _as_list(
-                _require_field(checkpoint, "teacher_transition_counts"),
-                "teacher_transition_counts",
-            )
-        ],
-    )
-    _compare_numeric(
-        "trajectory_target_weights",
-        list(config.trajectory_target_weights),
-        _require_field(checkpoint, "trajectory_target_weights"),
-    )
-    _compare_numeric(
-        "trajectory_field_weights",
-        config.trajectory_field_weights,
-        _require_field(checkpoint, "trajectory_field_weights"),
-    )
-    _compare_numeric(
-        "cfd_field_weights",
-        config.cfd_field_weights,
-        _require_field(checkpoint, "cfd_field_weights"),
-    )
-    _compare_numeric("lambda_cfd", config.lambda_cfd, _require_field(checkpoint, "lambda_cfd"))
-    _compare_exact(
-        "query_sampling_protocol",
-        "legacy_global_numpy",
-        _require_field(checkpoint, "query_sampling_protocol"),
-    )
-    _compare_exact("global_seed", config.global_seed, _require_field(checkpoint, "global_seed"))
-    _compare_exact("split_seed", config.split_seed, _require_field(checkpoint, "split_seed"))
-    noise_seed_policy = _require_field(checkpoint, "noise_seed_policy")
-    if not isinstance(noise_seed_policy, Mapping):
-        raise TypeError("Checkpoint noise_seed_policy must be a mapping")
-    _compare_exact("noise_seed_policy.kind", "per_batch_increment", _require_field(noise_seed_policy, "kind"))
-    _compare_exact(
-        "noise_seed_policy.training_seed_start",
-        config.noise_seed_start,
-        _require_field(noise_seed_policy, "training_seed_start"),
-    )
-    _compare_exact(
-        "noise_seed_policy.validation_seed_start",
-        config.validation_noise_seed,
-        _require_field(noise_seed_policy, "validation_seed_start"),
-    )
-    _compare_exact("initialization_mode", "model_only", _require_field(checkpoint, "initialization_mode"))
-    stored_baseline_identity = _require_field(checkpoint, "baseline_teacher_identity")
-    if not isinstance(stored_baseline_identity, Mapping):
-        raise TypeError("Checkpoint baseline_teacher_identity must be a mapping")
-    for name in ("path", "sha256", "size_bytes"):
-        _compare_exact(
-            f"baseline_teacher_identity.{name}",
-            _require_field(baseline_identity, name),
-            _require_field(stored_baseline_identity, name),
-        )
-    stored_initialization_identity = _require_field(checkpoint, "initialization_checkpoint_identity")
-    if not isinstance(stored_initialization_identity, Mapping):
-        raise TypeError("Checkpoint initialization_checkpoint_identity must be a mapping")
-    _compare_exact(
-        "initialization_checkpoint_identity.initialization_mode",
-        "model_only",
-        _require_field(stored_initialization_identity, "initialization_mode"),
-    )
-    stored_initialization_path = _require_field(
-        stored_initialization_identity, "path"
-    )
-    stored_initialization_sha256 = _require_field(
-        stored_initialization_identity, "sha256"
-    )
-    if expected_initialization_path is not None:
-        _compare_exact(
-            "initialization_checkpoint_identity.path",
-            _manifest_path(expected_initialization_path),
-            stored_initialization_path,
-        )
-        _compare_exact(
-            "initialization_checkpoint_identity.sha256",
-            sha256_file(expected_initialization_path),
-            stored_initialization_sha256,
-        )
-    elif (
-        not isinstance(stored_initialization_path, str)
-        or not stored_initialization_path
-        or not isinstance(stored_initialization_sha256, str)
-        or not stored_initialization_sha256
-    ):
-        raise ValueError(
-            "Stage checkpoint initialization identity is incomplete and cannot be verified"
-        )
-    expected_source = "explicit_baseline_checkpoint" if stage == 1 else "explicit_new_checkpoint"
-    _compare_exact(
-        "initialization_checkpoint_identity.stage_identity_source",
-        expected_source,
-        _require_field(stored_initialization_identity, "stage_identity_source"),
-    )
-    if stage == 1:
-        if "stage" in stored_initialization_identity:
+        if protocol.trunk_channel_names != EXPECTED_TRUNK:
             raise ValueError(
-                "Stage 1 initialization identity must reference the baseline checkpoint"
+                f"Unexpected trunk channels in {protocol.path.name}: "
+                f"{protocol.trunk_channel_names}"
             )
-    else:
-        _compare_exact(
-            "initialization_checkpoint_identity.stage",
-            stage - 1,
-            _require_field(stored_initialization_identity, "stage"),
-        )
-    expected_objective = {
-        "teacher_forcing": True,
-        "autoregressive_student_rollout": stage == 3,
-        "direct_cfd_supervision": stage == 3,
-        "lambda_cfd": config.lambda_cfd,
-    }
-    stored_objective = _require_field(checkpoint, "objective")
-    if not isinstance(stored_objective, Mapping):
-        raise TypeError("Checkpoint objective must be a mapping")
-    for name, expected in expected_objective.items():
-        actual = _require_field(stored_objective, name)
-        if isinstance(expected, float):
-            _compare_numeric(f"objective.{name}", expected, actual)
-        else:
-            _compare_exact(f"objective.{name}", expected, actual)
-    for name, expected in (
-        ("teacher_forcing", True),
-        ("autoregressive_student_rollout", stage == 3),
-        ("direct_cfd_supervision", stage == 3),
+
+    if train_protocol.branch_channel_names != val_protocol.branch_channel_names:
+        raise ValueError("Training/validation branch channels differ")
+
+    if checkpoint_path_field(checkpoint, "train_dataset_h5") != train_h5:
+        raise ValueError("Base checkpoint training HDF5 does not match requested HDF5")
+    if checkpoint_path_field(checkpoint, "val_dataset_h5") != val_h5:
+        raise ValueError("Base checkpoint validation HDF5 does not match requested HDF5")
+
+    if tuple(require_checkpoint_field(checkpoint, "branch_channel_names")) != (
+        train_protocol.branch_channel_names
     ):
-        _compare_exact(name, expected, _require_field(checkpoint, name))
-    optimizer_config = _require_field(checkpoint, "optimizer_config")
-    if not isinstance(optimizer_config, Mapping):
-        raise TypeError("Checkpoint optimizer_config must be a mapping")
-    _compare_exact("optimizer_config.name", "AdamW", _require_field(optimizer_config, "name"))
-    for name, expected in (
-        ("learning_rate", config.learning_rate),
-        ("weight_decay", config.weight_decay),
-        ("grad_clip", config.grad_clip),
+        raise ValueError("Checkpoint/branch channel mismatch")
+    if tuple(require_checkpoint_field(checkpoint, "trunk_channel_names")) != (
+        train_protocol.trunk_channel_names
     ):
-        _compare_numeric(
-            f"optimizer_config.{name}", expected, _require_field(optimizer_config, name)
+        raise ValueError("Checkpoint/trunk channel mismatch")
+    if tuple(require_checkpoint_field(checkpoint, "output_channel_names")) != (
+        train_protocol.output_channel_names
+    ):
+        raise ValueError("Checkpoint/output channel mismatch")
+
+    if require_checkpoint_field(checkpoint, "normalizer_weighting") != (
+        "subdomain_balanced"
+    ):
+        raise ValueError("Base checkpoint normalizer must be subdomain-balanced")
+
+    diffusion = require_checkpoint_field(checkpoint, "diffusion_config")
+    if diffusion.get("prediction_target") != "epsilon":
+        raise ValueError("Only epsilon-prediction checkpoints are supported")
+    if int(diffusion["T"]) != 1000:
+        raise ValueError(f"Expected T=1000, got {diffusion['T']}")
+
+    model = PointSetDiffusionDenoiser(**dict(checkpoint["model_config"]))
+    model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+    n_params = sum(p.numel() for p in model.parameters())
+    if n_params != EXPECTED_PARAMETER_COUNT:
+        raise RuntimeError(
+            f"Model parameter count {n_params:,} != {EXPECTED_PARAMETER_COUNT:,}"
         )
-    _compare_exact("optimizer_config.scheduler", "none", _require_field(optimizer_config, "scheduler"))
-    _compare_exact("rounding_policy", "round", _require_field(checkpoint, "rounding_policy"))
-    global_schedule = build_ddim_timesteps(
-        config.teacher_sampling_steps,
-        config.diffusion_steps,
+
+
+def build_stage_schedules(total_diffusion_steps: int) -> tuple[StageSchedule, StageSchedule]:
+    anchor = build_ddim_timesteps(
+        ANCHOR_NFE,
+        total_diffusion_steps,
         device="cpu",
-    )
-    _compare_exact(
-        "teacher_global_schedule",
-        global_schedule.tolist(),
-        [
-            int(value)
-            for value in _as_list(
-                _require_field(checkpoint, "teacher_global_schedule"),
-                "teacher_global_schedule",
-            )
-        ],
-    )
-    teacher_path = _require_field(checkpoint, "teacher_checkpoint_path")
-    if _resolve_repo_path(teacher_path) != _resolve_repo_path(_require_field(baseline_identity, "absolute_path")):
-        raise ValueError("Stage checkpoint teacher_checkpoint_path does not match the baseline checkpoint")
-    initialization_checkpoint_path = _require_field(
-        checkpoint, "initialization_checkpoint_path"
-    )
-    _compare_exact(
-        "initialization_checkpoint_path",
-        stored_initialization_path,
-        initialization_checkpoint_path,
-    )
+    ).cpu().tolist()
+    nested10 = anchor[::2]
+    nested5 = anchor[::4]
 
-    return {
-        "stage": stage,
-        "stage_identity_source": stage_identity_source,
-        "path": _manifest_path(checkpoint_path),
-        "sha256": sha256_file(checkpoint_path),
-        "epoch": int(_require_field(checkpoint, "epoch")),
-        "validation_loss": checkpoint.get("val_loss"),
-        "best_validation_loss": checkpoint.get("best_val_loss"),
-    }
+    if len(anchor) != 20 or len(nested10) != 10 or len(nested5) != 5:
+        raise RuntimeError("Unexpected nested schedule lengths")
+    if nested10 != anchor[::2] or nested5 != nested10[::2]:
+        raise RuntimeError("Nested schedule construction failed")
+
+    stage1 = StageSchedule(
+        stage=1,
+        teacher_nfe=20,
+        student_nfe=10,
+        teacher_sources=tuple(int(x) for x in anchor),
+        student_sources=tuple(int(x) for x in nested10),
+    )
+    stage2 = StageSchedule(
+        stage=2,
+        teacher_nfe=10,
+        student_nfe=5,
+        teacher_sources=tuple(int(x) for x in nested10),
+        student_sources=tuple(int(x) for x in nested5),
+    )
+    validate_stage_schedule(stage1)
+    validate_stage_schedule(stage2)
+    return stage1, stage2
 
 
-def _build_data_loaders(
-    data: Mapping[str, Any],
-    split: DiffusionCaseSplit,
-    normalizer: FeatureNormalizer,
-    local_aspect_mean: float,
-    local_aspect_std: float,
-    config: ProgressiveDistillationConfig,
-) -> tuple[DataLoader, DataLoader]:
-    if config.num_workers != 0:
-        raise ValueError("num_workers must be 0 for the canonical legacy RNG path")
-    train_dataset = DiffusionCellDataset(
-        samples=data["samples"],
-        sample_indices=split.train_indices,
-        n_query_points=config.num_query_points,
-        random_query=True,
-        target_normalizer=normalizer,
-        local_aspect_mean=local_aspect_mean,
-        local_aspect_std=local_aspect_std,
-        branch_channel_names=data["branch_channel_names"],
-    )
-    val_dataset = DiffusionCellDataset(
-        samples=data["samples"],
-        sample_indices=split.val_indices,
-        n_query_points=config.num_query_points,
-        random_query=False,
-        target_normalizer=normalizer,
-        local_aspect_mean=local_aspect_mean,
-        local_aspect_std=local_aspect_std,
-        branch_channel_names=data["branch_channel_names"],
-    )
-    loader_kwargs = {
-        "batch_size": config.batch_size,
-        "num_workers": config.num_workers,
-        "collate_fn": collate_diffusion_batch,
-    }
-    return (
-        DataLoader(train_dataset, shuffle=True, **loader_kwargs),
-        DataLoader(val_dataset, shuffle=False, **loader_kwargs),
-    )
+def validate_stage_schedule(schedule: StageSchedule) -> None:
+    teacher = schedule.teacher_sources
+    student = schedule.student_sources
+    if len(teacher) != 2 * len(student):
+        raise ValueError(
+            f"Stage {schedule.stage}: teacher NFE must be exactly 2x student NFE"
+        )
+    if tuple(teacher[::2]) != tuple(student):
+        raise ValueError(
+            f"Stage {schedule.stage}: student sources are not nested teacher sources"
+        )
+    if any(a <= b for a, b in zip(teacher[:-1], teacher[1:])):
+        raise ValueError(f"Stage {schedule.stage}: teacher sources are not descending")
+    if any(a <= b for a, b in zip(student[:-1], student[1:])):
+        raise ValueError(f"Stage {schedule.stage}: student sources are not descending")
 
 
-def build_teacher_and_student(
-    *,
-    config: ProgressiveDistillationConfig,
-    data: Mapping[str, Any],
-    split: DiffusionCaseSplit,
-    normalizer: FeatureNormalizer,
-    local_aspect_mean: float,
-    local_aspect_std: float,
+def build_model_from_checkpoint(
+    checkpoint: Mapping[str, Any],
     device: torch.device,
-    model_config: Mapping[str, Any],
-    diffusion_config: Mapping[str, Any],
-    segment_schedules: Sequence[torch.Tensor],
-    dataset_path: Path,
-    dataset_identity: Mapping[str, Any],
-) -> tuple[PointSetDiffusionDenoiser, PointSetDiffusionDenoiser, dict[str, Any], dict[str, Any]]:
-    teacher, _ = build_diffusion_model(
-        len(data["branch_channel_names"]),
-        len(data["trunk_channel_names"]),
-        len(data["output_channel_names"]),
-    )
-    baseline_path = _trusted_checkpoint_path(config.baseline_checkpoint, "Baseline checkpoint")
-    baseline_checkpoint = load_baseline_checkpoint(baseline_path)
-    baseline_identity = validate_baseline_checkpoint(
-        baseline_checkpoint,
-        baseline_path,
-        model=teacher,
-        model_config=model_config,
-        diffusion_config=diffusion_config,
-        data=data,
-        split=split,
-        normalizer=normalizer,
-        local_aspect_mean=local_aspect_mean,
-        local_aspect_std=local_aspect_std,
-        dataset_path=dataset_path,
-    )
-    baseline_identity["absolute_path"] = str(baseline_path)
-    baseline_identity["resolved_path"] = str(baseline_path.resolve(strict=False))
-    baseline_identity["size_bytes"] = baseline_path.stat().st_size
-
-    student, _ = build_diffusion_model(
-        len(data["branch_channel_names"]),
-        len(data["trunk_channel_names"]),
-        len(data["output_channel_names"]),
-    )
-    initialization_metadata: dict[str, Any] = {
-        "initialization_mode": "model_only",
-        "path": _manifest_path(baseline_path),
-        "sha256": baseline_identity["sha256"],
-        "stage_identity_source": "explicit_baseline_checkpoint",
-    }
-    if config.stage == 1:
-        if config.stage1_checkpoint is not None or config.stage2_checkpoint is not None:
-            raise ValueError("Stage 1 does not accept a stage initialization checkpoint")
-        student.load_state_dict(teacher.state_dict(), strict=True)
-    else:
-        initialization_path = (
-            config.stage1_checkpoint if config.stage == 2 else config.stage2_checkpoint
-        )
-        if initialization_path is None:
-            raise ValueError(
-                f"Stage {config.stage} requires a current Python Stage {config.stage - 1} checkpoint"
-            )
-        initialization_path = _stage_checkpoint_path(
-            initialization_path, f"Stage {config.stage - 1} checkpoint"
-        )
-        initialization_checkpoint = load_new_stage_checkpoint(
-            initialization_path, expected_stage=config.stage - 1
-        )
-        expected_source_path = (
-            baseline_path if config.stage - 1 == 1 else config.stage1_checkpoint
-        )
-        stage_identity = validate_stage_checkpoint(
-            initialization_checkpoint,
-            initialization_path,
-            stage=config.stage - 1,
-            model=student,
-            model_config=model_config,
-            diffusion_config=diffusion_config,
-            data=data,
-            split=split,
-            normalizer=normalizer,
-            local_aspect_mean=local_aspect_mean,
-            local_aspect_std=local_aspect_std,
-            dataset_identity=dataset_identity,
-            baseline_identity=baseline_identity,
-            expected_initialization_path=expected_source_path,
-            config=ProgressiveDistillationConfig(**{**asdict(config), "stage": config.stage - 1}),
-            segment_schedules=segment_schedules,
-        )
-        student.load_state_dict(_require_field(initialization_checkpoint, "student_model_state_dict"), strict=True)
-        initialization_metadata = {
-            "initialization_mode": "model_only",
-            "path": _manifest_path(initialization_path),
-            "sha256": stage_identity["sha256"],
-            "stage": config.stage - 1,
-            "stage_identity_source": stage_identity["stage_identity_source"],
-        }
-
-    teacher = teacher.to(device)
-    student = student.to(device)
-    teacher.eval()
-    for parameter in teacher.parameters():
-        parameter.requires_grad_(False)
-    for parameter in student.parameters():
-        parameter.requires_grad_(True)
-    return teacher, student, baseline_identity, initialization_metadata
+    frozen: bool,
+) -> PointSetDiffusionDenoiser:
+    model = PointSetDiffusionDenoiser(**dict(checkpoint["model_config"]))
+    model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+    if frozen:
+        model.requires_grad_(False)
+        model.eval()
+    return model.to(device)
 
 
-def _move_batch(batch: Any, device: torch.device) -> tuple[torch.Tensor, ...]:
-    if len(batch) == 6:
-        branch, query, target, query_batch_id, sample_idx, branch_mask = batch
-    elif len(batch) == 5:
-        branch, query, target, query_batch_id, sample_idx = batch
-        branch_mask = None
-    else:
-        raise ValueError(f"Unexpected diffusion batch length: {len(batch)}")
+def normalizer_numpy(
+    checkpoint: Mapping[str, Any],
+) -> tuple[FeatureNormalizer, np.ndarray, np.ndarray]:
+    normalizer = FeatureNormalizer.from_state_dict(checkpoint["y_normalizer"])
+    state = checkpoint["y_normalizer"]
+    mean = np.asarray(state["mean"], dtype=np.float32).reshape(-1)
+    std = np.asarray(state["std"], dtype=np.float32).reshape(-1)
+    if mean.shape != (3,) or std.shape != (3,):
+        raise ValueError("Expected 3-field target normalizer")
+    if not np.all(std > 0.0):
+        raise ValueError("Target normalizer contains non-positive std")
+    return normalizer, mean, std
+
+
+def move_batch(batch, device: torch.device):
+    branch, query, target, query_batch_id, sample_indices, branch_mask = batch
     return (
-        branch.to(device),
-        query.to(device),
-        target.to(device),
-        query_batch_id.to(device),
-        sample_idx,
-        branch_mask.to(device) if branch_mask is not None else None,
+        branch.to(device, non_blocking=True),
+        query.to(device, non_blocking=True),
+        target.to(device, non_blocking=True),
+        query_batch_id.to(device, non_blocking=True),
+        sample_indices.to(device, non_blocking=True),
+        branch_mask.to(device, non_blocking=True),
     )
 
 
-def _make_noise(shape: Sequence[int], device: torch.device, dtype: torch.dtype, seed: int) -> torch.Tensor:
-    generator = torch.Generator(device=device)
-    generator.manual_seed(int(seed))
-    return torch.randn(tuple(shape), generator=generator, device=device, dtype=dtype)
-
-
-def _teacher_segment(
-    teacher: PointSetDiffusionDenoiser,
+def predict_epsilon_ragged(
+    model: PointSetDiffusionDenoiser,
     branch: torch.Tensor,
     query: torch.Tensor,
+    x_t: torch.Tensor,
+    t_branch: torch.Tensor,
     query_batch_id: torch.Tensor,
-    branch_mask: Optional[torch.Tensor],
-    x_start: torch.Tensor,
-    segment_schedule: torch.Tensor,
-    schedule: DiffusionSchedule,
+    branch_mask: torch.Tensor | None,
 ) -> torch.Tensor:
-    x_current = x_start.detach().clone()
-    with torch.inference_mode():
-        for index in range(int(segment_schedule.numel()) - 1):
-            t_current = int(segment_schedule[index].item())
-            t_next = int(segment_schedule[index + 1].item())
-            t_query = torch.full(
-                (query.shape[0],), t_current, device=query.device, dtype=torch.long
-            )
-            epsilon_pred = teacher(
-                branch=branch,
-                query=query,
-                noisy_target=x_current,
-                t_query=t_query,
-                query_batch_id=query_batch_id,
-                branch_mask=branch_mask,
-            )
-            x_current, _ = ddim_step(
-                x_current,
-                epsilon_pred,
-                t_current,
-                t_next,
-                schedule.alphas_cumprod,
-            )
-            x_current = x_current.detach()
-    return x_current
-
-
-def generate_dynamic_distillation_targets(
-    *,
-    teacher: PointSetDiffusionDenoiser,
-    branch: torch.Tensor,
-    query: torch.Tensor,
-    query_batch_id: torch.Tensor,
-    branch_mask: Optional[torch.Tensor],
-    initial_noise: torch.Tensor,
-    student_timesteps: Sequence[int],
-    segment_schedules: Sequence[torch.Tensor],
-    schedule: DiffusionSchedule,
-) -> tuple[list[dict[str, Any]], torch.Tensor]:
-    """Generate four segmented teacher endpoints plus the final clean target."""
-
-    if len(student_timesteps) != len(segment_schedules) + 1:
-        raise ValueError("Student boundaries and teacher segments have inconsistent lengths")
-    teacher.eval()
-    x_current = initial_noise.detach().clone()
-    targets: list[dict[str, Any]] = []
-    for jump_index, segment_schedule in enumerate(segment_schedules):
-        t_start = int(student_timesteps[jump_index])
-        t_end = int(student_timesteps[jump_index + 1])
-        x_start = x_current.detach().clone()
-        x_end = _teacher_segment(
-            teacher,
-            branch,
-            query,
-            query_batch_id,
-            branch_mask,
-            x_start,
-            segment_schedule,
-            schedule,
-        )
-        epsilon_target = equivalent_epsilon_target(
-            x_start,
-            x_end,
-            t_start,
-            t_end,
-            schedule.alphas_cumprod,
-        ).detach()
-        targets.append(
-            {
-                "jump_index": jump_index,
-                "target_type": "ddim_jump",
-                "t_start": t_start,
-                "t_end": t_end,
-                "x_start": x_start,
-                "x_end_teacher": x_end.detach(),
-                "epsilon_target": epsilon_target,
-                "n_teacher_transitions": int(segment_schedule.numel()) - 1,
-            }
-        )
-        x_current = x_end.detach()
-
-    x_t0_teacher = x_current.detach().clone()
-    t_query_zero = torch.zeros(query.shape[0], device=query.device, dtype=torch.long)
-    with torch.inference_mode():
-        teacher_epsilon_t0 = teacher(
-            branch=branch,
-            query=query,
-            noisy_target=x_t0_teacher,
-            t_query=t_query_zero,
-            query_batch_id=query_batch_id,
-            branch_mask=branch_mask,
-        )
-    teacher_clean_x0 = final_clean_projection(
-        x_t0_teacher,
-        teacher_epsilon_t0,
-        0,
-        schedule.alphas_cumprod,
-    ).detach()
-    targets.append(
-        {
-            "jump_index": len(segment_schedules),
-            "target_type": "final_clean",
-            "t_start": 0,
-            "t_end": "clean",
-            "x_start": x_t0_teacher,
-            "x_end_teacher": teacher_clean_x0,
-            "epsilon_target": teacher_epsilon_t0.detach(),
-            "n_teacher_transitions": 1,
-        }
-    )
-    return targets, teacher_clean_x0
-
-
-def _predict_student_target(
-    student: PointSetDiffusionDenoiser,
-    branch: torch.Tensor,
-    query: torch.Tensor,
-    query_batch_id: torch.Tensor,
-    branch_mask: Optional[torch.Tensor],
-    target_item: Mapping[str, Any],
-    schedule: DiffusionSchedule,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    x_start = target_item["x_start"]
-    t_start = int(target_item["t_start"])
-    t_query = torch.full((query.shape[0],), t_start, device=query.device, dtype=torch.long)
-    epsilon_pred = student(
+    t_query = t_branch[query_batch_id]
+    return model(
         branch=branch,
         query=query,
-        noisy_target=x_start,
+        noisy_target=x_t,
         t_query=t_query,
         query_batch_id=query_batch_id,
         branch_mask=branch_mask,
     )
-    if target_item.get("target_type") == "final_clean":
-        endpoint_pred = final_clean_projection(
-            x_start, epsilon_pred, t_start, schedule.alphas_cumprod
-        )
-    else:
-        endpoint_pred, _ = ddim_step(
-            x_start,
-            epsilon_pred,
-            t_start,
-            int(target_item["t_end"]),
-            schedule.alphas_cumprod,
-        )
-    return epsilon_pred, endpoint_pred
 
 
-def compute_corrected_trajectory_loss(
-    *,
-    student: PointSetDiffusionDenoiser,
-    branch: torch.Tensor,
-    query: torch.Tensor,
-    query_batch_id: torch.Tensor,
-    branch_mask: Optional[torch.Tensor],
-    corrected_targets: Sequence[Mapping[str, Any]],
-    schedule: DiffusionSchedule,
-    field_weights: Sequence[float],
-    target_weights: Sequence[float],
-) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-    """Compute the teacher-forced five-evaluation trajectory objective."""
-
-    if len(corrected_targets) != 5:
-        raise ValueError("Corrected trajectory must contain exactly five targets")
-    field_weight_tensor = torch.as_tensor(field_weights, device=query.device, dtype=query.dtype)
-    target_weight_tensor = torch.as_tensor(target_weights, device=query.device, dtype=query.dtype)
-    if field_weight_tensor.numel() != 3:
-        raise ValueError("Trajectory field weights must contain three values")
-    if target_weight_tensor.numel() != len(corrected_targets):
-        raise ValueError("Trajectory target weights must match the target count")
-    if torch.any(field_weight_tensor < 0) or torch.any(target_weight_tensor < 0):
-        raise ValueError("Trajectory weights must be non-negative")
-    if float(field_weight_tensor.sum()) <= 0.0 or float(target_weight_tensor.sum()) <= 0.0:
-        raise ValueError("Trajectory weights must have positive sums")
-    field_weight_tensor = field_weight_tensor / field_weight_tensor.sum()
-    target_weight_tensor = target_weight_tensor / target_weight_tensor.sum()
-
-    target_losses: list[torch.Tensor] = []
-    epsilon_mse_fields: list[torch.Tensor] = []
-    endpoint_mse_fields: list[torch.Tensor] = []
-    for target_item in corrected_targets:
-        epsilon_pred, endpoint_pred = _predict_student_target(
-            student,
-            branch,
-            query,
-            query_batch_id,
-            branch_mask,
-            target_item,
-            schedule,
-        )
-        epsilon_target = torch.as_tensor(target_item["epsilon_target"], device=query.device, dtype=query.dtype).detach()
-        endpoint_target = torch.as_tensor(target_item["x_end_teacher"], device=query.device, dtype=query.dtype).detach()
-        epsilon_mse = torch.mean((epsilon_pred - epsilon_target) ** 2, dim=0)
-        endpoint_mse = torch.mean((endpoint_pred - endpoint_target) ** 2, dim=0)
-        epsilon_mse_fields.append(epsilon_mse)
-        endpoint_mse_fields.append(endpoint_mse)
-        target_losses.append(torch.sum(field_weight_tensor * epsilon_mse))
-    target_losses_tensor = torch.stack(target_losses)
-    total_loss = torch.sum(target_weight_tensor * target_losses_tensor)
-    return total_loss, {
-        "target_losses": target_losses_tensor.detach(),
-        "epsilon_mse_fields": torch.stack(epsilon_mse_fields).detach(),
-        "endpoint_mse_fields": torch.stack(endpoint_mse_fields).detach(),
-    }
+def q_sample_per_query(
+    x0: torch.Tensor,
+    noise: torch.Tensor,
+    t_query: torch.Tensor,
+    alphas_cumprod: torch.Tensor,
+) -> torch.Tensor:
+    alpha = alphas_cumprod[t_query].reshape(-1, 1)
+    return torch.sqrt(alpha) * x0 + torch.sqrt(1.0 - alpha) * noise
 
 
-def differentiable_student_five_eval_rollout(
-    *,
-    student: PointSetDiffusionDenoiser,
-    branch: torch.Tensor,
-    query: torch.Tensor,
-    query_batch_id: torch.Tensor,
-    branch_mask: Optional[torch.Tensor],
-    initial_noise: torch.Tensor,
-    student_timesteps: Sequence[int],
-    schedule: DiffusionSchedule,
-) -> tuple[torch.Tensor, list[dict[str, Any]]]:
-    """Run the five student evaluations without detaching the autograd path."""
-
-    if len(student_timesteps) != 5:
-        raise ValueError("The progressive student rollout requires five timesteps")
-    x_current = initial_noise
-    records: list[dict[str, Any]] = []
-    for index in range(4):
-        t_start = int(student_timesteps[index])
-        t_end = int(student_timesteps[index + 1])
-        t_query = torch.full((query.shape[0],), t_start, device=query.device, dtype=torch.long)
-        epsilon_pred = student(
-            branch=branch,
-            query=query,
-            noisy_target=x_current,
-            t_query=t_query,
-            query_batch_id=query_batch_id,
-            branch_mask=branch_mask,
-        )
-        x_next, predicted_x0 = ddim_step(
-            x_current,
-            epsilon_pred,
-            t_start,
-            t_end,
-            schedule.alphas_cumprod,
-        )
-        records.append(
-            {
-                "evaluation_index": index,
-                "type": "ddim_jump",
-                "t_start": t_start,
-                "t_end": t_end,
-                "x_start": x_current,
-                "epsilon_prediction": epsilon_pred,
-                "predicted_x0": predicted_x0,
-                "x_end": x_next,
-            }
-        )
-        x_current = x_next
-    t_query_zero = torch.zeros(query.shape[0], device=query.device, dtype=torch.long)
-    epsilon_zero = student(
-        branch=branch,
-        query=query,
-        noisy_target=x_current,
-        t_query=t_query_zero,
-        query_batch_id=query_batch_id,
-        branch_mask=branch_mask,
-    )
-    clean_prediction = final_clean_projection(
-        x_current,
-        epsilon_zero,
-        0,
-        schedule.alphas_cumprod,
-    )
-    records.append(
-        {
-            "evaluation_index": 4,
-            "type": "final_clean",
-            "t_start": 0,
-            "t_end": "clean",
-            "x_start": x_current,
-            "epsilon_prediction": epsilon_zero,
-            "x_end": clean_prediction,
-        }
-    )
-    return clean_prediction, records
-
-
-def compute_direct_cfd_rollout_loss(
-    clean_prediction: torch.Tensor,
-    cfd_target_norm: torch.Tensor,
-    field_weights: Sequence[float],
+def ddim_step_per_query(
+    x_t: torch.Tensor,
+    epsilon_pred: torch.Tensor,
+    t_current_query: torch.Tensor,
+    t_next_query: torch.Tensor,
+    alphas_cumprod: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute normalized direct CFD field supervision for Stage 3."""
+    alpha_t = alphas_cumprod[t_current_query].reshape(-1, 1)
+    alpha_next = alphas_cumprod[t_next_query].reshape(-1, 1)
+    x0_pred = (
+        x_t - torch.sqrt(1.0 - alpha_t) * epsilon_pred
+    ) / torch.sqrt(alpha_t)
+    x_next = (
+        torch.sqrt(alpha_next) * x0_pred
+        + torch.sqrt(1.0 - alpha_next) * epsilon_pred
+    )
+    return x_next, x0_pred
 
-    if clean_prediction.shape != cfd_target_norm.shape:
-        raise ValueError(
-            f"Prediction/target shape mismatch: {tuple(clean_prediction.shape)} vs {tuple(cfd_target_norm.shape)}"
-        )
-    weights = torch.as_tensor(field_weights, device=clean_prediction.device, dtype=clean_prediction.dtype)
-    if weights.numel() != clean_prediction.shape[1] or torch.any(weights < 0) or float(weights.sum()) <= 0.0:
-        raise ValueError("CFD field weights must be non-negative and match the output width")
-    per_field_mse = torch.mean((clean_prediction - cfd_target_norm) ** 2, dim=0)
-    return torch.sum((weights / weights.sum()) * per_field_mse), per_field_mse
+
+def final_projection_per_query(
+    x_t: torch.Tensor,
+    epsilon_pred: torch.Tensor,
+    t_query: torch.Tensor,
+    alphas_cumprod: torch.Tensor,
+) -> torch.Tensor:
+    alpha_t = alphas_cumprod[t_query].reshape(-1, 1)
+    return (
+        x_t - torch.sqrt(1.0 - alpha_t) * epsilon_pred
+    ) / torch.sqrt(alpha_t)
+
+
+def stage_slot_tensors(
+    stage_schedule: StageSchedule,
+    slot_branch: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    device = slot_branch.device
+    teacher = torch.tensor(
+        stage_schedule.teacher_sources,
+        dtype=torch.long,
+        device=device,
+    )
+    student = torch.tensor(
+        stage_schedule.student_sources,
+        dtype=torch.long,
+        device=device,
+    )
+
+    t_current = student[slot_branch]
+    t_mid = teacher[2 * slot_branch + 1]
+    final_slot = slot_branch == (stage_schedule.student_nfe - 1)
+
+    next_slot = torch.clamp(
+        slot_branch + 1,
+        max=stage_schedule.student_nfe - 1,
+    )
+    t_end = student[next_slot]
+    # The final student slot maps directly to clean.  Its DDIM alternative
+    # branch is discarded, but keep the placeholder transition numerically
+    # well-posed by setting t_end=t_mid instead of constructing a reverse
+    # step back toward a noisier timestep.
+    t_end = torch.where(final_slot, t_mid, t_end)
+    return t_current, t_mid, t_end, final_slot
 
 
 @torch.no_grad()
-def evaluate_distillation_loss(
+def teacher_two_eval_target(
+    teacher: PointSetDiffusionDenoiser,
+    branch: torch.Tensor,
+    query: torch.Tensor,
+    x_t: torch.Tensor,
+    t_current_branch: torch.Tensor,
+    t_mid_branch: torch.Tensor,
+    t_end_branch: torch.Tensor,
+    final_slot_branch: torch.Tensor,
+    query_batch_id: torch.Tensor,
+    branch_mask: torch.Tensor | None,
+    alphas_cumprod: torch.Tensor,
+) -> torch.Tensor:
+    eps1 = predict_epsilon_ragged(
+        teacher,
+        branch,
+        query,
+        x_t,
+        t_current_branch,
+        query_batch_id,
+        branch_mask,
+    )
+    x_mid, _ = ddim_step_per_query(
+        x_t,
+        eps1,
+        t_current_branch[query_batch_id],
+        t_mid_branch[query_batch_id],
+        alphas_cumprod,
+    )
+
+    eps2 = predict_epsilon_ragged(
+        teacher,
+        branch,
+        query,
+        x_mid,
+        t_mid_branch,
+        query_batch_id,
+        branch_mask,
+    )
+    x_end, _ = ddim_step_per_query(
+        x_mid,
+        eps2,
+        t_mid_branch[query_batch_id],
+        t_end_branch[query_batch_id],
+        alphas_cumprod,
+    )
+    x_clean = final_projection_per_query(
+        x_mid,
+        eps2,
+        t_mid_branch[query_batch_id],
+        alphas_cumprod,
+    )
+    final_query = final_slot_branch[query_batch_id].reshape(-1, 1)
+    return torch.where(final_query, x_clean, x_end)
+
+
+def student_one_eval_state(
+    student: PointSetDiffusionDenoiser,
+    branch: torch.Tensor,
+    query: torch.Tensor,
+    x_t: torch.Tensor,
+    t_current_branch: torch.Tensor,
+    t_end_branch: torch.Tensor,
+    final_slot_branch: torch.Tensor,
+    query_batch_id: torch.Tensor,
+    branch_mask: torch.Tensor | None,
+    alphas_cumprod: torch.Tensor,
+) -> torch.Tensor:
+    eps = predict_epsilon_ragged(
+        student,
+        branch,
+        query,
+        x_t,
+        t_current_branch,
+        query_batch_id,
+        branch_mask,
+    )
+    x_end, _ = ddim_step_per_query(
+        x_t,
+        eps,
+        t_current_branch[query_batch_id],
+        t_end_branch[query_batch_id],
+        alphas_cumprod,
+    )
+    x_clean = final_projection_per_query(
+        x_t,
+        eps,
+        t_current_branch[query_batch_id],
+        alphas_cumprod,
+    )
+    final_query = final_slot_branch[query_batch_id].reshape(-1, 1)
+    return torch.where(final_query, x_clean, x_end)
+
+
+def subdomain_balanced_state_mse(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    query_batch_id: torch.Tensor,
+    batch_size: int,
+) -> torch.Tensor:
+    point_loss = ((prediction - target) ** 2).mean(dim=-1)
+    loss_sum = prediction.new_zeros(batch_size)
+    count = prediction.new_zeros(batch_size)
+    loss_sum.scatter_add_(0, query_batch_id, point_loss)
+    count.scatter_add_(0, query_batch_id, torch.ones_like(point_loss))
+    return (loss_sum / count.clamp_min(1.0)).mean()
+
+
+def validate_vectorized_ddim_algebra(alphas_cumprod: torch.Tensor) -> None:
+    """Check vectorized training algebra against the frozen scalar DDIM core."""
+    generator = torch.Generator(device=alphas_cumprod.device)
+    generator.manual_seed(12345)
+    x_t = torch.randn((7, 3), generator=generator, device=alphas_cumprod.device)
+    epsilon = torch.randn((7, 3), generator=generator, device=alphas_cumprod.device)
+    t_current = 789
+    t_next = 578
+    current_q = torch.full((7,), t_current, dtype=torch.long, device=x_t.device)
+    next_q = torch.full((7,), t_next, dtype=torch.long, device=x_t.device)
+
+    x_vec, x0_vec = ddim_step_per_query(
+        x_t, epsilon, current_q, next_q, alphas_cumprod
+    )
+    x_core, x0_core = ddim_step(
+        x_t=x_t,
+        epsilon_pred=epsilon,
+        t_current=t_current,
+        t_next=t_next,
+        alphas_cumprod=alphas_cumprod,
+    )
+    if not torch.allclose(x_vec, x_core, rtol=1.0e-6, atol=1.0e-7):
+        raise RuntimeError("Vectorized DDIM transition does not match diffusion core")
+    if not torch.allclose(x0_vec, x0_core, rtol=1.0e-6, atol=1.0e-7):
+        raise RuntimeError("Vectorized x0 prediction does not match diffusion core")
+
+    clean_vec = final_projection_per_query(
+        x_t, epsilon, current_q, alphas_cumprod
+    )
+    clean_core = final_clean_projection(
+        x_t=x_t,
+        epsilon_pred=epsilon,
+        timestep=t_current,
+        alphas_cumprod=alphas_cumprod,
+    )
+    if not torch.allclose(clean_vec, clean_core, rtol=1.0e-6, atol=1.0e-7):
+        raise RuntimeError("Vectorized clean projection does not match diffusion core")
+
+
+def train_one_epoch(
     *,
-    stage: int,
     teacher: PointSetDiffusionDenoiser,
     student: PointSetDiffusionDenoiser,
     loader: DataLoader,
-    schedule: DiffusionSchedule,
-    config: ProgressiveDistillationConfig,
-    segment_schedules: Sequence[torch.Tensor],
+    optimizer: torch.optim.Optimizer,
+    stage_schedule: StageSchedule,
+    alphas_cumprod: torch.Tensor,
     device: torch.device,
-) -> float:
-    """Evaluate fixed-noise validation trajectory loss for checkpoint selection."""
-
+    grad_clip: float,
+    noise_generator: torch.Generator,
+    max_batches: int | None,
+    epoch: int,
+    progress_every_batches: int,
+) -> tuple[float, float, int]:
     teacher.eval()
-    student.eval()
-    total = 0.0
-    count = 0
-    stage_config = ProgressiveDistillationConfig(**{**asdict(config), "stage": stage})
-    for batch_index, batch in enumerate(loader):
-        branch, query, target, query_batch_id, _, branch_mask = _move_batch(batch, device)
-        initial_noise = _make_noise(
-            target.shape,
-            device,
-            target.dtype,
-            config.validation_noise_seed + batch_index,
+    student.train()
+
+    total_loss = 0.0
+    total_samples = 0
+    grad_norm_max = 0.0
+    n_batches = 0
+    planned_batches = len(loader)
+    if max_batches is not None:
+        planned_batches = min(planned_batches, max_batches)
+    epoch_started = time.perf_counter()
+
+    for batch_index, raw_batch in enumerate(loader):
+        if max_batches is not None and batch_index >= max_batches:
+            break
+
+        (
+            branch,
+            query,
+            target,
+            query_batch_id,
+            _sample_indices,
+            branch_mask,
+        ) = move_batch(raw_batch, device)
+        batch_size = int(branch.shape[0])
+
+        slot_branch = torch.randint(
+            low=0,
+            high=stage_schedule.student_nfe,
+            size=(batch_size,),
+            device=device,
+            generator=noise_generator,
         )
-        dynamic_targets, _ = generate_dynamic_distillation_targets(
+        (
+            t_current_branch,
+            t_mid_branch,
+            t_end_branch,
+            final_slot_branch,
+        ) = stage_slot_tensors(stage_schedule, slot_branch)
+
+        noise = torch.randn(
+            target.shape,
+            dtype=target.dtype,
+            device=device,
+            generator=noise_generator,
+        )
+        x_t = q_sample_per_query(
+            target,
+            noise,
+            t_current_branch[query_batch_id],
+            alphas_cumprod,
+        )
+
+        teacher_target = teacher_two_eval_target(
             teacher=teacher,
             branch=branch,
             query=query,
+            x_t=x_t,
+            t_current_branch=t_current_branch,
+            t_mid_branch=t_mid_branch,
+            t_end_branch=t_end_branch,
+            final_slot_branch=final_slot_branch,
             query_batch_id=query_batch_id,
             branch_mask=branch_mask,
-            initial_noise=initial_noise,
-            student_timesteps=stage_config.student_timesteps,
-            segment_schedules=segment_schedules,
-            schedule=schedule,
+            alphas_cumprod=alphas_cumprod,
         )
-        trajectory_loss, _ = compute_corrected_trajectory_loss(
+
+        optimizer.zero_grad(set_to_none=True)
+        student_state = student_one_eval_state(
             student=student,
             branch=branch,
             query=query,
+            x_t=x_t,
+            t_current_branch=t_current_branch,
+            t_end_branch=t_end_branch,
+            final_slot_branch=final_slot_branch,
             query_batch_id=query_batch_id,
             branch_mask=branch_mask,
-            corrected_targets=dynamic_targets,
-            schedule=schedule,
-            field_weights=stage_config.trajectory_field_weights,
-            target_weights=stage_config.trajectory_target_weights,
+            alphas_cumprod=alphas_cumprod,
         )
-        value = trajectory_loss
-        if stage == 3:
-            clean_prediction, _ = differentiable_student_five_eval_rollout(
-                student=student,
-                branch=branch,
-                query=query,
-                query_batch_id=query_batch_id,
-                branch_mask=branch_mask,
-                initial_noise=initial_noise,
-                student_timesteps=stage_config.student_timesteps,
-                schedule=schedule,
+        loss = subdomain_balanced_state_mse(
+            student_state,
+            teacher_target,
+            query_batch_id,
+            batch_size,
+        )
+        if not torch.isfinite(loss):
+            raise FloatingPointError("Non-finite distillation loss")
+
+        loss.backward()
+
+        grad_sq = 0.0
+        for parameter in student.parameters():
+            if parameter.grad is not None:
+                value = float(parameter.grad.detach().norm(2).item())
+                grad_sq += value * value
+        grad_norm = math.sqrt(grad_sq)
+        grad_norm_max = max(grad_norm_max, grad_norm)
+
+        if grad_clip > 0.0:
+            torch.nn.utils.clip_grad_norm_(student.parameters(), grad_clip)
+
+        optimizer.step()
+
+        total_loss += float(loss.item()) * batch_size
+        total_samples += batch_size
+        n_batches += 1
+
+        if (
+            progress_every_batches > 0
+            and (
+                n_batches % progress_every_batches == 0
+                or n_batches == planned_batches
             )
-            cfd_loss, _ = compute_direct_cfd_rollout_loss(
-                clean_prediction,
-                target,
-                stage_config.cfd_field_weights,
+        ):
+            elapsed = time.perf_counter() - epoch_started
+            avg_loss = total_loss / total_samples
+            seconds_per_batch = elapsed / n_batches
+            remaining = max(planned_batches - n_batches, 0)
+            eta = remaining * seconds_per_batch
+            print(
+                f"[Stage {stage_schedule.stage}][Epoch {epoch:03d}] "
+                f"train batch {n_batches:04d}/{planned_batches:04d} | "
+                f"avg_state_mse={avg_loss:.8g} | "
+                f"elapsed={elapsed / 60.0:.1f} min | "
+                f"eta={eta / 60.0:.1f} min",
+                flush=True,
             )
-            value = value + stage_config.lambda_cfd * cfd_loss
-        if not torch.isfinite(value):
-            raise RuntimeError(f"Non-finite validation loss at batch {batch_index}")
-        batch_size = int(branch.shape[0])
-        total += float(value.item()) * batch_size
-        count += batch_size
-    if count == 0:
-        raise RuntimeError("Validation loader is empty")
-    return total / count
+
+    if total_samples == 0:
+        raise RuntimeError("No training samples were processed")
+
+    return total_loss / total_samples, grad_norm_max, n_batches
 
 
-def _atomic_torch_save(path: Path, payload: Mapping[str, Any]) -> None:
-    temporary_path: Optional[Path] = None
-    try:
-        file_descriptor, temporary_name = tempfile.mkstemp(
-            prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+def read_full_sample(
+    handle: h5py.File,
+    sample_index: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    group = handle["samples"][str(sample_index)]
+    branch = group["branch"][:].astype(np.float32)
+    query = group["query"][:].astype(np.float32)
+    target = group["target"][:].astype(np.float32)
+    if target.shape != (query.shape[0], 3):
+        raise ValueError(f"Invalid validation target shape: {target.shape}")
+    return branch, query, target
+
+
+@torch.inference_mode()
+def predict_epsilon_single(
+    model: PointSetDiffusionDenoiser,
+    branch: torch.Tensor,
+    query: torch.Tensor,
+    x_t: torch.Tensor,
+    timestep: int,
+) -> torch.Tensor:
+    n_query = int(query.shape[0])
+    return model(
+        branch=branch,
+        query=query,
+        noisy_target=x_t,
+        t_query=torch.full(
+            (n_query,), timestep, dtype=torch.long, device=query.device
+        ),
+        query_batch_id=torch.zeros(
+            n_query, dtype=torch.long, device=query.device
+        ),
+        branch_mask=None,
+    )
+
+
+@torch.inference_mode()
+def sample_student_schedule(
+    model: PointSetDiffusionDenoiser,
+    branch: torch.Tensor,
+    query: torch.Tensor,
+    initial_noise: torch.Tensor,
+    student_sources: Sequence[int],
+    alphas_cumprod: torch.Tensor,
+) -> torch.Tensor:
+    x_t = initial_noise.clone()
+    for current, next_ in zip(student_sources[:-1], student_sources[1:]):
+        epsilon = predict_epsilon_single(
+            model,
+            branch,
+            query,
+            x_t,
+            int(current),
         )
-        temporary_path = Path(temporary_name)
-        with os.fdopen(file_descriptor, "wb") as handle:
-            torch.save(dict(payload), handle)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary_path, path)
-    except Exception:
-        if temporary_path is not None and temporary_path.exists():
-            temporary_path.unlink()
-        raise
-
-
-def save_stage_checkpoint(path: Path, payload: Mapping[str, Any]) -> None:
-    """Atomically publish one new stage checkpoint inside the current run."""
-
-    _atomic_torch_save(path, payload)
-
-
-def _atomic_write_history(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
-    fields = [
-        "stage",
-        "epoch",
-        "global_step",
-        "batch_index",
-        "train_loss",
-        "trajectory_loss",
-        "cfd_loss",
-        "weighted_cfd_loss",
-        "validation_loss",
-        "gradient_norm",
-        "learning_rate",
-    ]
-    temporary_path: Optional[Path] = None
-    try:
-        file_descriptor, temporary_name = tempfile.mkstemp(
-            prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+        x_t, _ = ddim_step(
+            x_t=x_t,
+            epsilon_pred=epsilon,
+            t_current=int(current),
+            t_next=int(next_),
+            alphas_cumprod=alphas_cumprod,
         )
-        temporary_path = Path(temporary_name)
-        with os.fdopen(file_descriptor, "w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
-            writer.writeheader()
-            for row in rows:
-                writer.writerow({field: row.get(field) for field in fields})
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary_path, path)
-    except Exception:
-        if temporary_path is not None and temporary_path.exists():
-            temporary_path.unlink()
-        raise
+
+    final_t = int(student_sources[-1])
+    epsilon = predict_epsilon_single(model, branch, query, x_t, final_t)
+    return final_clean_projection(
+        x_t=x_t,
+        epsilon_pred=epsilon,
+        timestep=final_t,
+        alphas_cumprod=alphas_cumprod,
+    )
 
 
-def _identity(path: Path) -> dict[str, Any]:
-    identity = file_identity(path)
-    identity["path"] = _manifest_path(path)
-    return identity
-
-
-def _checkpoint_payload(
+@torch.inference_mode()
+def validate_rollout(
     *,
-    stage: int,
-    epoch: int,
-    student: PointSetDiffusionDenoiser,
-    model_config: Mapping[str, Any],
-    diffusion_config: Mapping[str, Any],
-    config: ProgressiveDistillationConfig,
-    data: Mapping[str, Any],
-    split: DiffusionCaseSplit,
+    model: PointSetDiffusionDenoiser,
+    val_h5: Path,
+    val_indices: Sequence[int],
+    branch_channel_names: Sequence[str],
     normalizer: FeatureNormalizer,
+    target_mean: np.ndarray,
+    target_std: np.ndarray,
     local_aspect_mean: float,
     local_aspect_std: float,
-    dataset_identity: Mapping[str, Any],
-    baseline_identity: Mapping[str, Any],
-    initialization_metadata: Mapping[str, Any],
-    global_schedule: torch.Tensor,
-    segment_schedules: Sequence[torch.Tensor],
-    history: Sequence[Mapping[str, Any]],
-    best_validation_loss: Optional[float],
-    optimizer: torch.optim.Optimizer,
+    student_sources: Sequence[int],
+    alphas_cumprod: torch.Tensor,
+    device: torch.device,
+    sampling_seed: int,
+    stage: int,
+    epoch: int,
+    progress_every_validation_samples: int,
+) -> ValidationSummary:
+    model.eval()
+    norm_mse_sum = 0.0
+    field_mse_sum = np.zeros(3, dtype=np.float64)
+    n_samples = 0
+    n_points = 0
+
+    target_mean = np.asarray(target_mean, dtype=np.float32).reshape(1, 3)
+    target_std = np.asarray(target_std, dtype=np.float32).reshape(1, 3)
+    validation_started = time.perf_counter()
+    total_validation_samples = len(val_indices)
+    print(
+        f"[Stage {stage}][Epoch {epoch:03d}] validation start | "
+        f"samples={total_validation_samples} | "
+        f"student_nfe={len(student_sources)}",
+        flush=True,
+    )
+
+    with h5py.File(val_h5, "r") as handle:
+        for position, sample_index in enumerate(val_indices, start=1):
+            branch_raw, query_raw, truth = read_full_sample(handle, sample_index)
+            branch_raw = normalize_diffusion_branch(
+                branch_raw,
+                branch_channel_names=list(branch_channel_names),
+                target_normalizer=normalizer,
+                local_aspect_mean=local_aspect_mean,
+                local_aspect_std=local_aspect_std,
+            ).astype(np.float32, copy=False)
+
+            branch = torch.from_numpy(branch_raw).unsqueeze(0).to(device)
+            query = torch.from_numpy(query_raw).to(device)
+
+            generator = torch.Generator(device=device)
+            generator.manual_seed(stable_sample_seed(sampling_seed, sample_index))
+            initial_noise = torch.randn(
+                (len(query_raw), 3),
+                dtype=query.dtype,
+                device=device,
+                generator=generator,
+            )
+
+            pred_norm = sample_student_schedule(
+                model,
+                branch,
+                query,
+                initial_noise,
+                student_sources,
+                alphas_cumprod,
+            )
+            pred_norm_np = pred_norm.cpu().numpy().astype(np.float32)
+            truth_norm = (truth - target_mean) / target_std
+            norm_mse_sum += float(np.mean((pred_norm_np - truth_norm) ** 2))
+
+            pred_phys = pred_norm_np * target_std + target_mean
+            error = pred_phys - truth
+            field_mse_sum += np.mean(error.astype(np.float64) ** 2, axis=0)
+            n_samples += 1
+            n_points += len(query_raw)
+
+            if (
+                progress_every_validation_samples > 0
+                and (
+                    position % progress_every_validation_samples == 0
+                    or position == total_validation_samples
+                )
+            ):
+                elapsed = time.perf_counter() - validation_started
+                seconds_per_sample = elapsed / position
+                remaining = max(total_validation_samples - position, 0)
+                eta = remaining * seconds_per_sample
+                print(
+                    f"[Stage {stage}][Epoch {epoch:03d}] "
+                    f"validation {position:04d}/{total_validation_samples:04d} | "
+                    f"elapsed={elapsed:.1f} s | eta={eta:.1f} s",
+                    flush=True,
+                )
+
+    if n_samples == 0:
+        raise RuntimeError("No validation samples were evaluated")
+
+    rmse = np.sqrt(field_mse_sum / n_samples)
+    return ValidationSummary(
+        balanced_norm_mse=norm_mse_sum / n_samples,
+        balanced_rmse_pressure=float(rmse[0]),
+        balanced_rmse_u=float(rmse[1]),
+        balanced_rmse_v=float(rmse[2]),
+        n_samples=n_samples,
+        n_points=n_points,
+    )
+
+
+def choose_indices(n_samples: int, max_samples: int | None) -> tuple[int, ...]:
+    if max_samples is None or max_samples >= n_samples:
+        return tuple(range(n_samples))
+    if max_samples <= 0:
+        raise ValueError("Sample limit must be positive")
+    values = np.linspace(0, n_samples - 1, num=max_samples).round().astype(np.int64)
+    values = np.unique(values)
+    if len(values) != max_samples:
+        raise RuntimeError("Sample selection produced duplicates")
+    return tuple(int(x) for x in values)
+
+
+def atomic_torch_save(payload: Mapping[str, Any], path: Path) -> None:
+    temp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    try:
+        torch.save(dict(payload), temp)
+        os.replace(temp, path)
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+
+def write_history(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+    if not rows:
+        return
+    temp = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    try:
+        with temp.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(temp, path)
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+
+def stage_checkpoint_payload(
+    *,
+    base_checkpoint: Mapping[str, Any],
+    model: PointSetDiffusionDenoiser,
+    stage_schedule: StageSchedule,
+    stage: int,
+    epoch: int,
+    global_step: int,
+    validation: ValidationSummary,
+    teacher_checkpoint_path: Path,
+    initialization_checkpoint_path: Path,
+    train_h5: Path,
+    val_h5: Path,
+    config: Config,
 ) -> dict[str, Any]:
-    objective = {
-        "teacher_forcing": True,
-        "autoregressive_student_rollout": stage == 3,
-        "direct_cfd_supervision": stage == 3,
-        "lambda_cfd": config.lambda_cfd,
-    }
-    git = git_state(REPOSITORY_ROOT)
     return {
-        "schema_version": "progressive_distillation_stage_v1",
-        "stage": stage,
-        "stage_identity_source": "explicit_new_checkpoint",
+        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "training_protocol_version": PROTOCOL_VERSION,
+        "checkpoint_type": "progressive_distillation_student",
+        "schedule_family": SCHEDULE_FAMILY,
+        "stage": int(stage),
         "epoch": int(epoch),
-        "student_model_state_dict": {
-            name: tensor.detach().cpu().clone()
-            for name, tensor in student.state_dict().items()
+        "global_step": int(global_step),
+        "model_state_dict": model.state_dict(),
+        "model_config": dict(base_checkpoint["model_config"]),
+        "diffusion_config": dict(base_checkpoint["diffusion_config"]),
+        "branch_channel_names": tuple(base_checkpoint["branch_channel_names"]),
+        "trunk_channel_names": tuple(base_checkpoint["trunk_channel_names"]),
+        "output_channel_names": tuple(base_checkpoint["output_channel_names"]),
+        "y_normalizer": dict(base_checkpoint["y_normalizer"]),
+        "local_aspect_mean": float(base_checkpoint["local_aspect_mean"]),
+        "local_aspect_std": float(base_checkpoint["local_aspect_std"]),
+        "normalizer_weighting": base_checkpoint["normalizer_weighting"],
+        "train_dataset_h5": str(train_h5),
+        "val_dataset_h5": str(val_h5),
+        "teacher_checkpoint": str(teacher_checkpoint_path),
+        "initialization_checkpoint": str(initialization_checkpoint_path),
+        "teacher_nfe": stage_schedule.teacher_nfe,
+        "student_nfe": stage_schedule.student_nfe,
+        "teacher_timesteps": list(stage_schedule.teacher_sources),
+        "student_timesteps": list(stage_schedule.student_sources),
+        "distillation_objective": {
+            "name": "subdomain_balanced_reverse_state_mse",
+            "teacher_evaluations_per_student_evaluation": 2,
+            "teacher_target": "two deterministic DDIM evaluations",
+            "student_target": "one deterministic DDIM evaluation",
+            "final_slot": "two-eval teacher clean projection matched by one-eval student clean projection",
+            "truth_loss": False,
+            "physics_loss": False,
+            "boundary_auxiliary_loss": False,
+            "space": "normalized pressure_u_v_state",
         },
-        "model_config": dict(model_config),
-        "diffusion_config": dict(diffusion_config),
-        "branch_channel_names": list(data["branch_channel_names"]),
-        "trunk_channel_names": list(data["trunk_channel_names"]),
-        "output_channel_names": list(data["output_channel_names"]),
-        "split_case_ids": {
-            "train": list(split.train_cases),
-            "val": list(split.val_cases),
-            "test": list(split.test_cases),
+        "validation_selection_metric": "subdomain_balanced_normalized_rollout_mse",
+        "val_rollout_balanced_norm_mse": float(validation.balanced_norm_mse),
+        "val_rollout_balanced_rmse_pressure": float(
+            validation.balanced_rmse_pressure
+        ),
+        "val_rollout_balanced_rmse_u": float(validation.balanced_rmse_u),
+        "val_rollout_balanced_rmse_v": float(validation.balanced_rmse_v),
+        "seed": config.seed,
+        "validation_sampling_seed": config.validation_sampling_seed,
+        "query_sampling_policy": {
+            "train_query_points": config.query_points,
+            "deterministic_per_sample_epoch": True,
+            "validation": "all query points",
         },
-        "split_indices": {
-            "train_idx": list(split.train_indices),
-            "val_idx": list(split.val_indices),
-            "test_idx": list(split.test_indices),
+    }
+
+
+def build_manifest(
+    *,
+    run_id: str,
+    status: str,
+    created_at: str,
+    started_at: str | None,
+    finished_at: str | None,
+    config: Config,
+    base_checkpoint_path: Path,
+    train_protocol: H5Protocol,
+    val_protocol: H5Protocol,
+    stage1_schedule: StageSchedule,
+    stage2_schedule: StageSchedule,
+    outputs: Mapping[str, Any],
+    failure: str | None = None,
+) -> dict[str, Any]:
+    source_files = [
+        Path(__file__).resolve(),
+        REPO_ROOT / "pidiffusion/data.py",
+        REPO_ROOT / "pidiffusion/diffusion.py",
+        REPO_ROOT / "pidiffusion/model.py",
+    ]
+    return {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "run_id": run_id,
+        "timestamp_utc": created_at,
+        "status": status,
+        "git": git_state(REPO_ROOT),
+        "source_files": [file_identity(path) for path in source_files],
+        "checkpoint": {
+            **file_identity(base_checkpoint_path),
+            "role": "formal_base_field_diffusion_teacher",
         },
-        "normalization": {
-            "target_mean": normalizer.mean.detach().cpu().clone(),
-            "target_std": normalizer.std.detach().cpu().clone(),
-            "local_aspect_mean": float(local_aspect_mean),
-            "local_aspect_std": float(local_aspect_std),
+        "dataset": {
+            "train": {
+                **file_identity(config.train_h5),
+                "dataset_role": train_protocol.dataset_role,
+                "split_role": train_protocol.split_role,
+                "n_samples": train_protocol.n_samples,
+            },
+            "validation": {
+                **file_identity(config.val_h5),
+                "dataset_role": val_protocol.dataset_role,
+                "split_role": val_protocol.split_role,
+                "n_samples": val_protocol.n_samples,
+            },
+            "test_access": "disabled",
         },
-        "student_sampling_steps": int(config.student_sampling_steps),
-        "student_timesteps": list(config.student_timesteps),
-        "teacher_sampling_steps": int(config.teacher_sampling_steps),
-        "teacher_global_schedule": global_schedule.detach().cpu().tolist(),
-        "teacher_segment_schedules": [schedule.detach().cpu().tolist() for schedule in segment_schedules],
-        "teacher_transition_counts": list(config.teacher_transition_counts),
-        "rounding_policy": "round",
-        "trajectory_field_weights": list(config.trajectory_field_weights),
-        "trajectory_target_weights": list(config.trajectory_target_weights),
-        "cfd_field_weights": list(config.cfd_field_weights),
-        "lambda_cfd": config.lambda_cfd,
-        "teacher_forcing": True,
-        "autoregressive_student_rollout": stage == 3,
-        "direct_cfd_supervision": stage == 3,
-        "objective": objective,
-        "baseline_teacher_identity": dict(baseline_identity),
-        "initialization_checkpoint_identity": dict(initialization_metadata),
-        "initialization_mode": "model_only",
-        "teacher_checkpoint_path": baseline_identity["absolute_path"],
-        "initialization_checkpoint_path": initialization_metadata.get("path"),
-        "query_sampling_protocol": "legacy_global_numpy",
-        "global_seed": config.global_seed,
-        "split_seed": config.split_seed,
-        "noise_seed_policy": {
-            "kind": "per_batch_increment",
-            "training_seed_start": config.noise_seed_start,
-            "validation_seed_start": config.validation_noise_seed,
+        "randomness": {
+            "global_seed": config.seed,
+            "training_noise_seed": config.seed,
+            "validation_sampling_seed": config.validation_sampling_seed,
+            "dataloader_seed_policy": "derived_from_global_seed_and_stage",
+            "query_sampling_seed_policy": "derived_from_global_seed_stage_epoch_and_sample_index",
+            "num_workers": config.num_workers,
         },
-        "optimizer_config": {
-            "name": "AdamW",
+        "protocol": {
+            "version": PROTOCOL_VERSION,
+            "schedule_family": SCHEDULE_FAMILY,
+            "anchor_nfe": ANCHOR_NFE,
+            "stage1": {
+                "teacher_nfe": stage1_schedule.teacher_nfe,
+                "student_nfe": stage1_schedule.student_nfe,
+                "teacher_timesteps": list(stage1_schedule.teacher_sources),
+                "student_timesteps": list(stage1_schedule.student_sources),
+            },
+            "stage2": {
+                "teacher_nfe": stage2_schedule.teacher_nfe,
+                "student_nfe": stage2_schedule.student_nfe,
+                "teacher_timesteps": list(stage2_schedule.teacher_sources),
+                "student_timesteps": list(stage2_schedule.student_sources),
+            },
+            "objective": "direct normalized reverse-state matching",
+            "teacher_gradient": "disabled",
+            "student_initialization": "exact teacher weight copy at each stage",
+            "truth_training_loss": False,
+            "physics_training_loss": False,
+            "boundary_auxiliary_loss": False,
+            "checkpoint_selection": "deterministic validation rollout normalized MSE",
+        },
+        "training": {
+            "seed": config.seed,
+            "validation_sampling_seed": config.validation_sampling_seed,
+            "batch_size": config.batch_size,
+            "query_points": config.query_points,
+            "epochs_stage1": config.epochs_stage1,
+            "epochs_stage2": config.epochs_stage2,
             "learning_rate": config.learning_rate,
             "weight_decay": config.weight_decay,
             "grad_clip": config.grad_clip,
-            "scheduler": "none",
+            "scheduler": {
+                "type": "ReduceLROnPlateau",
+                "factor": config.scheduler_factor,
+                "patience": config.scheduler_patience,
+                "threshold": config.scheduler_threshold,
+                "min_lr": config.min_lr,
+            },
+            "min_lr_early_stop_patience": config.min_lr_early_stop_patience,
+            "validation_every": config.validation_every,
+            "max_train_samples": config.max_train_samples,
+            "max_batches_per_epoch": config.max_batches_per_epoch,
+            "validation_max_samples": config.validation_max_samples,
+            "progress_every_batches": config.progress_every_batches,
+            "progress_every_validation_samples": config.progress_every_validation_samples,
+            "stage1_only": config.stage1_only,
         },
-        "optimizer_state_saved": False,
-        "training_history": [dict(row) for row in history],
-        "current_run_best_validation_loss": best_validation_loss,
-        "dataset_identity": dict(dataset_identity),
-        "git": git,
-        "source_files": {
-            "data_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "data.py"),
-            "model_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "model.py"),
-        "diffusion_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "diffusion.py"),
-        "entrypoint": _identity(REPOSITORY_ROOT / "experiments" / "distill_progressive.py"),
-        "protocol_notebook": _identity(
-            REPOSITORY_ROOT / "train_point_diffusion_progressive_distillation.ipynb"
-        ),
+        "environment": runtime_environment(),
+        "outputs": dict(outputs),
+        "lifecycle": {
+            "created_at_utc": created_at,
+            "started_at_utc": started_at,
+            "finished_at_utc": finished_at,
+            "failure": failure,
         },
-        "optimizer_state_dict": None,
-        "stage_learning_rate": config.learning_rate,
-        "training_config": {
-            "epochs": config.epochs,
-            "stage": stage,
-            "noise_seed_start": config.noise_seed_start,
-            "teacher_forced_trajectory_loss": True,
-            "autoregressive_student_rollout": stage == 3,
-            "direct_cfd_supervision": stage == 3,
-        },
-        "optimizer_identity": type(optimizer).__name__,
     }
 
 
-def train_stage(
+def stage_run(
     *,
-    stage: int,
-    teacher: PointSetDiffusionDenoiser,
-    student: PointSetDiffusionDenoiser,
-    train_loader: DataLoader,
-    val_loader: DataLoader,
-    schedule: DiffusionSchedule,
-    segment_schedules: Sequence[torch.Tensor],
-    global_schedule: torch.Tensor,
-    config: ProgressiveDistillationConfig,
-    data: Mapping[str, Any],
-    split: DiffusionCaseSplit,
-    normalizer: FeatureNormalizer,
-    local_aspect_mean: float,
-    local_aspect_std: float,
-    dataset_identity: Mapping[str, Any],
-    baseline_identity: Mapping[str, Any],
-    initialization_metadata: Mapping[str, Any],
-    model_config: Mapping[str, Any],
-    diffusion_config: Mapping[str, Any],
-    run_directory: Path,
-) -> tuple[Path, Optional[Path], list[dict[str, Any]], Optional[float]]:
+    stage_schedule: StageSchedule,
+    base_checkpoint: Mapping[str, Any],
+    teacher_checkpoint_path: Path,
+    initialization_checkpoint_path: Path,
+    train_protocol: H5Protocol,
+    val_protocol: H5Protocol,
+    config: Config,
+    device: torch.device,
+    alphas_cumprod: torch.Tensor,
+    run_dir: Path,
+    history_rows: list[dict[str, Any]],
+    global_step_start: int,
+) -> tuple[Path, int]:
+    teacher_checkpoint = load_checkpoint(teacher_checkpoint_path)
+    init_checkpoint = load_checkpoint(initialization_checkpoint_path)
+
+    teacher = build_model_from_checkpoint(teacher_checkpoint, device, frozen=True)
+    student = build_model_from_checkpoint(init_checkpoint, device, frozen=False)
+
+    normalizer, target_mean, target_std = normalizer_numpy(base_checkpoint)
+    train_indices = choose_indices(train_protocol.n_samples, config.max_train_samples)
+    val_indices = choose_indices(val_protocol.n_samples, config.validation_max_samples)
+
+    dataset = RandomQueryH5Dataset(
+        path=config.train_h5,
+        indices=train_indices,
+        branch_channel_names=train_protocol.branch_channel_names,
+        normalizer=normalizer,
+        local_aspect_mean=float(base_checkpoint["local_aspect_mean"]),
+        local_aspect_std=float(base_checkpoint["local_aspect_std"]),
+        target_mean=target_mean,
+        target_std=target_std,
+        query_points=config.query_points,
+        base_seed=config.seed,
+        stage=stage_schedule.stage,
+    )
+
+    loader_generator = torch.Generator()
+    loader_generator.manual_seed(
+        stable_int_seed(f"loader:{config.seed}:stage:{stage_schedule.stage}")
+    )
+    loader = DataLoader(
+        dataset,
+        batch_size=config.batch_size,
+        shuffle=True,
+        num_workers=config.num_workers,
+        collate_fn=collate_random_query_batch,
+        pin_memory=(device.type == "cuda"),
+        generator=loader_generator,
+        persistent_workers=(config.num_workers > 0),
+    )
+
     optimizer = torch.optim.AdamW(
         student.parameters(),
         lr=config.learning_rate,
         weight_decay=config.weight_decay,
     )
-    history_path = run_directory / "training_history.csv"
-    latest_path = run_directory / f"distill_stage{stage}_latest.pt"
-    best_path = run_directory / f"distill_stage{stage}_best.pt"
-    history: list[dict[str, Any]] = []
-    best_validation_loss: Optional[float] = None
-    global_batch_index = 0
-    device = next(student.parameters()).device
-    stage_config = ProgressiveDistillationConfig(**{**asdict(config), "stage": stage})
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=config.scheduler_factor,
+        patience=config.scheduler_patience,
+        threshold=config.scheduler_threshold,
+        threshold_mode="abs",
+        min_lr=config.min_lr,
+    )
 
-    for epoch in range(1, config.epochs + 1):
-        student.train()
-        epoch_losses: list[float] = []
-        for batch_index, batch in enumerate(train_loader):
-            branch, query, target, query_batch_id, _, branch_mask = _move_batch(batch, device)
-            initial_noise = _make_noise(
-                target.shape,
-                device,
-                target.dtype,
-                stage_config.noise_seed_start + global_batch_index,
-            )
-            dynamic_targets, _ = generate_dynamic_distillation_targets(
-                teacher=teacher,
-                branch=branch,
-                query=query,
-                query_batch_id=query_batch_id,
-                branch_mask=branch_mask,
-                initial_noise=initial_noise,
-                student_timesteps=stage_config.student_timesteps,
-                segment_schedules=segment_schedules,
-                schedule=schedule,
-            )
-            optimizer.zero_grad(set_to_none=True)
-            trajectory_loss, metrics = compute_corrected_trajectory_loss(
-                student=student,
-                branch=branch,
-                query=query,
-                query_batch_id=query_batch_id,
-                branch_mask=branch_mask,
-                corrected_targets=dynamic_targets,
-                schedule=schedule,
-                field_weights=stage_config.trajectory_field_weights,
-                target_weights=stage_config.trajectory_target_weights,
-            )
-            cfd_loss = trajectory_loss.new_zeros(())
-            if stage == 3:
-                clean_prediction, _ = differentiable_student_five_eval_rollout(
-                    student=student,
-                    branch=branch,
-                    query=query,
-                    query_batch_id=query_batch_id,
-                    branch_mask=branch_mask,
-                    initial_noise=initial_noise,
-                    student_timesteps=stage_config.student_timesteps,
-                    schedule=schedule,
-                )
-                cfd_loss, _ = compute_direct_cfd_rollout_loss(
-                    clean_prediction,
-                    target,
-                    stage_config.cfd_field_weights,
-                )
-            weighted_cfd_loss = stage_config.lambda_cfd * cfd_loss
-            total_loss = trajectory_loss + weighted_cfd_loss
-            if not torch.isfinite(total_loss):
-                raise RuntimeError(f"Non-finite training loss at epoch {epoch}, batch {batch_index}")
-            total_loss.backward()
-            gradient_norm = torch.nn.utils.clip_grad_norm_(
-                student.parameters(), max_norm=config.grad_clip
-            )
-            if not torch.isfinite(torch.as_tensor(gradient_norm)):
-                raise RuntimeError(f"Non-finite gradient norm at epoch {epoch}, batch {batch_index}")
-            optimizer.step()
-            row = {
-                "stage": stage,
-                "epoch": epoch,
-                "global_step": global_batch_index + 1,
-                "batch_index": batch_index,
-                "train_loss": float(total_loss.detach().item()),
-                "trajectory_loss": float(trajectory_loss.detach().item()),
-                "cfd_loss": float(cfd_loss.detach().item()),
-                "weighted_cfd_loss": float(weighted_cfd_loss.detach().item()),
-                "validation_loss": None,
-                "gradient_norm": float(gradient_norm),
-                "learning_rate": float(optimizer.param_groups[0]["lr"]),
-                "target_losses": metrics["target_losses"].detach().cpu().tolist(),
-            }
-            history.append(row)
-            epoch_losses.append(row["train_loss"])
-            global_batch_index += 1
+    stage_epochs = (
+        config.epochs_stage1 if stage_schedule.stage == 1 else config.epochs_stage2
+    )
+    noise_generator = torch.Generator(device=device)
+    noise_generator.manual_seed(
+        stable_int_seed(f"noise:{config.seed}:stage:{stage_schedule.stage}")
+    )
 
-        validation_loss = evaluate_distillation_loss(
-            stage=stage,
+    latest_path = run_dir / f"stage{stage_schedule.stage}_latest.pt"
+    best_path = run_dir / f"stage{stage_schedule.stage}_best.pt"
+    history_path = run_dir / "distillation_history.csv"
+
+    best_metric = float("inf")
+    bad_at_min_lr = 0
+    global_step = int(global_step_start)
+
+    for epoch in range(1, stage_epochs + 1):
+        dataset.set_epoch(epoch)
+        train_loss, grad_norm_max, n_batches = train_one_epoch(
             teacher=teacher,
             student=student,
-            loader=val_loader,
-            schedule=schedule,
-            config=stage_config,
-            segment_schedules=segment_schedules,
-            device=device,
-        )
-        epoch_row = {
-            "stage": stage,
-            "epoch": epoch,
-            "global_step": global_batch_index,
-            "batch_index": None,
-            "train_loss": float(np.mean(epoch_losses)),
-            "trajectory_loss": float(np.mean([row["trajectory_loss"] for row in history if row["epoch"] == epoch])),
-            "cfd_loss": float(np.mean([row["cfd_loss"] for row in history if row["epoch"] == epoch])),
-            "weighted_cfd_loss": float(np.mean([row["weighted_cfd_loss"] for row in history if row["epoch"] == epoch])),
-            "validation_loss": float(validation_loss),
-            "gradient_norm": float(np.mean([row["gradient_norm"] for row in history if row["epoch"] == epoch])),
-            "learning_rate": float(optimizer.param_groups[0]["lr"]),
-        }
-        history.append(epoch_row)
-        if not math.isfinite(validation_loss):
-            validation_loss = float("nan")
-        is_best = math.isfinite(validation_loss) and (
-            best_validation_loss is None or validation_loss < best_validation_loss
-        )
-        if is_best:
-            best_validation_loss = float(validation_loss)
-        payload = _checkpoint_payload(
-            stage=stage,
-            epoch=epoch,
-            student=student,
-            model_config=model_config,
-            diffusion_config=diffusion_config,
-            config=stage_config,
-            data=data,
-            split=split,
-            normalizer=normalizer,
-            local_aspect_mean=local_aspect_mean,
-            local_aspect_std=local_aspect_std,
-            dataset_identity=dataset_identity,
-            baseline_identity=baseline_identity,
-            initialization_metadata=initialization_metadata,
-            global_schedule=global_schedule,
-            segment_schedules=segment_schedules,
-            history=history,
-            best_validation_loss=best_validation_loss,
+            loader=loader,
             optimizer=optimizer,
+            stage_schedule=stage_schedule,
+            alphas_cumprod=alphas_cumprod,
+            device=device,
+            grad_clip=config.grad_clip,
+            noise_generator=noise_generator,
+            max_batches=config.max_batches_per_epoch,
+            epoch=epoch,
+            progress_every_batches=config.progress_every_batches,
         )
-        _atomic_write_history(history_path, history)
-        save_stage_checkpoint(latest_path, payload)
-        if is_best:
-            save_stage_checkpoint(best_path, payload)
+        global_step += n_batches
 
-    return latest_path, best_path if best_validation_loss is not None else None, history, best_validation_loss
+        if epoch % config.validation_every != 0:
+            print(
+                f"[Stage {stage_schedule.stage}] epoch={epoch:03d} "
+                f"train_state_mse={train_loss:.8g} "
+                f"lr={optimizer.param_groups[0]['lr']:.3g}",
+                flush=True,
+            )
+            continue
 
-
-def _build_manifest(
-    *,
-    config: ProgressiveDistillationConfig,
-    run_id: str,
-    run_directory: Path,
-    status: str,
-    created_at_utc: str,
-    started_at_utc: Optional[str],
-    finished_at_utc: Optional[str],
-    last_completed_epoch: Optional[int],
-    failure_type: Optional[str],
-    failure_message: Optional[str],
-    data: Mapping[str, Any],
-    split: DiffusionCaseSplit,
-    normalizer: FeatureNormalizer,
-    local_aspect_mean: float,
-    local_aspect_std: float,
-    dataset_identity: Mapping[str, Any],
-    baseline_identity: Mapping[str, Any],
-    initialization_metadata: Mapping[str, Any],
-    model_config: Mapping[str, Any],
-    diffusion_config: Mapping[str, Any],
-    global_schedule: torch.Tensor,
-    segment_schedules: Sequence[torch.Tensor],
-    best_validation_loss: Optional[float],
-) -> dict[str, Any]:
-    source_files = {
-        "data_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "data.py"),
-        "model_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "model.py"),
-        "diffusion_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "diffusion.py"),
-        "provenance_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "provenance.py"),
-        "artifacts_module": _identity(REPOSITORY_ROOT / "pidiffusion" / "artifacts.py"),
-        "entrypoint": _identity(REPOSITORY_ROOT / "experiments" / "distill_progressive.py"),
-        "protocol_notebook": _identity(
-            REPOSITORY_ROOT / "train_point_diffusion_progressive_distillation.ipynb"
-        ),
-    }
-    latest_path = run_directory / f"distill_stage{config.stage}_latest.pt"
-    best_path = run_directory / f"distill_stage{config.stage}_best.pt"
-    history_path = run_directory / "training_history.csv"
-    return {
-        "schema_version": "distill_progressive_v1",
-        "run_id": run_id,
-        "timestamp_utc": finished_at_utc or created_at_utc,
-        "status": status,
-        "created_at_utc": created_at_utc,
-        "started_at_utc": started_at_utc,
-        "finished_at_utc": finished_at_utc,
-        "last_completed_epoch": last_completed_epoch,
-        "failure_type": failure_type,
-        "failure_message": failure_message,
-        "git": git_state(REPOSITORY_ROOT),
-        "source_files": source_files,
-        "dataset": {
-            **dict(dataset_identity),
-            "split": {
-                "method": "sorted_case_ids_default_rng",
-                "seed": config.split_seed,
-                "train_fraction": 0.8,
-                "validation_fraction": 0.1,
-                "train_cases": list(split.train_cases),
-                "val_cases": list(split.val_cases),
-                "test_cases": list(split.test_cases),
-                "train_indices": list(split.train_indices),
-                "val_indices": list(split.val_indices),
-                "test_indices": list(split.test_indices),
-            },
-            "normalizer_source": "train_only",
-            "target_mean": normalizer.mean.detach().cpu().tolist(),
-            "target_std": normalizer.std.detach().cpu().tolist(),
-            "local_aspect_mean": local_aspect_mean,
-            "local_aspect_std": local_aspect_std,
-            "channel_names": {
-                "branch": list(data["branch_channel_names"]),
-                "query": list(data["trunk_channel_names"]),
-                "target": list(data["output_channel_names"]),
-            },
-        },
-        "checkpoint": {
-            "stage": config.stage,
-            "initialization_mode": "model_only",
-            "baseline_teacher": dict(baseline_identity),
-            "initialization": dict(initialization_metadata),
-            "model_config": dict(model_config),
-            "diffusion_config": dict(diffusion_config),
-            "current_run_best_validation_loss": best_validation_loss,
-            "best": _identity(best_path) if best_path.exists() else None,
-            "latest": _identity(latest_path) if latest_path.exists() else None,
-        },
-        "protocol": {
-            "name": "progressive_distillation_round_reverse",
-            "stage": config.stage,
-            "teacher_sampling_steps": config.teacher_sampling_steps,
-            "student_sampling_steps": config.student_sampling_steps,
-            "student_timesteps": list(config.student_timesteps),
-            "teacher_global_schedule": global_schedule.detach().cpu().tolist(),
-            "teacher_segment_schedules": [schedule.detach().cpu().tolist() for schedule in segment_schedules],
-            "teacher_transition_counts": list(config.teacher_transition_counts),
-            "rounding_policy": "round",
-            "trajectory_field_weights": list(config.trajectory_field_weights),
-            "trajectory_target_weights": list(config.trajectory_target_weights),
-            "cfd_field_weights": list(config.cfd_field_weights),
-            "lambda_cfd": config.lambda_cfd,
-            "teacher_forcing": True,
-            "autoregressive_student_rollout": config.stage == 3,
-            "direct_cfd_supervision": config.stage == 3,
-            "query_sampling_protocol": "legacy_global_numpy",
-            "validation_protocol": "dynamic_teacher_targets_with_fixed_noise",
-            "full_resume": False,
-        },
-        "randomness": {
-            "global_seed": config.global_seed,
-            "split_seed": config.split_seed,
-            "query_sampling": "legacy_global_numpy",
-            "training_noise_seed_start": config.noise_seed_start,
-            "validation_noise_seed_start": config.validation_noise_seed,
-            "noise_seed_policy": "per_batch_increment",
-            "dataloader_workers": config.num_workers,
-        },
-        "environment": runtime_environment(),
-        "outputs": {
-            "directory": _manifest_path(run_directory),
-            "best_checkpoint": _identity(best_path) if best_path.exists() else None,
-            "latest_checkpoint": _identity(latest_path) if latest_path.exists() else None,
-            "training_history": _identity(history_path) if history_path.exists() else None,
-        },
-        "notes": [
-            "This entrypoint implements only the approved progressive distillation protocol.",
-            "Teacher global 50-step and segmented teacher-target schedules are recorded separately.",
-            "Stage continuation is model-only; optimizer, scheduler, and RNG states are not restored.",
-            "No sampling, reconstruction, plotting, test metrics, or unknown-interface inference is performed by this script.",
-        ],
-    }
-
-
-def run_training(config: ProgressiveDistillationConfig) -> Path:
-    """Load canonical data, train one approved stage, and publish isolated artifacts."""
-
-    if config.stage not in (1, 2, 3):
-        raise ValueError("A stage of 1, 2, or 3 is required for a formal run")
-    device = resolve_device(config.device)
-    dataset_path = _resolve_repo_path(config.dataset_path)
-    baseline_path = _trusted_checkpoint_path(config.baseline_checkpoint, "Baseline checkpoint")
-    if config.stage == 1 and (
-        config.stage1_checkpoint is not None or config.stage2_checkpoint is not None
-    ):
-        raise ValueError("Stage 1 does not accept a stage initialization checkpoint")
-    if config.stage == 2:
-        if config.stage1_checkpoint is None:
-            raise ValueError("Stage 2 requires --stage1-checkpoint")
-        _stage_checkpoint_path(config.stage1_checkpoint, "Stage 1 checkpoint")
-    if config.stage == 3:
-        if config.stage2_checkpoint is None:
-            raise ValueError("Stage 3 requires --stage2-checkpoint")
-        _stage_checkpoint_path(config.stage2_checkpoint, "Stage 2 checkpoint")
-    _require_file(dataset_path, "Dataset")
-    if config.batch_size <= 0 or config.num_query_points <= 0 or config.epochs <= 0:
-        raise ValueError("batch_size, num_query_points, and epochs must be positive")
-    set_global_seed(config.global_seed)
-
-    data = load_diffusion_dataset(dataset_path)
-    split = build_case_split(data, split_seed=config.split_seed)
-    normalizer, local_aspect_mean, local_aspect_std = fit_train_normalizers(data, split)
-    dataset_identity = _identity(dataset_path)
-    dataset_identity["checksum_available"] = dataset_identity.get("sha256") is not None
-    dataset_identity["checksum_source"] = (
-        "computed_from_current_dataset"
-        if dataset_identity.get("sha256")
-        else "unavailable"
-    )
-    train_loader, val_loader = _build_data_loaders(
-        data,
-        split,
-        normalizer,
-        local_aspect_mean,
-        local_aspect_std,
-        config,
-    )
-    model_probe, model_config = build_diffusion_model(
-        len(data["branch_channel_names"]),
-        len(data["trunk_channel_names"]),
-        len(data["output_channel_names"]),
-    )
-    del model_probe
-    schedule = build_linear_schedule(
-        timesteps=config.diffusion_steps,
-        beta_start=config.beta_start,
-        beta_end=config.beta_end,
-        device=device,
-    )
-    diffusion_config = _expected_diffusion_config(config)
-    global_schedule = build_ddim_timesteps(
-        config.teacher_sampling_steps,
-        config.diffusion_steps,
-        device=device,
-    )
-    segment_schedules = _expected_segment_schedules(config, device)
-    teacher, student, baseline_identity, initialization_metadata = build_teacher_and_student(
-        config=config,
-        data=data,
-        split=split,
-        normalizer=normalizer,
-        local_aspect_mean=local_aspect_mean,
-        local_aspect_std=local_aspect_std,
-        device=device,
-        model_config=model_config,
-        diffusion_config=diffusion_config,
-        segment_schedules=segment_schedules,
-        dataset_path=dataset_path,
-        dataset_identity=dataset_identity,
-    )
-    run_id = _build_run_id(config)
-    results_root = _resolve_repo_path(config.results_root)
-    run_directory = results_root / "distill_progressive" / run_id
-    run_directory.parent.mkdir(parents=True, exist_ok=True)
-    run_directory.mkdir(exist_ok=False)
-    created_at_utc = _utc_now()
-    started_at_utc: Optional[str] = None
-    last_completed_epoch: Optional[int] = None
-    best_validation_loss: Optional[float] = None
-    manifest_kwargs = {
-        "config": config,
-        "run_id": run_id,
-        "run_directory": run_directory,
-        "data": data,
-        "split": split,
-        "normalizer": normalizer,
-        "local_aspect_mean": local_aspect_mean,
-        "local_aspect_std": local_aspect_std,
-        "dataset_identity": dataset_identity,
-        "baseline_identity": baseline_identity,
-        "initialization_metadata": initialization_metadata,
-        "model_config": model_config,
-        "diffusion_config": diffusion_config,
-        "global_schedule": global_schedule,
-        "segment_schedules": segment_schedules,
-    }
-    try:
-        write_manifest(
-            run_directory,
-            _build_manifest(
-                **manifest_kwargs,
-                status="prepared",
-                created_at_utc=created_at_utc,
-                started_at_utc=None,
-                finished_at_utc=None,
-                last_completed_epoch=None,
-                failure_type=None,
-                failure_message=None,
-                best_validation_loss=None,
-            ),
-        )
-        started_at_utc = _utc_now()
-        update_manifest(
-            run_directory,
-            _build_manifest(
-                **manifest_kwargs,
-                status="running",
-                created_at_utc=created_at_utc,
-                started_at_utc=started_at_utc,
-                finished_at_utc=None,
-                last_completed_epoch=None,
-                failure_type=None,
-                failure_message=None,
-                best_validation_loss=None,
-            ),
-        )
-        latest_path, best_path, history, best_validation_loss = train_stage(
-            stage=config.stage,
-            teacher=teacher,
-            student=student,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            schedule=schedule,
-            segment_schedules=segment_schedules,
-            global_schedule=global_schedule,
-            config=config,
-            data=data,
-            split=split,
+        validation = validate_rollout(
+            model=student,
+            val_h5=config.val_h5,
+            val_indices=val_indices,
+            branch_channel_names=val_protocol.branch_channel_names,
             normalizer=normalizer,
-            local_aspect_mean=local_aspect_mean,
-            local_aspect_std=local_aspect_std,
-            dataset_identity=dataset_identity,
-            baseline_identity=baseline_identity,
-            initialization_metadata=initialization_metadata,
-            model_config=model_config,
-            diffusion_config=diffusion_config,
-            run_directory=run_directory,
-        )
-        del latest_path, best_path, history
-        last_completed_epoch = config.epochs
-        update_manifest(
-            run_directory,
-            _build_manifest(
-                **manifest_kwargs,
-                status="completed",
-                created_at_utc=created_at_utc,
-                started_at_utc=started_at_utc,
-                finished_at_utc=_utc_now(),
-                last_completed_epoch=last_completed_epoch,
-                failure_type=None,
-                failure_message=None,
-                best_validation_loss=best_validation_loss,
+            target_mean=target_mean,
+            target_std=target_std,
+            local_aspect_mean=float(base_checkpoint["local_aspect_mean"]),
+            local_aspect_std=float(base_checkpoint["local_aspect_std"]),
+            student_sources=stage_schedule.student_sources,
+            alphas_cumprod=alphas_cumprod,
+            device=device,
+            sampling_seed=config.validation_sampling_seed,
+            stage=stage_schedule.stage,
+            epoch=epoch,
+            progress_every_validation_samples=(
+                config.progress_every_validation_samples
             ),
         )
-    except BaseException as exc:
-        if (run_directory / "manifest.json").exists():
-            try:
-                failure_type = type(exc).__name__
-                failure_message = str(exc).splitlines()[0][:240] or "No exception message was provided."
-                update_manifest(
-                    run_directory,
-                    _build_manifest(
-                        **manifest_kwargs,
-                        status="failed",
-                        created_at_utc=created_at_utc,
-                        started_at_utc=started_at_utc,
-                        finished_at_utc=_utc_now(),
-                        last_completed_epoch=last_completed_epoch,
-                        failure_type=failure_type,
-                        failure_message=failure_message,
-                        best_validation_loss=best_validation_loss,
-                    ),
-                )
-            except Exception as manifest_error:
-                print(
-                    f"Warning: failed to publish failure manifest without masking {type(exc).__name__}: {manifest_error}",
-                    file=sys.stderr,
-                )
+
+        current_lr = float(optimizer.param_groups[0]["lr"])
+        row = {
+            "stage": stage_schedule.stage,
+            "epoch": epoch,
+            "global_step": global_step,
+            "teacher_nfe": stage_schedule.teacher_nfe,
+            "student_nfe": stage_schedule.student_nfe,
+            "train_state_mse": train_loss,
+            "val_rollout_balanced_norm_mse": validation.balanced_norm_mse,
+            "val_pressure_balanced_rmse_pa": validation.balanced_rmse_pressure,
+            "val_u_balanced_rmse_mps": validation.balanced_rmse_u,
+            "val_v_balanced_rmse_mps": validation.balanced_rmse_v,
+            "val_n_samples": validation.n_samples,
+            "val_n_points": validation.n_points,
+            "learning_rate": current_lr,
+            "grad_norm_max": grad_norm_max,
+        }
+        history_rows.append(row)
+        write_history(history_path, history_rows)
+
+        payload = stage_checkpoint_payload(
+            base_checkpoint=base_checkpoint,
+            model=student,
+            stage_schedule=stage_schedule,
+            stage=stage_schedule.stage,
+            epoch=epoch,
+            global_step=global_step,
+            validation=validation,
+            teacher_checkpoint_path=teacher_checkpoint_path,
+            initialization_checkpoint_path=initialization_checkpoint_path,
+            train_h5=config.train_h5,
+            val_h5=config.val_h5,
+            config=config,
+        )
+        atomic_torch_save(payload, latest_path)
+
+        improved = (
+            validation.balanced_norm_mse
+            < best_metric - config.scheduler_threshold
+        )
+        if improved:
+            best_metric = validation.balanced_norm_mse
+            atomic_torch_save(payload, best_path)
+
+        scheduler.step(validation.balanced_norm_mse)
+        new_lr = float(optimizer.param_groups[0]["lr"])
+
+        at_min_lr = new_lr <= config.min_lr * (1.0 + 1.0e-12)
+        if at_min_lr and not improved:
+            bad_at_min_lr += 1
+        else:
+            bad_at_min_lr = 0
+
+        print(
+            f"[Stage {stage_schedule.stage}] epoch={epoch:03d} "
+            f"train={train_loss:.8g} "
+            f"val_norm_mse={validation.balanced_norm_mse:.8g} | "
+            f"p={validation.balanced_rmse_pressure:.6g} Pa "
+            f"u={validation.balanced_rmse_u:.6g} m/s "
+            f"v={validation.balanced_rmse_v:.6g} m/s | "
+            f"lr={new_lr:.3g} "
+            f"best={best_metric:.8g}",
+            flush=True,
+        )
+
+        if bad_at_min_lr >= config.min_lr_early_stop_patience:
+            print(
+                f"[Stage {stage_schedule.stage}] early stop: "
+                f"min_lr={config.min_lr:g}, "
+                f"bad_validation_checks={bad_at_min_lr}",
+                flush=True,
+            )
+            break
+
+    if not best_path.is_file():
+        raise RuntimeError(
+            f"Stage {stage_schedule.stage} produced no best checkpoint"
+        )
+
+    del teacher
+    del student
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+
+    return best_path, global_step
+
+
+
+def validate_stage1_checkpoint_for_stage2(
+    *,
+    checkpoint_path: Path,
+    base_checkpoint: Mapping[str, Any],
+    config: Config,
+    stage1_schedule: StageSchedule,
+) -> None:
+    """Fail closed unless the supplied checkpoint is the formal Stage-1 student."""
+    checkpoint = load_checkpoint(checkpoint_path)
+
+    expected_scalars = {
+        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "training_protocol_version": PROTOCOL_VERSION,
+        "checkpoint_type": "progressive_distillation_student",
+        "schedule_family": SCHEDULE_FAMILY,
+        "stage": 1,
+        "teacher_nfe": stage1_schedule.teacher_nfe,
+        "student_nfe": stage1_schedule.student_nfe,
+    }
+    for key, expected in expected_scalars.items():
+        actual = checkpoint.get(key)
+        if actual != expected:
+            raise ValueError(
+                f"Invalid Stage-1 checkpoint field {key!r}: "
+                f"expected {expected!r}, got {actual!r}"
+            )
+
+    expected_teacher_timesteps = list(stage1_schedule.teacher_sources)
+    expected_student_timesteps = list(stage1_schedule.student_sources)
+
+    if list(checkpoint.get("teacher_timesteps", [])) != expected_teacher_timesteps:
+        raise ValueError(
+            "Stage-1 teacher timestep schedule does not match the formal Nested20 schedule"
+        )
+
+    if list(checkpoint.get("student_timesteps", [])) != expected_student_timesteps:
+        raise ValueError(
+            "Stage-1 student timestep schedule does not match the formal Nested10 schedule"
+        )
+
+    for key in (
+        "model_config",
+        "diffusion_config",
+        "normalizer_weighting",
+    ):
+        if checkpoint.get(key) != base_checkpoint.get(key):
+            raise ValueError(
+                f"Stage-1 checkpoint {key!r} does not match the formal base checkpoint"
+            )
+
+    for key in (
+        "branch_channel_names",
+        "trunk_channel_names",
+        "output_channel_names",
+    ):
+        checkpoint_channels = tuple(checkpoint.get(key, ()))
+        base_channels = tuple(base_checkpoint.get(key, ()))
+
+        if checkpoint_channels != base_channels:
+            raise ValueError(
+                f"Stage-1 checkpoint {key!r} does not match the formal base checkpoint: "
+                f"{checkpoint_channels!r} != {base_channels!r}"
+            )
+
+    checkpoint_train_h5 = resolve_path(Path(checkpoint["train_dataset_h5"]))
+    checkpoint_val_h5 = resolve_path(Path(checkpoint["val_dataset_h5"]))
+
+    if checkpoint_train_h5 != config.train_h5:
+        raise ValueError(
+            "Stage-1 checkpoint training dataset does not match --train-h5: "
+            f"{checkpoint_train_h5} != {config.train_h5}"
+        )
+
+    if checkpoint_val_h5 != config.val_h5:
+        raise ValueError(
+            "Stage-1 checkpoint validation dataset does not match --val-h5: "
+            f"{checkpoint_val_h5} != {config.val_h5}"
+        )
+
+    checkpoint_norm = checkpoint["y_normalizer"]
+    base_norm = base_checkpoint["y_normalizer"]
+
+    for key in ("mean", "std", "eps"):
+        checkpoint_value = torch.as_tensor(checkpoint_norm[key]).detach().cpu()
+        base_value = torch.as_tensor(base_norm[key]).detach().cpu()
+        if not torch.equal(checkpoint_value, base_value):
+            raise ValueError(
+                f"Stage-1 checkpoint y_normalizer[{key!r}] "
+                "does not match the formal base checkpoint"
+            )
+
+    for key in ("local_aspect_mean", "local_aspect_std"):
+        checkpoint_value = float(checkpoint[key])
+        base_value = float(base_checkpoint[key])
+        if checkpoint_value != base_value:
+            raise ValueError(
+                f"Stage-1 checkpoint {key!r} does not match the formal base checkpoint"
+            )
+
+    print("Stage-1 checkpoint preflight: PASS")
+    print("  path              :", checkpoint_path)
+    print("  stage             :", checkpoint["stage"])
+    print("  epoch             :", checkpoint["epoch"])
+    print("  teacher NFE       :", checkpoint["teacher_nfe"])
+    print("  student NFE       :", checkpoint["student_nfe"])
+    print("  student timesteps :", checkpoint["student_timesteps"])
+
+def print_plan(
+    *,
+    config: Config,
+    base_checkpoint: Mapping[str, Any],
+    train_protocol: H5Protocol,
+    val_protocol: H5Protocol,
+    stage1: StageSchedule,
+    stage2: StageSchedule,
+) -> None:
+    print("Progressive field-diffusion distillation")
+    print("  protocol          :", PROTOCOL_VERSION)
+    print("  base checkpoint   :", config.base_checkpoint)
+    print("  base epoch        :", base_checkpoint.get("epoch", "unknown"))
+    print("  train HDF5        :", config.train_h5)
+    print("  train samples     :", train_protocol.n_samples)
+    print("  validation HDF5   :", config.val_h5)
+    print("  validation samples:", val_protocol.n_samples)
+    print("  test access       : disabled")
+    print("  device            :", config.device)
+    print("  objective         : direct normalized reverse-state matching")
+    print("  truth train loss  : disabled")
+    print("  physics loss      : disabled")
+    print("  BC auxiliary      : disabled")
+    print("  query points      :", config.query_points)
+    print("  batch size        :", config.batch_size)
+    print("  train progress    : every", config.progress_every_batches, "batches")
+    print(
+        "  val progress      : every",
+        config.progress_every_validation_samples,
+        "samples",
+    )
+    print("  learning rate     :", config.learning_rate)
+    print("  stage 1 epochs    :", config.epochs_stage1)
+    print("  stage 2 epochs    :", config.epochs_stage2)
+    print("  schedule family   :", SCHEDULE_FAMILY)
+    print("  anchor 20         :", list(stage1.teacher_sources))
+    print("  nested 10         :", list(stage1.student_sources))
+    print("  nested 5          :", list(stage2.student_sources))
+    print("  stage 1           : 20 NFE -> 10 NFE")
+    print("  stage 2           : 10 NFE -> 5 NFE")
+    print("  final endpoint    : clean projection is part of exact 2:1 mapping")
+    print("  checkpoint select : deterministic validation rollout normalized MSE")
+    if config.max_train_samples is not None:
+        print("  max train samples :", config.max_train_samples)
+    if config.max_batches_per_epoch is not None:
+        print("  max batches/epoch :", config.max_batches_per_epoch)
+    if config.validation_max_samples is not None:
+        print("  max val samples   :", config.validation_max_samples)
+    if config.stage1_only:
+        print("  stage 2           : disabled by --stage1-only")
+    if config.stage2_only:
+        print("  stage 1           : skipped by --stage2-only")
+        print("  stage 1 checkpoint:", config.stage1_checkpoint)
+
+
+def run_distillation(config: Config) -> Path:
+    require_file(config.base_checkpoint, "base checkpoint")
+    require_file(config.train_h5, "training HDF5")
+    require_file(config.val_h5, "validation HDF5")
+    if config.stage2_only:
+        if config.stage1_checkpoint is None:
+            raise ValueError("--stage2-only requires --stage1-checkpoint")
+        require_file(config.stage1_checkpoint, "stage 1 checkpoint")
+
+    base_checkpoint = load_checkpoint(config.base_checkpoint)
+    train_protocol = read_h5_protocol(config.train_h5)
+    val_protocol = read_h5_protocol(config.val_h5)
+    validate_base_protocol(
+        base_checkpoint,
+        config.train_h5,
+        config.val_h5,
+        train_protocol,
+        val_protocol,
+    )
+
+    diffusion = base_checkpoint["diffusion_config"]
+    stage1, stage2 = build_stage_schedules(int(diffusion["T"]))
+
+    if config.stage2_only:
+        assert config.stage1_checkpoint is not None
+        validate_stage1_checkpoint_for_stage2(
+            checkpoint_path=config.stage1_checkpoint,
+            base_checkpoint=base_checkpoint,
+            config=config,
+            stage1_schedule=stage1,
+        )
+
+    print_plan(
+        config=config,
+        base_checkpoint=base_checkpoint,
+        train_protocol=train_protocol,
+        val_protocol=val_protocol,
+        stage1=stage1,
+        stage2=stage2,
+    )
+
+    device = resolve_device(config.device)
+    set_global_seed(config.seed)
+
+    run_id = config.run_id
+    if run_id is None:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        if config.stage2_only:
+            run_id = f"{stamp}_nested10_to5_seed{config.seed}"
+        else:
+            run_id = f"{stamp}_nested20_to10_to5_seed{config.seed}"
+    if not _SAFE_RUN_ID.fullmatch(run_id):
+        raise ValueError(f"Unsafe run_id: {run_id!r}")
+
+    run_dir = config.results_root / "distill_progressive" / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+
+    outputs = {
+        "run_directory": str(run_dir),
+        "history_csv": str(run_dir / "distillation_history.csv"),
+        "stage1_best": (
+            str(config.stage1_checkpoint)
+            if config.stage2_only
+            else str(run_dir / "stage1_best.pt")
+        ),
+        "stage1_latest": (
+            None
+            if config.stage2_only
+            else str(run_dir / "stage1_latest.pt")
+        ),
+        "stage2_best": None if config.stage1_only else str(run_dir / "stage2_best.pt"),
+        "stage2_latest": None if config.stage1_only else str(run_dir / "stage2_latest.pt"),
+    }
+
+    created_at = utc_now()
+    write_manifest(
+        run_dir,
+        build_manifest(
+            run_id=run_id,
+            status="prepared",
+            created_at=created_at,
+            started_at=None,
+            finished_at=None,
+            config=config,
+            base_checkpoint_path=config.base_checkpoint,
+            train_protocol=train_protocol,
+            val_protocol=val_protocol,
+            stage1_schedule=stage1,
+            stage2_schedule=stage2,
+            outputs=outputs,
+        ),
+    )
+
+    started_at = utc_now()
+    update_manifest(
+        run_dir,
+        build_manifest(
+            run_id=run_id,
+            status="running",
+            created_at=created_at,
+            started_at=started_at,
+            finished_at=None,
+            config=config,
+            base_checkpoint_path=config.base_checkpoint,
+            train_protocol=train_protocol,
+            val_protocol=val_protocol,
+            stage1_schedule=stage1,
+            stage2_schedule=stage2,
+            outputs=outputs,
+        ),
+    )
+
+    schedule = build_linear_schedule(
+        timesteps=int(diffusion["T"]),
+        beta_start=float(diffusion["beta_start"]),
+        beta_end=float(diffusion["beta_end"]),
+        device=device,
+    )
+    validate_vectorized_ddim_algebra(schedule.alphas_cumprod)
+
+    history_rows: list[dict[str, Any]] = []
+    global_step = 0
+
+    try:
+        if config.stage2_only:
+            assert config.stage1_checkpoint is not None
+            stage1_best = config.stage1_checkpoint
+            print("\nStage 1 skipped.")
+            print("Stage 2 teacher checkpoint:", stage1_best)
+        else:
+            stage1_best, global_step = stage_run(
+                stage_schedule=stage1,
+                base_checkpoint=base_checkpoint,
+                teacher_checkpoint_path=config.base_checkpoint,
+                initialization_checkpoint_path=config.base_checkpoint,
+                train_protocol=train_protocol,
+                val_protocol=val_protocol,
+                config=config,
+                device=device,
+                alphas_cumprod=schedule.alphas_cumprod,
+                run_dir=run_dir,
+                history_rows=history_rows,
+                global_step_start=global_step,
+            )
+
+        if not config.stage1_only:
+            stage2_best, global_step = stage_run(
+                stage_schedule=stage2,
+                base_checkpoint=base_checkpoint,
+                teacher_checkpoint_path=stage1_best,
+                initialization_checkpoint_path=stage1_best,
+                train_protocol=train_protocol,
+                val_protocol=val_protocol,
+                config=config,
+                device=device,
+                alphas_cumprod=schedule.alphas_cumprod,
+                run_dir=run_dir,
+                history_rows=history_rows,
+                global_step_start=global_step,
+            )
+            outputs["stage2_best"] = str(stage2_best)
+
+        update_manifest(
+            run_dir,
+            build_manifest(
+                run_id=run_id,
+                status="completed",
+                created_at=created_at,
+                started_at=started_at,
+                finished_at=utc_now(),
+                config=config,
+                base_checkpoint_path=config.base_checkpoint,
+                train_protocol=train_protocol,
+                val_protocol=val_protocol,
+                stage1_schedule=stage1,
+                stage2_schedule=stage2,
+                outputs=outputs,
+            ),
+        )
+
+        print("\nCompleted:", run_dir)
+        if config.stage2_only:
+            print("Stage 1 source:", stage1_best)
+        else:
+            print("Stage 1 best:", stage1_best)
+        if not config.stage1_only:
+            print("Stage 2 best:", outputs["stage2_best"])
+        return run_dir
+
+    except Exception as exc:
+        update_manifest(
+            run_dir,
+            build_manifest(
+                run_id=run_id,
+                status="failed",
+                created_at=created_at,
+                started_at=started_at,
+                finished_at=utc_now(),
+                config=config,
+                base_checkpoint_path=config.base_checkpoint,
+                train_protocol=train_protocol,
+                val_protocol=val_protocol,
+                stage1_schedule=stage1,
+                stage2_schedule=stage2,
+                outputs=outputs,
+                failure=f"{type(exc).__name__}: {exc}",
+            ),
+        )
         raise
-    return run_directory
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    config, run_requested = parse_args(argv)
-    if not run_requested:
-        _print_resolved_config(config)
-        return 0
-    run_directory = run_training(config)
-    print(f"Progressive distillation run completed: {_manifest_path(run_directory)}")
-    return 0
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Progressively distill the formal PIDIF field-diffusion baseline "
+            "from nested 20 NFE to 10 NFE and then 5 NFE."
+        )
+    )
+    parser.add_argument(
+        "--base-checkpoint",
+        type=Path,
+        default=DEFAULT_BASE_CHECKPOINT,
+    )
+    parser.add_argument("--train-h5", type=Path, default=DEFAULT_TRAIN_H5)
+    parser.add_argument("--val-h5", type=Path, default=DEFAULT_VAL_H5)
+    parser.add_argument(
+        "--results-root", type=Path, default=DEFAULT_RESULTS_ROOT
+    )
+    parser.add_argument("--device", default="cuda:1")
+    parser.add_argument("--run-id", default=None)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--validation-sampling-seed", type=int, default=0)
+
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--query-points", type=int, default=8192)
+    parser.add_argument("--epochs-stage1", type=int, default=50)
+    parser.add_argument("--epochs-stage2", type=int, default=50)
+    parser.add_argument("--learning-rate", type=float, default=1.0e-4)
+    parser.add_argument("--weight-decay", type=float, default=1.0e-4)
+    parser.add_argument("--grad-clip", type=float, default=0.0)
+
+    parser.add_argument("--scheduler-factor", type=float, default=0.5)
+    parser.add_argument("--scheduler-patience", type=int, default=5)
+    parser.add_argument("--scheduler-threshold", type=float, default=1.0e-5)
+    parser.add_argument("--min-lr", type=float, default=1.0e-6)
+    parser.add_argument(
+        "--min-lr-early-stop-patience", type=int, default=10
+    )
+    parser.add_argument("--validation-every", type=int, default=1)
+    parser.add_argument("--num-workers", type=int, default=0)
+
+    parser.add_argument(
+        "--max-train-samples",
+        type=int,
+        default=None,
+        help="Explicit smoke/debug limit. Omit for the formal 16000-sample training set.",
+    )
+    parser.add_argument(
+        "--max-batches-per-epoch",
+        type=int,
+        default=None,
+        help="Explicit smoke/debug limit. Omit for a formal run.",
+    )
+    parser.add_argument(
+        "--validation-max-samples",
+        type=int,
+        default=None,
+        help="Explicit smoke/debug limit. Omit for all 1000 validation subdomains.",
+    )
+    parser.add_argument(
+        "--progress-every-batches",
+        type=int,
+        default=25,
+        help=(
+            "Print training progress every N processed batches. "
+            "Set 0 to disable batch progress printing."
+        ),
+    )
+    parser.add_argument(
+        "--progress-every-validation-samples",
+        type=int,
+        default=100,
+        help=(
+            "Print rollout-validation progress every N subdomains. "
+            "Set 0 to disable validation progress printing."
+        ),
+    )
+    parser.add_argument(
+        "--validate-checkpoint-only",
+        type=Path,
+        default=None,
+        help=(
+            "Validate an existing distilled student checkpoint on the canonical "
+            "validation rollout and exit without training."
+        ),
+    )
+    parser.add_argument(
+        "--stage1-only",
+        action="store_true",
+        help="Train only the 20-to-10 stage.",
+    )
+    parser.add_argument(
+        "--stage2-only",
+        action="store_true",
+        help=(
+            "Train only the 10-to-5 stage from an existing "
+            "Stage-1 progressive-distillation checkpoint."
+        ),
+    )
+    parser.add_argument(
+        "--stage1-checkpoint",
+        type=Path,
+        default=None,
+        help=(
+            "Existing Stage-1 10-NFE checkpoint used as both the frozen "
+            "Stage-2 teacher and model-only student initialization. "
+            "Required with --stage2-only."
+        ),
+    )
+    parser.add_argument(
+        "--run",
+        action="store_true",
+        help="Actually start GPU distillation. Without this flag only validate and print the plan.",
+    )
+    return parser
+
+
+def config_from_args(args: argparse.Namespace) -> Config:
+    if args.stage1_only and args.stage2_only:
+        raise ValueError(
+            "--stage1-only and --stage2-only are mutually exclusive"
+        )
+    if args.stage2_only and args.stage1_checkpoint is None:
+        raise ValueError(
+            "--stage2-only requires --stage1-checkpoint"
+        )
+    if not args.stage2_only and args.stage1_checkpoint is not None:
+        raise ValueError(
+            "--stage1-checkpoint is only valid with --stage2-only"
+        )
+    if args.batch_size <= 0:
+        raise ValueError("--batch-size must be positive")
+    if args.query_points <= 0:
+        raise ValueError("--query-points must be positive")
+    if args.epochs_stage1 <= 0 or args.epochs_stage2 <= 0:
+        raise ValueError("Stage epoch counts must be positive")
+    if args.learning_rate <= 0.0:
+        raise ValueError("--learning-rate must be positive")
+    if args.validation_every <= 0:
+        raise ValueError("--validation-every must be positive")
+    if args.progress_every_batches < 0:
+        raise ValueError("--progress-every-batches must be >= 0")
+    if args.progress_every_validation_samples < 0:
+        raise ValueError(
+            "--progress-every-validation-samples must be >= 0"
+        )
+    if not (0.0 < args.scheduler_factor < 1.0):
+        raise ValueError("--scheduler-factor must be between 0 and 1")
+    if args.min_lr <= 0.0 or args.min_lr > args.learning_rate:
+        raise ValueError("--min-lr must be positive and <= learning rate")
+
+    return Config(
+        base_checkpoint=resolve_path(args.base_checkpoint),
+        train_h5=resolve_path(args.train_h5),
+        val_h5=resolve_path(args.val_h5),
+        results_root=resolve_path(args.results_root),
+        device=args.device,
+        run_id=args.run_id,
+        seed=args.seed,
+        validation_sampling_seed=args.validation_sampling_seed,
+        batch_size=args.batch_size,
+        query_points=args.query_points,
+        epochs_stage1=args.epochs_stage1,
+        epochs_stage2=args.epochs_stage2,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay,
+        grad_clip=args.grad_clip,
+        scheduler_factor=args.scheduler_factor,
+        scheduler_patience=args.scheduler_patience,
+        scheduler_threshold=args.scheduler_threshold,
+        min_lr=args.min_lr,
+        min_lr_early_stop_patience=args.min_lr_early_stop_patience,
+        validation_every=args.validation_every,
+        num_workers=args.num_workers,
+        max_train_samples=args.max_train_samples,
+        max_batches_per_epoch=args.max_batches_per_epoch,
+        validation_max_samples=args.validation_max_samples,
+        progress_every_batches=args.progress_every_batches,
+        progress_every_validation_samples=(
+            args.progress_every_validation_samples
+        ),
+        stage1_only=args.stage1_only,
+        stage2_only=args.stage2_only,
+        stage1_checkpoint=(
+            resolve_path(args.stage1_checkpoint)
+            if args.stage1_checkpoint is not None
+            else None
+        ),
+    )
+
+
+def validate_checkpoint_only(
+    config: Config, checkpoint_path: Path
+) -> ValidationSummary:
+    checkpoint_path = resolve_path(checkpoint_path)
+    require_file(config.base_checkpoint, "base checkpoint")
+    require_file(config.val_h5, "validation HDF5")
+    require_file(checkpoint_path, "distilled checkpoint")
+
+    base_checkpoint = load_checkpoint(config.base_checkpoint)
+    train_protocol = read_h5_protocol(config.train_h5)
+    val_protocol = read_h5_protocol(config.val_h5)
+    validate_base_protocol(
+        base_checkpoint,
+        config.train_h5,
+        config.val_h5,
+        train_protocol,
+        val_protocol,
+    )
+
+    checkpoint = load_checkpoint(checkpoint_path)
+    if checkpoint.get("checkpoint_type") != "progressive_distillation_student":
+        raise ValueError(
+            "--validate-checkpoint-only requires a progressive-distillation "
+            "student checkpoint"
+        )
+    if checkpoint_path_field(checkpoint, "train_dataset_h5") != config.train_h5:
+        raise ValueError("Distilled checkpoint training HDF5 does not match")
+    if checkpoint_path_field(checkpoint, "val_dataset_h5") != config.val_h5:
+        raise ValueError("Distilled checkpoint validation HDF5 does not match")
+    if checkpoint.get("schedule_family") != SCHEDULE_FAMILY:
+        raise ValueError(
+            f"Unexpected schedule family: {checkpoint.get('schedule_family')!r}"
+        )
+
+    stage1, stage2 = build_stage_schedules(
+        int(base_checkpoint["diffusion_config"]["T"])
+    )
+    student_nfe = int(require_checkpoint_field(checkpoint, "student_nfe"))
+    if student_nfe == stage1.student_nfe:
+        schedule = stage1
+    elif student_nfe == stage2.student_nfe:
+        schedule = stage2
+    else:
+        raise ValueError(
+            f"Unsupported distilled student_nfe={student_nfe}; expected 10 or 5"
+        )
+    if tuple(int(x) for x in checkpoint["student_timesteps"]) != tuple(
+        schedule.student_sources
+    ):
+        raise ValueError("Checkpoint student timesteps do not match formal schedule")
+
+    device = resolve_device(config.device)
+    diffusion = base_checkpoint["diffusion_config"]
+    linear_schedule = build_linear_schedule(
+        timesteps=int(diffusion["T"]),
+        beta_start=float(diffusion["beta_start"]),
+        beta_end=float(diffusion["beta_end"]),
+        device=device,
+    )
+    model = build_model_from_checkpoint(checkpoint, device, frozen=True)
+    normalizer, target_mean, target_std = normalizer_numpy(base_checkpoint)
+    val_indices = choose_indices(
+        val_protocol.n_samples, config.validation_max_samples
+    )
+
+    print("Distilled-checkpoint validation only")
+    print("  checkpoint        :", checkpoint_path)
+    print("  checkpoint stage  :", checkpoint.get("stage", "unknown"))
+    print("  checkpoint epoch  :", checkpoint.get("epoch", "unknown"))
+    print("  student NFE       :", student_nfe)
+    print("  student timesteps :", list(schedule.student_sources))
+    print("  validation HDF5   :", config.val_h5)
+    print("  validation selected:", len(val_indices))
+    print("  sampling seed     :", config.validation_sampling_seed)
+    print("  test access       : disabled")
+
+    summary = validate_rollout(
+        model=model,
+        val_h5=config.val_h5,
+        val_indices=val_indices,
+        branch_channel_names=val_protocol.branch_channel_names,
+        normalizer=normalizer,
+        target_mean=target_mean,
+        target_std=target_std,
+        local_aspect_mean=float(base_checkpoint["local_aspect_mean"]),
+        local_aspect_std=float(base_checkpoint["local_aspect_std"]),
+        student_sources=schedule.student_sources,
+        alphas_cumprod=linear_schedule.alphas_cumprod,
+        device=device,
+        sampling_seed=config.validation_sampling_seed,
+        stage=int(checkpoint.get("stage", schedule.stage)),
+        epoch=int(checkpoint.get("epoch", 0)),
+        progress_every_validation_samples=(
+            config.progress_every_validation_samples
+        ),
+    )
+
+    print("\nValidation summary")
+    print(
+        f"  val_norm_mse={summary.balanced_norm_mse:.9g} | "
+        f"p={summary.balanced_rmse_pressure:.6g} Pa | "
+        f"u={summary.balanced_rmse_u:.8g} m/s | "
+        f"v={summary.balanced_rmse_v:.8g} m/s"
+    )
+    print("  validation samples:", summary.n_samples)
+    print("  validation points :", summary.n_points)
+    return summary
+
+
+def dry_run(config: Config) -> None:
+    require_file(config.base_checkpoint, "base checkpoint")
+    require_file(config.train_h5, "training HDF5")
+    require_file(config.val_h5, "validation HDF5")
+
+    checkpoint = load_checkpoint(config.base_checkpoint)
+    train_protocol = read_h5_protocol(config.train_h5)
+    val_protocol = read_h5_protocol(config.val_h5)
+    validate_base_protocol(
+        checkpoint,
+        config.train_h5,
+        config.val_h5,
+        train_protocol,
+        val_protocol,
+    )
+    stage1, stage2 = build_stage_schedules(int(checkpoint["diffusion_config"]["T"]))
+
+    if config.stage2_only:
+        assert config.stage1_checkpoint is not None
+        require_file(config.stage1_checkpoint, "stage 1 checkpoint")
+        validate_stage1_checkpoint_for_stage2(
+            checkpoint_path=config.stage1_checkpoint,
+            base_checkpoint=checkpoint,
+            config=config,
+            stage1_schedule=stage1,
+        )
+
+    diffusion = checkpoint["diffusion_config"]
+    cpu_schedule = build_linear_schedule(
+        timesteps=int(diffusion["T"]),
+        beta_start=float(diffusion["beta_start"]),
+        beta_end=float(diffusion["beta_end"]),
+        device="cpu",
+    )
+    validate_vectorized_ddim_algebra(cpu_schedule.alphas_cumprod)
+    print_plan(
+        config=config,
+        base_checkpoint=checkpoint,
+        train_protocol=train_protocol,
+        val_protocol=val_protocol,
+        stage1=stage1,
+        stage2=stage2,
+    )
+    print("\nDistillation was not started. Pass --run to execute it.")
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    config = config_from_args(args)
+    if args.validate_checkpoint_only is not None:
+        if args.run:
+            raise ValueError(
+                "Do not combine --validate-checkpoint-only with --run"
+            )
+        validate_checkpoint_only(config, args.validate_checkpoint_only)
+    elif args.run:
+        run_distillation(config)
+    else:
+        dry_run(config)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

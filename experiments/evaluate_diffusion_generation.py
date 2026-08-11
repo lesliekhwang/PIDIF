@@ -49,7 +49,7 @@ from pidiffusion.model import PointSetDiffusionDenoiser
 from pidiffusion.provenance import file_identity, git_state, runtime_environment
 
 
-PROTOCOL_VERSION = "field_diffusion_generation_eval_v1"
+PROTOCOL_VERSION = "field_diffusion_generation_eval_v3"
 MANIFEST_SCHEMA_VERSION = "pidiffusion_run_manifest_v1"
 
 DEFAULT_CHECKPOINT = (
@@ -71,6 +71,11 @@ EXPECTED_OUTPUTS = ("pressure", "u", "v")
 EXPECTED_TRUNK = ("x_local", "y_local")
 EXPECTED_PARAMETER_COUNT = 382_083
 
+SCHEDULE_FAMILY_STANDARD = "standard"
+SCHEDULE_FAMILY_PROGRESSIVE_NESTED20 = "progressive_nested20"
+PROGRESSIVE_NESTED_ANCHOR_NFE = 20
+PROGRESSIVE_NESTED_ALLOWED_NFE = (20, 10, 5)
+
 FIELD_UNITS = {
     "pressure": "Pa",
     "u": "m/s",
@@ -86,6 +91,7 @@ class Config:
     validation_h5: Path
     results_root: Path
     device: str
+    schedule_family: str
     sampling_steps: tuple[int, ...]
     sampling_seed: int
     sample_indices: tuple[int, ...] | None
@@ -356,6 +362,68 @@ def validate_protocol(
             )
 
 
+def build_sampling_timesteps(
+    *,
+    sampling_steps: int,
+    total_diffusion_steps: int,
+    schedule_family: str,
+    device: torch.device | str,
+) -> torch.Tensor:
+    """Build one evaluation schedule without changing the diffusion core.
+
+    ``standard`` preserves the existing independently spaced DDIM schedule.
+
+    ``progressive_nested20`` uses the standard 20-NFE schedule as the
+    immutable anchor and takes every 2nd or 4th model-evaluation source
+    timestep to obtain exactly nested 10-NFE and 5-NFE schedules.  The
+    sampler still performs a final clean projection from the last listed
+    timestep, so the number of listed timesteps equals the number of model
+    evaluations (NFE).
+    """
+
+    if schedule_family == SCHEDULE_FAMILY_STANDARD:
+        return build_ddim_timesteps(
+            sampling_steps,
+            total_diffusion_steps,
+            device=device,
+        )
+
+    if schedule_family != SCHEDULE_FAMILY_PROGRESSIVE_NESTED20:
+        raise ValueError(
+            f"Unsupported schedule family: {schedule_family!r}"
+        )
+
+    if sampling_steps not in PROGRESSIVE_NESTED_ALLOWED_NFE:
+        raise ValueError(
+            "progressive_nested20 only supports NFE values "
+            f"{PROGRESSIVE_NESTED_ALLOWED_NFE}; got {sampling_steps}"
+        )
+
+    anchor = build_ddim_timesteps(
+        PROGRESSIVE_NESTED_ANCHOR_NFE,
+        total_diffusion_steps,
+        device=device,
+    )
+    stride = PROGRESSIVE_NESTED_ANCHOR_NFE // sampling_steps
+    nested = anchor[::stride].clone()
+
+    if nested.numel() != sampling_steps:
+        raise RuntimeError(
+            "Nested DDIM schedule construction produced "
+            f"{nested.numel()} timesteps for requested NFE={sampling_steps}"
+        )
+    if int(nested[0]) != total_diffusion_steps - 1:
+        raise RuntimeError(
+            "Nested DDIM schedule does not start at the highest timestep"
+        )
+    if nested.numel() > 1 and not torch.all(nested[:-1] > nested[1:]):
+        raise RuntimeError(
+            "Nested DDIM schedule is not strictly descending"
+        )
+
+    return nested
+
+
 def resolve_device(text: str) -> torch.device:
     device = torch.device(text)
     if device.type == "cuda":
@@ -624,6 +692,35 @@ def write_csv(
         writer.writerows(rows)
 
 
+def checkpoint_validation_metadata(
+    checkpoint: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return checkpoint-selection metadata for base or distilled checkpoints."""
+    if "val_interior_loss" in checkpoint:
+        return {
+            "validation_metric_name": "val_interior_loss",
+            "validation_metric_value": float(checkpoint["val_interior_loss"]),
+            "val_interior_loss": float(checkpoint["val_interior_loss"]),
+        }
+    if "val_rollout_balanced_norm_mse" in checkpoint:
+        return {
+            "validation_metric_name": "val_rollout_balanced_norm_mse",
+            "validation_metric_value": float(
+                checkpoint["val_rollout_balanced_norm_mse"]
+            ),
+            "val_rollout_balanced_norm_mse": float(
+                checkpoint["val_rollout_balanced_norm_mse"]
+            ),
+            "distillation_stage": checkpoint.get("stage"),
+            "student_nfe": checkpoint.get("student_nfe"),
+            "schedule_family": checkpoint.get("schedule_family"),
+        }
+    return {
+        "validation_metric_name": None,
+        "validation_metric_value": None,
+    }
+
+
 def build_provenance(
     config: Config,
     protocol: Mapping[str, Any],
@@ -671,12 +768,8 @@ def build_provenance(
             "global_step": int(
                 require_checkpoint_field(checkpoint, "global_step")
             ),
-            "val_interior_loss": float(
-                require_checkpoint_field(
-                    checkpoint,
-                    "val_interior_loss",
-                )
-            ),
+            **checkpoint_validation_metadata(checkpoint),
+            "checkpoint_type": checkpoint.get("checkpoint_type", "base_diffusion"),
             "model_config": dict(
                 require_checkpoint_field(checkpoint, "model_config")
             ),
@@ -723,6 +816,13 @@ def make_manifest(
             "phase": "base_diffusion_generation_validation",
             "sampler": "DDIM",
             "eta": 0.0,
+            "schedule_family": config.schedule_family,
+            "progressive_nested_anchor_nfe": (
+                PROGRESSIVE_NESTED_ANCHOR_NFE
+                if config.schedule_family
+                == SCHEDULE_FAMILY_PROGRESSIVE_NESTED20
+                else None
+            ),
             "sampling_steps": list(config.sampling_steps),
             "timestep_schedules": {
                 str(steps): values.cpu().tolist()
@@ -772,14 +872,24 @@ def print_plan(
     print("  protocol         :", PROTOCOL_VERSION)
     print("  checkpoint       :", config.checkpoint)
     print("  checkpoint epoch :", checkpoint["epoch"])
-    print(
-        "  checkpoint val ε :",
-        f"{checkpoint['val_interior_loss']:.9f}",
-    )
+    validation_meta = checkpoint_validation_metadata(checkpoint)
+    metric_name = validation_meta["validation_metric_name"]
+    metric_value = validation_meta["validation_metric_value"]
+    if metric_name is None:
+        print("  checkpoint metric:", "not recorded")
+    else:
+        print(
+            "  checkpoint metric:",
+            f"{metric_name}={metric_value:.9g}",
+        )
+    if checkpoint.get("checkpoint_type") == "progressive_distillation_student":
+        print("  distill stage    :", checkpoint.get("stage"))
+        print("  student NFE      :", checkpoint.get("student_nfe"))
     print("  validation HDF5  :", config.validation_h5)
     print("  dataset role     :", protocol["dataset_role"])
     print("  selected samples :", len(selected_indices))
     print("  device           :", config.device)
+    print("  schedule family  :", config.schedule_family)
     print("  sampling seed    :", config.sampling_seed)
     print("  save predictions :", config.save_predictions)
     print("  DDIM schedules:")
@@ -819,9 +929,10 @@ def run_evaluation(config: Config) -> Path:
         device=device,
     )
     timestep_schedules = {
-        steps: build_ddim_timesteps(
-            steps,
-            schedule.timesteps,
+        steps: build_sampling_timesteps(
+            sampling_steps=steps,
+            total_diffusion_steps=schedule.timesteps,
+            schedule_family=config.schedule_family,
             device=device,
         )
         for steps in config.sampling_steps
@@ -839,8 +950,13 @@ def run_evaluation(config: Config) -> Path:
     if run_id is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         step_text = "-".join(str(x) for x in config.sampling_steps)
+        family_text = (
+            "ddim"
+            if config.schedule_family == SCHEDULE_FAMILY_STANDARD
+            else config.schedule_family
+        )
         run_id = (
-            f"{stamp}_base_val_ddim{step_text}"
+            f"{stamp}_base_val_{family_text}{step_text}"
             f"_seed{config.sampling_seed}"
         )
     if not _SAFE_RUN_ID.fullmatch(run_id):
@@ -965,6 +1081,16 @@ def run_evaluation(config: Config) -> Path:
             predictions_handle.attrs["sampling_seed"] = (
                 config.sampling_seed
             )
+            predictions_handle.attrs["schedule_family"] = (
+                config.schedule_family
+            )
+            if (
+                config.schedule_family
+                == SCHEDULE_FAMILY_PROGRESSIVE_NESTED20
+            ):
+                predictions_handle.attrs[
+                    "progressive_nested_anchor_nfe"
+                ] = PROGRESSIVE_NESTED_ANCHOR_NFE
 
         with h5py.File(config.validation_h5, "r") as handle:
             first_branch, first_query, _, _ = read_sample(
@@ -1084,6 +1210,7 @@ def run_evaluation(config: Config) -> Path:
                         )
                         per_sample_rows.append(
                             {
+                                "schedule_family": config.schedule_family,
                                 "sampling_steps": steps,
                                 "sample_index": sample_index,
                                 "case_id": metadata.get("case_id", ""),
@@ -1145,6 +1272,7 @@ def run_evaluation(config: Config) -> Path:
             for field in fields:
                 summary_rows.append(
                     {
+                        "schedule_family": config.schedule_family,
                         "sampling_steps": steps,
                         "field": field,
                         "unit": FIELD_UNITS[field],
@@ -1266,6 +1394,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--device", default="cuda:1")
     parser.add_argument(
+        "--schedule-family",
+        choices=(
+            SCHEDULE_FAMILY_STANDARD,
+            SCHEDULE_FAMILY_PROGRESSIVE_NESTED20,
+        ),
+        default=SCHEDULE_FAMILY_STANDARD,
+        help=(
+            "Sampling-grid family. 'standard' preserves the existing "
+            "independently spaced DDIM schedules. 'progressive_nested20' "
+            "uses the standard 20-NFE grid as the anchor and constructs "
+            "exactly nested 20/10/5-NFE schedules for progressive "
+            "distillation studies."
+        ),
+    )
+    parser.add_argument(
         "--sampling-steps",
         nargs="+",
         type=int,
@@ -1301,6 +1444,18 @@ def main() -> None:
     steps = tuple(int(value) for value in args.sampling_steps)
     if len(steps) != len(set(steps)):
         raise ValueError("--sampling-steps contains duplicates")
+    if (
+        args.schedule_family
+        == SCHEDULE_FAMILY_PROGRESSIVE_NESTED20
+        and any(
+            step not in PROGRESSIVE_NESTED_ALLOWED_NFE
+            for step in steps
+        )
+    ):
+        raise ValueError(
+            "--schedule-family progressive_nested20 requires "
+            "--sampling-steps to be chosen from 20 10 5"
+        )
     if args.progress_every < 0:
         raise ValueError("--progress-every must be non-negative")
 
@@ -1309,6 +1464,7 @@ def main() -> None:
         validation_h5=resolve_path(args.validation_h5),
         results_root=resolve_path(args.results_root),
         device=args.device,
+        schedule_family=args.schedule_family,
         sampling_steps=steps,
         sampling_seed=int(args.sampling_seed),
         sample_indices=parse_sample_indices(args.sample_indices),
@@ -1341,9 +1497,10 @@ def main() -> None:
     )
     total_steps = int(checkpoint["diffusion_config"]["T"])
     timestep_schedules = {
-        steps: build_ddim_timesteps(
-            steps,
-            total_steps,
+        steps: build_sampling_timesteps(
+            sampling_steps=steps,
+            total_diffusion_steps=total_steps,
+            schedule_family=config.schedule_family,
             device="cpu",
         )
         for steps in config.sampling_steps
