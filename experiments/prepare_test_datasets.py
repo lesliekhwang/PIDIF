@@ -1,15 +1,14 @@
-"""Prepare deterministic validation/test datasets for DeepONet and diffusion.
+"""Prepare deterministic test datasets for DeepONet and diffusion.
 
-This script creates four shared evaluation HDF5 files from the fixed case split:
+This script creates two shared test HDF5 files from the fixed case split:
 
-- validation / control-point decomposition
-- validation / AR1 equal-width decomposition
 - test / control-point decomposition
 - test / AR1 equal-width decomposition
 
-The evaluation datasets use one deterministic decomposition per full channel.
+The test datasets use one deterministic decomposition per full channel.
 They preserve the same branch/query/target schema as the finalized randomized
-training dataset.
+training dataset. Canonical model-selection validation is prepared separately
+by ``prepare_randomized_validation_dataset.py``.
 
 By default this script only validates the plan. Pass ``--run`` to generate
 the HDF5 files.
@@ -322,39 +321,16 @@ def validate_expected_counts(
     return total
 
 
-def evaluation_specs(
+def test_specs(
     split: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    """Return the four fixed evaluation dataset specifications."""
+    """Return the two fixed test dataset specifications."""
 
-    validation_cases = tuple(
-        str(x) for x in split["validation_cases"]
-    )
     test_cases = tuple(
         str(x) for x in split["test_cases"]
     )
 
     return [
-        {
-            "split_name": "validation",
-            "mode": "control_points",
-            "case_ids": validation_cases,
-            "builder": build_control_point_channel_dataset,
-            "output_path": (
-                OUTPUT_ROOT
-                / "channel_deeponet_style_pressure_u_v_controlpoints_val.h5"
-            ),
-        },
-        {
-            "split_name": "validation",
-            "mode": "ar1",
-            "case_ids": validation_cases,
-            "builder": build_ar1_channel_dataset,
-            "output_path": (
-                OUTPUT_ROOT
-                / "channel_deeponet_style_pressure_u_v_ar1_val.h5"
-            ),
-        },
         {
             "split_name": "test",
             "mode": "control_points",
@@ -376,7 +352,6 @@ def evaluation_specs(
             ),
         },
     ]
-
 
 def _metadata_dtype(
     values: list[Any],
@@ -457,7 +432,7 @@ def initialize_hdf5_attributes(
 
     handle.attrs["schema_version"] = "deeponet_style_evaluation_v1"
     handle.attrs["dataset_name"] = DATASET_NAME
-    handle.attrs["dataset_role"] = "shared_deterministic_evaluation"
+    handle.attrs["dataset_role"] = "shared_deterministic_test"
     handle.attrs["split_name"] = split_name
     handle.attrs["evaluation_decomposition"] = mode
     handle.attrs["interface_placement"] = mode
@@ -665,7 +640,7 @@ def build_case(
     builder: Callable[..., dict[str, Any]],
     case_id: str,
 ) -> dict[str, Any]:
-    """Run one deterministic evaluation builder."""
+    """Run one deterministic test builder."""
 
     paths = case_paths(case_id)
 
@@ -692,7 +667,7 @@ def write_one_dataset(
     builder: Callable[..., dict[str, Any]],
     temporary_path: Path,
 ) -> None:
-    """Stream one 20-channel evaluation dataset to a temporary HDF5."""
+    """Stream one 20-channel test dataset to a temporary HDF5."""
 
     expected_samples = validate_expected_counts(
         split_name=split_name,
@@ -782,16 +757,16 @@ def write_one_dataset(
 def print_plan(
     specs: list[dict[str, Any]],
 ) -> None:
-    """Print the complete deterministic evaluation plan."""
+    """Print the complete deterministic test plan."""
 
-    print("Shared deterministic evaluation datasets")
+    print("Shared deterministic test datasets")
     print(f"  dataset              : {DATASET_NAME}")
     print(f"  split manifest       : {SPLIT_PATH}")
     print(f"  design root          : {DESIGN_ROOT}")
     print(f"  runs root            : {RUNS_ROOT}")
-    print(f"  evaluation builder   : {EVALUATION_BUILDER_PATH}")
+    print(f"  test builder         : {EVALUATION_BUILDER_PATH}")
     print(
-        "  evaluation builder SHA256: "
+        "  test builder SHA256  : "
         f"{sha256_file(EVALUATION_BUILDER_PATH)}"
     )
     print(
@@ -831,20 +806,20 @@ def print_plan(
 
     print()
     print(
-        "Protocol              : one deterministic decomposition "
+        "Protocol              : one deterministic test decomposition "
         "per full channel"
     )
     print(
         "Expected total        : "
         f"{len(specs) * EXPECTED_SAMPLES_PER_DATASET} samples "
-        "across four HDF5 files"
+        "across two HDF5 files"
     )
 
 
 def run_generation(
     specs: list[dict[str, Any]],
 ) -> None:
-    """Generate all four files, then atomically publish each completed HDF5."""
+    """Generate both files, then atomically publish each completed HDF5."""
 
     existing = [
         spec["output_path"]
@@ -858,7 +833,7 @@ def run_generation(
             for path in existing
         )
         raise FileExistsError(
-            "Refusing to overwrite existing evaluation datasets:\n"
+            "Refusing to overwrite existing test datasets:\n"
             f"{formatted}"
         )
 
@@ -909,7 +884,7 @@ def run_generation(
             )
 
         print()
-        print("Deterministic evaluation datasets completed")
+        print("Deterministic test datasets completed")
 
         for _, output_path in temporary_paths:
             print(f"  {output_path}")
@@ -923,8 +898,7 @@ def run_generation(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Prepare deterministic control-point and AR1 "
-            "validation/test HDF5 datasets."
+            "Prepare deterministic control-point and AR1 test HDF5 datasets."
         )
     )
 
@@ -932,7 +906,7 @@ def parse_args() -> argparse.Namespace:
         "--run",
         action="store_true",
         help=(
-            "Generate all four evaluation datasets. "
+            "Generate both test datasets. "
             "Without --run, only validate and print the plan."
         ),
     )
@@ -947,7 +921,7 @@ def main() -> None:
         SPLIT_PATH
     )
 
-    specs = evaluation_specs(split)
+    specs = test_specs(split)
 
     all_case_ids = tuple(
         sorted(
@@ -968,14 +942,14 @@ def main() -> None:
     print()
     print(
         "Raw source check       : "
-        f"passed for {len(all_case_ids)} validation/test cases"
+        f"passed for {len(all_case_ids)} test cases"
     )
 
     if not args.run:
         print("Action                 : validation only")
         return
 
-    print("Action                 : generate four HDF5 files")
+    print("Action                 : generate two HDF5 files")
 
     run_generation(specs)
 

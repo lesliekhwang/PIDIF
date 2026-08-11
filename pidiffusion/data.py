@@ -40,6 +40,33 @@ class FeatureNormalizer:
         self.std = std
         self.eps = float(eps)
 
+    @classmethod
+    def from_statistics(
+        cls,
+        mean: Union[np.ndarray, torch.Tensor, Sequence[float]],
+        std: Union[np.ndarray, torch.Tensor, Sequence[float]],
+        eps: float = 1.0e-6,
+    ) -> "FeatureNormalizer":
+        """Construct a normalizer from precomputed channel-wise statistics."""
+
+        mean_t = torch.as_tensor(mean, dtype=torch.float32).reshape(-1)
+        std_t = torch.as_tensor(std, dtype=torch.float32).reshape(-1)
+        if mean_t.numel() == 0:
+            raise ValueError("Normalizer statistics must contain at least one channel")
+        if mean_t.shape != std_t.shape:
+            raise ValueError(
+                "Normalizer mean and std must have matching shapes, got "
+                f"{tuple(mean_t.shape)} and {tuple(std_t.shape)}"
+            )
+        if not torch.isfinite(mean_t).all() or not torch.isfinite(std_t).all():
+            raise ValueError("Normalizer statistics must be finite")
+
+        obj = cls.__new__(cls)
+        obj.mean = mean_t
+        obj.std = std_t.clamp_min(float(eps))
+        obj.eps = float(eps)
+        return obj
+
     def _shape(self, x: torch.Tensor) -> tuple[int, ...]:
         return tuple([1] * (x.ndim - 1) + [self.mean.numel()])
 
@@ -347,25 +374,97 @@ def build_case_split(
     )
 
 
+def fit_subdomain_balanced_normalizers(
+    data: Mapping[str, Any],
+    sample_indices: Optional[Sequence[int]] = None,
+    eps: float = 1.0e-6,
+) -> tuple[FeatureNormalizer, float, float]:
+    """Fit train-only statistics with one equal vote per subdomain sample.
+
+    Target statistics are accumulated without concatenating all query points. For
+    each output channel, the mean and second moment are first computed within
+    each subdomain and are then averaged across subdomains. This matches the
+    field-level training objective in which every subdomain is one diffusion
+    sample regardless of its number of CFD query points.
+
+    Local aspect ratio is already one scalar per subdomain, so its ordinary mean
+    and population standard deviation are subdomain balanced by construction.
+    """
+
+    validate_diffusion_dataset(data)
+
+    samples = data["samples"]
+    metadata = data["metadata"]
+    if sample_indices is None:
+        indices = tuple(range(len(samples)))
+    else:
+        indices = tuple(int(index) for index in sample_indices)
+    if not indices:
+        raise ValueError("Cannot fit normalizers from an empty sample set")
+
+    output_count = len(data["output_channel_names"])
+    mean_sum = np.zeros(output_count, dtype=np.float64)
+    second_moment_sum = np.zeros(output_count, dtype=np.float64)
+    aspect_sum = 0.0
+    aspect_second_moment_sum = 0.0
+
+    for index in indices:
+        if index < 0 or index >= len(samples):
+            raise IndexError(
+                f"Sample index {index} is outside dataset range [0, {len(samples)})"
+            )
+
+        target = np.asarray(samples[index]["target"], dtype=np.float64)
+        if target.ndim != 2 or target.shape[1] != output_count:
+            raise ValueError(
+                f"Sample {index} target must have shape (N, {output_count}), "
+                f"got {target.shape}"
+            )
+        if target.shape[0] == 0:
+            raise ValueError(f"Sample {index} contains no target query points")
+        if not np.isfinite(target).all():
+            raise ValueError(f"Sample {index} target contains non-finite values")
+
+        sample_mean = target.mean(axis=0, dtype=np.float64)
+        sample_second_moment = np.square(target).mean(axis=0, dtype=np.float64)
+        mean_sum += sample_mean
+        second_moment_sum += sample_second_moment
+
+        aspect = float(metadata[index]["local_aspect_ratio"])
+        if not np.isfinite(aspect):
+            raise ValueError(
+                f"Sample {index} local_aspect_ratio is non-finite: {aspect}"
+            )
+        aspect_sum += aspect
+        aspect_second_moment_sum += aspect * aspect
+
+    count = float(len(indices))
+    mean = mean_sum / count
+    second_moment = second_moment_sum / count
+    variance = np.maximum(second_moment - np.square(mean), 0.0)
+    std = np.sqrt(variance)
+    target_normalizer = FeatureNormalizer.from_statistics(mean, std, eps=eps)
+
+    local_aspect_mean = aspect_sum / count
+    local_aspect_variance = max(
+        aspect_second_moment_sum / count - local_aspect_mean * local_aspect_mean,
+        0.0,
+    )
+    local_aspect_std = max(float(np.sqrt(local_aspect_variance)), float(eps))
+
+    return target_normalizer, float(local_aspect_mean), local_aspect_std
+
+
 def fit_train_normalizers(
     data: Mapping[str, Any],
     split: DiffusionCaseSplit,
 ) -> tuple[FeatureNormalizer, float, float]:
-    """Fit target and local-aspect normalizers using training samples only."""
+    """Fit subdomain-balanced normalizers using only the split's train samples."""
 
-    train_targets = np.concatenate(
-        [data["samples"][index]["target"] for index in split.train_indices],
-        axis=0,
-    ).astype(np.float32)
-    target_normalizer = FeatureNormalizer(train_targets)
-
-    train_aspect = np.asarray(
-        [data["metadata"][index]["local_aspect_ratio"] for index in split.train_indices],
-        dtype=np.float32,
+    return fit_subdomain_balanced_normalizers(
+        data,
+        sample_indices=split.train_indices,
     )
-    local_aspect_mean = float(train_aspect.mean())
-    local_aspect_std = float(train_aspect.std() + 1.0e-12)
-    return target_normalizer, local_aspect_mean, local_aspect_std
 
 
 def normalize_diffusion_branch(
