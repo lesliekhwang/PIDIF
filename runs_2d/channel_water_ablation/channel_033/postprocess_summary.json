@@ -19,7 +19,7 @@
     ]
   },
   "inlet": {
-    "pressure_pa": 5768.0792,
+    "pressure_pa": 2144.31,
     "velocity_mps": 1.0,
     "txt_files": {
       "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_033/pin.txt",
@@ -30,7 +30,7 @@
   },
   "outlet": {
     "pressure_pa": 0.0,
-    "velocity_mps": 1.0012325,
+    "velocity_mps": 1.0005209,
     "txt_files": {
       "pressure": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_033/pout.txt",
       "velocity": "/home/hantianl/Documents/PIDIF/runs_2d/channel_water_ablation/channel_033/vout.txt",
@@ -39,16 +39,16 @@
     }
   },
   "derived": {
-    "dp_pa": 5768.0792
+    "dp_pa": 2144.31
   },
   "physics_checks": {
-    "dp_pa": 5768.0792,
+    "dp_pa": 2144.31,
     "dp_positive": true,
-    "mass_flux_in_per_depth_m2ps": 5e-05,
-    "mass_flux_out_per_depth_m2ps": 5.0047535e-05,
-    "mass_conservation_rel_error": 0.0009506999999999636,
+    "mass_flux_in_per_depth_m2ps": 0.0001,
+    "mass_flux_out_per_depth_m2ps": 0.0001000321,
+    "mass_conservation_rel_error": 0.00032099999999995847,
     "mass_conserved": true,
-    "reynolds_number": 99.52143569292124,
+    "reynolds_number": 199.0428713858425,
     "flow_regime": "laminar",
     "laminar_assumption_valid": true,
     "physics_ok": true
