@@ -86,11 +86,10 @@ def load_case_realization(
             this_case = decode_scalar(
                 handle["metadata"]["case_id"][sample_idx]
             )
+
             this_realization = int(
                 decode_scalar(
-                    handle["metadata"]["realization_id"][
-                        sample_idx
-                    ]
+                    handle["metadata"]["realization_id"][sample_idx]
                 )
             )
 
@@ -102,9 +101,7 @@ def load_case_realization(
 
             subdomain_id = int(
                 decode_scalar(
-                    handle["metadata"]["subdomain_id"][
-                        sample_idx
-                    ]
+                    handle["metadata"]["subdomain_id"][sample_idx]
                 )
             )
 
@@ -114,12 +111,14 @@ def load_case_realization(
                 {
                     "sample_index": sample_idx,
                     "subdomain_id": subdomain_id,
-                    "branch": group["branch"][
-                        :
-                    ].astype(np.float32),
-                    "query": group["query"][
-                        :
-                    ].astype(np.float32),
+                    "branch": (
+                        group["branch"][:]
+                        .astype(np.float32)
+                    ),
+                    "query": (
+                        group["query"][:]
+                        .astype(np.float32)
+                    ),
                 }
             )
 
@@ -127,20 +126,23 @@ def load_case_realization(
         key=lambda item: item["subdomain_id"]
     )
 
-    if len(records) != 10:
+    if len(records) < 2:
         raise RuntimeError(
-            f"Expected 10 subdomains, "
+            f"Expected at least 2 subdomains, "
             f"found {len(records)}"
         )
 
     ids = [
-        item["subdomain_id"]
+        int(item["subdomain_id"])
         for item in records
     ]
 
-    if ids != list(range(10)):
+    expected_ids = list(range(len(records)))
+
+    if ids != expected_ids:
         raise RuntimeError(
-            f"Unexpected subdomain IDs: {ids}"
+            f"Unexpected subdomain IDs: {ids}; "
+            f"expected {expected_ids}"
         )
 
     return records
@@ -151,17 +153,21 @@ def find_edge_rows(branches, names):
     iy = names.index("y_local")
     interface_idx = names.index("interface_mask")
 
+    n_subdomains = int(branches.shape[0])
+
+    if n_subdomains < 2:
+        raise RuntimeError(
+            f"At least 2 subdomains are required, got {n_subdomains}"
+        )
+
     left_rows = []
     right_rows = []
+    n_interface_points = None
 
-    for subdomain_id in range(
-        branches.shape[0]
-    ):
+    for subdomain_id in range(n_subdomains):
         branch = branches[subdomain_id]
 
-        edge_mask = (
-            branch[:, interface_idx] > 0.5
-        )
+        edge_mask = branch[:, interface_idx] > 0.5
 
         left = np.flatnonzero(
             edge_mask
@@ -182,31 +188,40 @@ def find_edge_rows(branches, names):
         )
 
         left = left[
-            np.argsort(
-                branch[left, iy]
-            )
+            np.argsort(branch[left, iy])
         ]
-
         right = right[
-            np.argsort(
-                branch[right, iy]
-            )
+            np.argsort(branch[right, iy])
         ]
 
-        if (
-            len(left) != 256
-            or len(right) != 256
-        ):
+        if len(left) != len(right):
             raise RuntimeError(
                 f"Subdomain {subdomain_id}: "
-                f"left={len(left)}, "
-                f"right={len(right)}"
+                f"left={len(left)}, right={len(right)}"
             )
+
+        if n_interface_points is None:
+            n_interface_points = int(len(left))
+
+            if n_interface_points <= 0:
+                raise RuntimeError(
+                    "No interface points were found"
+                )
+        else:
+            if (
+                len(left) != n_interface_points
+                or len(right) != n_interface_points
+            ):
+                raise RuntimeError(
+                    f"Subdomain {subdomain_id}: "
+                    f"expected {n_interface_points} interface points, "
+                    f"got left={len(left)}, right={len(right)}"
+                )
 
         left_rows.append(left)
         right_rows.append(right)
 
-    for interface_id in range(9):
+    for interface_id in range(n_subdomains - 1):
         y_right = branches[
             interface_id,
             right_rows[interface_id],
@@ -219,13 +234,10 @@ def find_edge_rows(branches, names):
             iy,
         ]
 
-        if not np.array_equal(
-            y_right,
-            y_left,
-        ):
+        if not np.array_equal(y_right, y_left):
             raise RuntimeError(
-                f"Interface {interface_id} edge "
-                "coordinates do not match exactly"
+                f"Interface {interface_id} edge coordinates "
+                "do not match exactly"
             )
 
     return left_rows, right_rows
@@ -323,17 +335,44 @@ def write_shared_z(
 ):
     branch = base_branch.clone()
 
+    n_subdomains = int(branch.shape[0])
+    n_internal_interfaces = n_subdomains - 1
+
+    if n_subdomains < 2:
+        raise ValueError(
+            f"At least 2 subdomains are required, got {n_subdomains}"
+        )
+
+    if (
+        len(left_rows) != n_subdomains
+        or len(right_rows) != n_subdomains
+    ):
+        raise ValueError(
+            "left_rows/right_rows do not match "
+            f"n_subdomains={n_subdomains}"
+        )
+
+    n_interface_points = int(
+        len(right_rows[0])
+    )
+
+    expected_shape = (
+        n_internal_interfaces,
+        n_interface_points,
+        3,
+    )
+
+    if tuple(z.shape) != expected_shape:
+        raise ValueError(
+            f"Expected z shape {expected_shape}, "
+            f"got {tuple(z.shape)}"
+        )
+
     value_indices = torch.tensor(
         [
-            names.index(
-                "boundary_pressure"
-            ),
-            names.index(
-                "boundary_u"
-            ),
-            names.index(
-                "boundary_v"
-            ),
+            names.index("boundary_pressure"),
+            names.index("boundary_u"),
+            names.index("boundary_v"),
         ],
         dtype=torch.long,
         device=branch.device,
@@ -341,28 +380,17 @@ def write_shared_z(
 
     known_indices = torch.tensor(
         [
-            names.index(
-                "known_pressure"
-            ),
-            names.index(
-                "known_u"
-            ),
-            names.index(
-                "known_v"
-            ),
+            names.index("known_pressure"),
+            names.index("known_u"),
+            names.index("known_v"),
         ],
         dtype=torch.long,
         device=branch.device,
     )
 
-    if z.shape != (9, 256, 3):
-        raise ValueError(
-            "Expected z shape "
-            f"(9, 256, 3), got "
-            f"{tuple(z.shape)}"
-        )
-
-    for interface_id in range(9):
+    for interface_id in range(
+        n_internal_interfaces
+    ):
         upstream = interface_id
         downstream = interface_id + 1
 
@@ -415,13 +443,19 @@ def build_edge_queries(
     ix = names.index("x_local")
     iy = names.index("y_local")
 
+    n_subdomains = int(
+        branches_np.shape[0]
+    )
+
     left_np = np.stack(
         [
             branches_np[
                 subdomain_id,
                 left_rows[subdomain_id],
             ][:, [ix, iy]]
-            for subdomain_id in range(10)
+            for subdomain_id in range(
+                n_subdomains
+            )
         ],
         axis=0,
     ).astype(np.float32)
@@ -432,7 +466,9 @@ def build_edge_queries(
                 subdomain_id,
                 right_rows[subdomain_id],
             ][:, [ix, iy]]
-            for subdomain_id in range(10)
+            for subdomain_id in range(
+                n_subdomains
+            )
         ],
         axis=0,
     ).astype(np.float32)

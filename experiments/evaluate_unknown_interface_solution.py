@@ -174,14 +174,17 @@ def load_truth_only(
 def validate_interface_state(
     name: str,
     value: np.ndarray,
+    *,
+    expected_shape: tuple[int, int, int] | None = None,
 ) -> None:
-    expected_shape = (
-        9,
-        256,
-        3,
-    )
+    if value.ndim != 3 or value.shape[-1] != 3:
+        raise ValueError(
+            f"Unexpected {name} shape: "
+            f"{value.shape}; expected a 3-D "
+            "(n_interfaces, n_points, 3) array"
+        )
 
-    if value.shape != expected_shape:
+    if expected_shape is not None and value.shape != expected_shape:
         raise ValueError(
             f"Unexpected {name} shape: "
             f"{value.shape}; expected "
@@ -194,6 +197,65 @@ def validate_interface_state(
         raise ValueError(
             f"{name} contains non-finite values"
         )
+
+
+def interface_shape_from_optimization_config(
+    optimization_config: dict,
+) -> tuple[int, int, int]:
+    interface_config = optimization_config.get(
+        "interface"
+    )
+
+    if not isinstance(interface_config, dict):
+        raise KeyError(
+            "Optimization config is missing "
+            "the interface section"
+        )
+
+    # Tolerate one historical accidental nested "interface" wrapper
+    # while preferring the current flat schema.
+    nested = interface_config.get("interface")
+    if (
+        isinstance(nested, dict)
+        and "n_subdomains" not in interface_config
+    ):
+        interface_config = nested
+
+    n_subdomains = int(
+        interface_config["n_subdomains"]
+    )
+    n_internal_interfaces = int(
+        interface_config.get(
+            "n_internal_interfaces",
+            n_subdomains - 1,
+        )
+    )
+    n_interface_points = int(
+        interface_config["points_per_interface"]
+    )
+
+    if n_subdomains < 2:
+        raise ValueError(
+            f"Invalid n_subdomains={n_subdomains}"
+        )
+
+    if n_internal_interfaces != n_subdomains - 1:
+        raise ValueError(
+            "Optimization interface metadata is inconsistent: "
+            f"n_subdomains={n_subdomains}, "
+            f"n_internal_interfaces={n_internal_interfaces}"
+        )
+
+    if n_interface_points <= 0:
+        raise ValueError(
+            "points_per_interface must be positive"
+        )
+
+    return (
+        n_internal_interfaces,
+        n_interface_points,
+        3,
+    )
 
 
 def main() -> None:
@@ -394,14 +456,22 @@ def main() -> None:
             ].tolist()
         ]
 
+    expected_interface_shape = (
+        interface_shape_from_optimization_config(
+            optimization_config
+        )
+    )
+
     validate_interface_state(
         "z_initial_normalized",
         z_initial_normalized,
+        expected_shape=expected_interface_shape,
     )
 
     validate_interface_state(
         "z_final_normalized",
         z_final_normalized,
+        expected_shape=expected_interface_shape,
     )
 
     if saved_field_names != EXPECTED_FIELDS:
@@ -578,6 +648,37 @@ def main() -> None:
         )
     )
 
+    n_subdomains = len(records)
+    n_internal_interfaces = n_subdomains - 1
+    n_interface_points = len(left_rows[0])
+
+    actual_interface_shape = (
+        n_internal_interfaces,
+        n_interface_points,
+        3,
+    )
+
+    if actual_interface_shape != expected_interface_shape:
+        raise RuntimeError(
+            "Dataset decomposition does not match the "
+            "optimization interface metadata: "
+            f"dataset expects {actual_interface_shape}, "
+            f"optimization artifact expects "
+            f"{expected_interface_shape}"
+        )
+
+    validate_interface_state(
+        "z_initial_normalized",
+        z_initial_normalized,
+        expected_shape=actual_interface_shape,
+    )
+
+    validate_interface_state(
+        "z_final_normalized",
+        z_final_normalized,
+        expected_shape=actual_interface_shape,
+    )
+
     base_branch = (
         torch.from_numpy(
             branches_normalized_np
@@ -594,11 +695,11 @@ def main() -> None:
     #   known-interface baseline.
     #
     # initial:
-    #   Overwrite all 9 shared internal interfaces with the truth-free
+    #   Overwrite all shared internal interfaces with the truth-free
     #   physical-zero initialization stored by the optimizer.
     #
     # final:
-    #   Overwrite all 9 shared internal interfaces with the final
+    #   Overwrite all shared internal interfaces with the final
     #   truth-free physics-optimized interface state.
     # ------------------------------------------------------------------
 
@@ -721,6 +822,18 @@ def main() -> None:
         f"{realization_id}"
     )
     print(
+        f"Subdomains             : "
+        f"{n_subdomains}"
+    )
+    print(
+        f"Internal interfaces    : "
+        f"{n_internal_interfaces}"
+    )
+    print(
+        f"Points / interface     : "
+        f"{n_interface_points}"
+    )
+    print(
         f"Device                 : "
         f"{device}"
     )
@@ -814,6 +927,18 @@ def main() -> None:
         "realization_id": (
             realization_id
         ),
+
+        "interface": {
+            "n_subdomains": int(
+                n_subdomains
+            ),
+            "n_internal_interfaces": int(
+                n_internal_interfaces
+            ),
+            "points_per_interface": int(
+                n_interface_points
+            ),
+        },
 
         "device": str(device),
 
@@ -1060,7 +1185,7 @@ def main() -> None:
 
         print(
             f"[Predict] "
-            f"{position:02d}/10 | "
+            f"{position:02d}/{n_subdomains:02d} | "
             f"sample={sample_index} | "
             f"subdomain={subdomain_id} | "
             f"points={len(query_raw)} | "
@@ -1092,6 +1217,16 @@ def main() -> None:
         for field in fields
     }
 
+    global_truth_parts = {
+        field: []
+        for field in fields
+    }
+
+    global_prediction_parts = {
+        field: []
+        for field in fields
+    }
+
     per_subdomain_rows: list[
         dict
     ] = []
@@ -1112,6 +1247,18 @@ def main() -> None:
         output_handle.attrs[
             "realization_id"
         ] = realization_id
+
+        output_handle.attrs[
+            "n_subdomains"
+        ] = int(n_subdomains)
+
+        output_handle.attrs[
+            "n_internal_interfaces"
+        ] = int(n_internal_interfaces)
+
+        output_handle.attrs[
+            "points_per_interface"
+        ] = int(n_interface_points)
 
         output_handle.attrs[
             "interface_state"
@@ -1298,6 +1445,30 @@ def main() -> None:
             ) in enumerate(
                 fields
             ):
+                global_truth_parts[
+                    field
+                ].append(
+                    truth[
+                        :,
+                        field_index,
+                    ].astype(
+                        np.float64,
+                        copy=False,
+                    )
+                )
+
+                global_prediction_parts[
+                    field
+                ].append(
+                    prediction[
+                        :,
+                        field_index,
+                    ].astype(
+                        np.float64,
+                        copy=False,
+                    )
+                )
+
                 metrics = (
                     accumulators[
                         field
@@ -1428,6 +1599,25 @@ def main() -> None:
             ].summary()
         )
 
+        truth_all = np.concatenate(
+            global_truth_parts[field]
+        )
+        prediction_all = np.concatenate(
+            global_prediction_parts[field]
+        )
+
+        global_error = (
+            prediction_all - truth_all
+        )
+
+        global_relative_l2 = float(
+            np.linalg.norm(global_error)
+            / max(
+                float(np.linalg.norm(truth_all)),
+                1.0e-12,
+            )
+        )
+
         summary_rows.append(
             {
                 "case_id": (
@@ -1448,6 +1638,9 @@ def main() -> None:
                     ]
                 ),
                 **metric_summary,
+                "global_relative_l2": (
+                    global_relative_l2
+                ),
                 "sampling_steps": 5,
                 "sampling_seed": (
                     args.sampling_seed
@@ -1486,6 +1679,18 @@ def main() -> None:
 
         "realization_id": (
             realization_id
+        ),
+
+        "n_subdomains": int(
+            n_subdomains
+        ),
+
+        "n_internal_interfaces": int(
+            n_internal_interfaces
+        ),
+
+        "points_per_interface": int(
+            n_interface_points
         ),
 
         "interface_state": (
@@ -1603,6 +1808,12 @@ def main() -> None:
                         "global_correlation"
                     ]
                 ),
+
+                "global_relative_l2": (
+                    row[
+                        "global_relative_l2"
+                    ]
+                ),
             }
             for row in summary_rows
         },
@@ -1678,7 +1889,9 @@ def main() -> None:
             f"global R²="
             f"{row['global_r2']:.6f} | "
             f"corr="
-            f"{row['global_correlation']:.6f}"
+            f"{row['global_correlation']:.6f} | "
+            f"global Rel-L2="
+            f"{100.0 * row['global_relative_l2']:.4f}%"
         )
 
     print()

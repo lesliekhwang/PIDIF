@@ -351,6 +351,10 @@ def main() -> None:
         branch_channel_names,
     )
 
+    n_subdomains = len(records)
+    n_internal_interfaces = n_subdomains - 1
+    n_interface_points = len(left_rows[0])
+
     base_branch = torch.from_numpy(
         branches_np
     ).to(device)
@@ -396,7 +400,11 @@ def main() -> None:
     z_initial = (
         z_init_one
         .reshape(1, 1, 3)
-        .expand(9, 256, 3)
+        .expand(
+            n_internal_interfaces,
+            n_interface_points,
+            3,
+        )
         .clone()
         .detach()
     )
@@ -442,7 +450,7 @@ def main() -> None:
 
     x_scale, y_scale = subdomain_scales_from_metadata(
         metadata=metadata,
-        n_subdomains=10,
+        n_subdomains=n_subdomains,
         length_unit_scale=(
             physics_config.length_unit_scale
         ),
@@ -461,8 +469,8 @@ def main() -> None:
 
     # Generate fixed noise ONCE.
     fixed_noise_left = make_fixed_noise(
-        n_subdomains=10,
-        n_points=256,
+        n_subdomains=n_subdomains,
+        n_points=n_interface_points,
         target_dim=model.target_dim,
         seed=args.noise_seed_left,
         dtype=base_branch.dtype,
@@ -470,8 +478,8 @@ def main() -> None:
     )
 
     fixed_noise_right = make_fixed_noise(
-        n_subdomains=10,
-        n_points=256,
+        n_subdomains=n_subdomains,
+        n_points=n_interface_points,
         target_dim=model.target_dim,
         seed=args.noise_seed_right,
         dtype=base_branch.dtype,
@@ -600,9 +608,13 @@ def main() -> None:
         },
 
         "interface": {
-            "n_subdomains": 10,
-            "n_internal_interfaces": 9,
-            "points_per_interface": 256,
+            "n_subdomains": int(n_subdomains),
+            "n_internal_interfaces": int(
+                n_internal_interfaces
+            ),
+            "points_per_interface": int(
+                n_interface_points
+            ),
             "optimized_fields": [
                 "pressure",
                 "u",
@@ -922,7 +934,11 @@ def main() -> None:
         ),
 
         z_initial_physical=np.zeros(
-            (9, 256, 3),
+            (
+                n_internal_interfaces,
+                n_interface_points,
+                3,
+            ),
             dtype=np.float32,
         ),
 
@@ -951,7 +967,7 @@ def main() -> None:
         ),
 
         interface_ids=np.arange(
-            9,
+            n_internal_interfaces,
             dtype=np.int32,
         ),
     )

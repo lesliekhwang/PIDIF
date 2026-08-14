@@ -203,10 +203,12 @@ def load_run(
         ]
     )
 
-    if len(samples) != 10:
+    n_subdomains = len(samples)
+
+    if n_subdomains < 2:
         raise RuntimeError(
-            f"Expected 10 subdomains, "
-            f"found {len(samples)} "
+            f"Expected at least 2 subdomains, "
+            f"found {n_subdomains} "
             f"in {run_dir}"
         )
 
@@ -215,9 +217,14 @@ def load_run(
         for sample in samples
     ]
 
-    if ids != list(range(10)):
+    expected_ids = list(
+        range(n_subdomains)
+    )
+
+    if ids != expected_ids:
         raise RuntimeError(
-            f"Unexpected subdomain IDs: {ids}"
+            f"Unexpected subdomain IDs: {ids}; "
+            f"expected {expected_ids}"
         )
 
     return {
@@ -226,6 +233,10 @@ def load_run(
         "summary": summary,
         "dataset_path": dataset_path,
         "samples": samples,
+        "n_subdomains": n_subdomains,
+        "n_internal_interfaces": (
+            n_subdomains - 1
+        ),
     }
 
 
@@ -240,6 +251,16 @@ def validate_alignment(
     ):
         raise RuntimeError(
             f"{name}: dataset mismatch"
+        )
+
+    if (
+        reference["n_subdomains"]
+        != other["n_subdomains"]
+    ):
+        raise RuntimeError(
+            f"{name}: subdomain-count mismatch: "
+            f"{reference['n_subdomains']} vs "
+            f"{other['n_subdomains']}"
         )
 
     for ref, current in zip(
@@ -361,14 +382,24 @@ def physical_query_coordinates(
             )
         ).astype(np.float32)
 
-        if subdomain_id < 9:
+        if subdomain_id < (
+            len(samples) - 1
+        ):
             interface_x.append(
                 x_right_mm
             )
 
-    if len(interface_x) != 9:
+    expected_interfaces = (
+        len(samples) - 1
+    )
+
+    if (
+        len(interface_x)
+        != expected_interfaces
+    ):
         raise RuntimeError(
-            f"Expected 9 internal interfaces, "
+            f"Expected {expected_interfaces} "
+            f"internal interfaces, "
             f"found {len(interface_x)}"
         )
 
@@ -621,13 +652,28 @@ def concatenate_coordinates(
         np.ndarray,
     ],
 ) -> np.ndarray:
+    subdomain_ids = sorted(
+        coordinates.keys()
+    )
+
+    expected_ids = list(
+        range(len(subdomain_ids))
+    )
+
+    if subdomain_ids != expected_ids:
+        raise RuntimeError(
+            f"Unexpected coordinate subdomain IDs: "
+            f"{subdomain_ids}; expected "
+            f"{expected_ids}"
+        )
+
     return np.concatenate(
         [
             coordinates[
                 subdomain_id
             ]
             for subdomain_id
-            in range(10)
+            in subdomain_ids
         ],
         axis=0,
     )
@@ -1021,6 +1067,8 @@ def plot_whole_field_comparison(
     final_grid: np.ndarray,
     grid: dict,
     interface_x: list[float],
+    case_id: str,
+    realization_id: int,
     output_dir: Path,
     dpi: int,
 ):
@@ -1122,7 +1170,7 @@ def plot_whole_field_comparison(
     fig.suptitle(
         (
             "Unknown-interface whole-field comparison "
-            "— channel_08, realization 0"
+            f"— {case_id}, realization {realization_id}"
         ),
         fontsize=17,
         fontweight="bold",
@@ -1164,6 +1212,8 @@ def plot_error_comparison(
     final_error_values: np.ndarray,
     grid: dict,
     interface_x: list[float],
+    case_id: str,
+    realization_id: int,
     output_dir: Path,
     error_quantile: float,
     dpi: int,
@@ -1268,7 +1318,7 @@ def plot_error_comparison(
     fig.suptitle(
         (
             "Unknown-interface absolute-error comparison "
-            "— channel_08, realization 0"
+            f"— {case_id}, realization {realization_id}"
         ),
         fontsize=17,
         fontweight="bold",
@@ -1401,6 +1451,38 @@ def main():
         "final",
     )
 
+    case_id = str(
+        known["config"]["case_id"]
+    )
+
+    realization_id = int(
+        known["config"][
+            "realization_id"
+        ]
+    )
+
+    for name, run in (
+        ("initial", initial),
+        ("final", final),
+    ):
+        if (
+            str(run["config"]["case_id"])
+            != case_id
+            or int(
+                run["config"][
+                    "realization_id"
+                ]
+            )
+            != realization_id
+        ):
+            raise RuntimeError(
+                f"{name}: case/realization mismatch"
+            )
+
+    n_subdomains = int(
+        known["n_subdomains"]
+    )
+
     dataset_path = (
         known["dataset_path"]
     )
@@ -1521,6 +1603,21 @@ def main():
     )
 
     print(
+        f"Case                   : "
+        f"{case_id}"
+    )
+
+    print(
+        f"Realization            : "
+        f"{realization_id}"
+    )
+
+    print(
+        f"Subdomains             : "
+        f"{n_subdomains}"
+    )
+
+    print(
         f"Total query points     : "
         f"{len(coordinates):,}"
     )
@@ -1620,6 +1717,8 @@ def main():
         final_grid=final_grid,
         grid=grid,
         interface_x=interface_x,
+        case_id=case_id,
+        realization_id=realization_id,
         output_dir=output_dir,
         dpi=args.dpi,
     )
@@ -1645,6 +1744,8 @@ def main():
         ),
         grid=grid,
         interface_x=interface_x,
+        case_id=case_id,
+        realization_id=realization_id,
         output_dir=output_dir,
         error_quantile=(
             args.error_quantile

@@ -103,20 +103,17 @@ def safe_case_tag(case_id: str) -> str:
     return tag
 
 
+
 def discover_case_realizations(
     dataset_path: Path,
-    *,
-    expected_subdomains: int = 10,
 ) -> list[dict[str, Any]]:
     """
     Discover complete (case_id, realization_id) channel-level groups directly
     from the HDF5 metadata table.
 
-    Expected schema:
-      metadata/case_id
-      metadata/realization_id
-      metadata/subdomain_id
-      samples/<sample_index>/...
+    Subdomain counts are inferred dynamically from metadata. For every
+    channel-level group, subdomain IDs must be contiguous and start at zero:
+        [0, 1, ..., n_subdomains - 1]
     """
     with h5py.File(dataset_path, "r") as handle:
         if "metadata" not in handle:
@@ -154,12 +151,26 @@ def discover_case_realizations(
             subdomain_list = [item[0] for item in members]
             sample_indices = [item[1] for item in members]
 
-            expected_ids = list(range(expected_subdomains))
+            if len(subdomain_list) < 2:
+                raise RuntimeError(
+                    "Channel decomposition must contain at least 2 subdomains "
+                    f"for case={case_id}, realization={realization_id}: "
+                    f"subdomains={subdomain_list}"
+                )
+
+            expected_ids = list(range(len(subdomain_list)))
             if subdomain_list != expected_ids:
                 raise RuntimeError(
-                    "Incomplete or unexpected channel decomposition for "
+                    "Incomplete or non-contiguous channel decomposition for "
                     f"case={case_id}, realization={realization_id}: "
                     f"subdomains={subdomain_list}, expected={expected_ids}"
+                )
+
+            if len(set(subdomain_list)) != len(subdomain_list):
+                raise RuntimeError(
+                    "Duplicate subdomain IDs for "
+                    f"case={case_id}, realization={realization_id}: "
+                    f"subdomains={subdomain_list}"
                 )
 
             for sample_index in sample_indices:
@@ -167,12 +178,15 @@ def discover_case_realizations(
                 if sample_key not in handle["samples"]:
                     raise KeyError(f"Missing samples/{sample_key}")
 
+            n_subdomains = len(subdomain_list)
             records.append(
                 {
                     "case_id": case_id,
                     "realization_id": realization_id,
                     "sample_indices": sample_indices,
                     "subdomain_ids": subdomain_list,
+                    "n_subdomains": n_subdomains,
+                    "n_internal_interfaces": n_subdomains - 1,
                 }
             )
 
@@ -183,7 +197,6 @@ def discover_case_realizations(
         )
     )
     return records
-
 
 def run_help(python_executable: str, script_path: Path) -> str:
     completed = subprocess.run(
@@ -300,23 +313,59 @@ def evaluation_complete(run_dir: Path) -> bool:
     )
 
 
+
 def verify_zero_initialization(optimization_dir: Path) -> None:
     states_path = optimization_dir / "interface_states.npz"
+
     with np.load(states_path) as data:
         if "z_initial_physical" not in data:
             raise KeyError(
                 f"{states_path} does not contain z_initial_physical"
             )
+
         z_initial = np.asarray(
             data["z_initial_physical"],
             dtype=np.float64,
         )
 
-    if z_initial.shape != (9, 256, 3):
+    if z_initial.ndim != 3 or z_initial.shape[-1] != 3:
         raise RuntimeError(
             f"Unexpected z_initial_physical shape {z_initial.shape}; "
-            "expected (9, 256, 3)"
+            "expected (n_internal_interfaces, n_interface_points, 3)"
         )
+
+    if z_initial.shape[0] < 1 or z_initial.shape[1] < 1:
+        raise RuntimeError(
+            f"Invalid z_initial_physical shape {z_initial.shape}"
+        )
+
+    config_path = optimization_dir / "config.json"
+    if config_path.is_file():
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        interface = config.get("interface", {})
+
+        expected_interfaces = interface.get("n_internal_interfaces")
+        expected_points = interface.get("points_per_interface")
+
+        if (
+            expected_interfaces is not None
+            and z_initial.shape[0] != int(expected_interfaces)
+        ):
+            raise RuntimeError(
+                "z_initial_physical interface-count mismatch: "
+                f"shape={z_initial.shape}, "
+                f"config n_internal_interfaces={expected_interfaces}"
+            )
+
+        if (
+            expected_points is not None
+            and z_initial.shape[1] != int(expected_points)
+        ):
+            raise RuntimeError(
+                "z_initial_physical point-count mismatch: "
+                f"shape={z_initial.shape}, "
+                f"config points_per_interface={expected_points}"
+            )
 
     if not np.array_equal(z_initial, np.zeros_like(z_initial)):
         max_abs = float(np.max(np.abs(z_initial)))
@@ -324,7 +373,6 @@ def verify_zero_initialization(optimization_dir: Path) -> None:
             "Initial interface state is not exactly physical zero. "
             f"max_abs={max_abs:.8e}"
         )
-
 
 def pearson_corr(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     y_true = np.asarray(y_true, dtype=np.float64).reshape(-1)
@@ -353,6 +401,7 @@ def r2_score_numpy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     if sst == 0.0:
         return float("nan")
     return float(1.0 - sse / sst)
+
 
 
 def load_prediction_groups(
@@ -402,9 +451,17 @@ def load_prediction_groups(
     groups.sort(key=lambda item: item[0])
 
     ids = [item[0] for item in groups]
-    if ids != list(range(10)):
+    expected_ids = list(range(len(groups)))
+
+    if len(groups) < 2:
         raise RuntimeError(
-            f"Expected subdomain IDs 0..9 in {predictions_path}, got {ids}"
+            f"Expected at least 2 subdomains in {predictions_path}, got {ids}"
+        )
+
+    if ids != expected_ids:
+        raise RuntimeError(
+            f"Expected contiguous subdomain IDs {expected_ids} "
+            f"in {predictions_path}, got {ids}"
         )
 
     return groups
@@ -419,6 +476,7 @@ def compute_channel_metrics(
     state_label: str,
 ) -> list[dict[str, Any]]:
     groups = load_prediction_groups(predictions_path)
+    n_subdomains = len(groups)
 
     rows: list[dict[str, Any]] = []
 
@@ -456,6 +514,15 @@ def compute_channel_metrics(
 
         y_true_all = np.concatenate(truth_parts)
         y_pred_all = np.concatenate(pred_parts)
+        error_all = y_pred_all - y_true_all
+
+        global_denominator = max(
+            float(np.linalg.norm(y_true_all)),
+            1.0e-12,
+        )
+        global_relative_l2 = float(
+            np.linalg.norm(error_all) / global_denominator
+        )
 
         rows.append(
             {
@@ -464,7 +531,7 @@ def compute_channel_metrics(
                 "realization_id": int(realization_id),
                 "state": state_label,
                 "field": field_name,
-                "n_subdomains": 10,
+                "n_subdomains": int(n_subdomains),
                 "n_points": int(y_true_all.size),
                 "balanced_rmse": float(
                     math.sqrt(np.mean(per_subdomain_mse))
@@ -475,6 +542,7 @@ def compute_channel_metrics(
                 "avg_relative_l2": float(
                     np.nanmean(per_subdomain_rel_l2)
                 ),
+                "global_relative_l2": global_relative_l2,
                 "global_r2": r2_score_numpy(
                     y_true_all,
                     y_pred_all,
@@ -484,11 +552,11 @@ def compute_channel_metrics(
                     y_pred_all,
                 ),
                 "max_abs_error": float(
-                    np.max(np.abs(y_pred_all - y_true_all))
+                    np.max(np.abs(error_all))
                 ),
                 "p995_abs_error": float(
                     np.quantile(
-                        np.abs(y_pred_all - y_true_all),
+                        np.abs(error_all),
                         0.995,
                     )
                 ),
@@ -496,7 +564,6 @@ def compute_channel_metrics(
         )
 
     return rows
-
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     if not rows:
@@ -545,6 +612,7 @@ def summarize_values(values: np.ndarray) -> dict[str, Any]:
     }
 
 
+
 def build_testset_summary(
     rows: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -552,6 +620,7 @@ def build_testset_summary(
         "balanced_rmse",
         "balanced_mae",
         "avg_relative_l2",
+        "global_relative_l2",
         "global_r2",
         "global_corr",
         "max_abs_error",
@@ -562,6 +631,7 @@ def build_testset_summary(
     summary_json: dict[str, Any] = {
         "states": {},
         "avg_relative_l2_over_fields": {},
+        "avg_global_relative_l2_over_fields": {},
     }
 
     states = sorted({str(row["state"]) for row in rows})
@@ -599,41 +669,83 @@ def build_testset_summary(
 
             summary_json["states"][state][field] = field_summary
 
-        by_channel: dict[tuple[str, int], list[float]] = defaultdict(list)
+        by_channel_subavg: dict[
+            tuple[str, int], list[float]
+        ] = defaultdict(list)
+
+        by_channel_global: dict[
+            tuple[str, int], list[float]
+        ] = defaultdict(list)
+
         for row in rows:
             if row["state"] != state:
                 continue
-            by_channel[
-                (
-                    str(row["case_id"]),
-                    int(row["realization_id"]),
-                )
-            ].append(float(row["avg_relative_l2"]))
 
-        channel_avg_values = np.asarray(
+            key = (
+                str(row["case_id"]),
+                int(row["realization_id"]),
+            )
+
+            by_channel_subavg[key].append(
+                float(row["avg_relative_l2"])
+            )
+            by_channel_global[key].append(
+                float(row["global_relative_l2"])
+            )
+
+        channel_subavg_values = np.asarray(
             [
                 float(np.mean(values))
-                for values in by_channel.values()
+                for values in by_channel_subavg.values()
                 if len(values) == 3
                 and np.isfinite(values).all()
             ],
             dtype=np.float64,
         )
 
-        avg_stats = summarize_values(channel_avg_values)
-        summary_json["avg_relative_l2_over_fields"][state] = avg_stats
+        subavg_stats = summarize_values(
+            channel_subavg_values
+        )
+        summary_json[
+            "avg_relative_l2_over_fields"
+        ][state] = subavg_stats
 
         summary_rows.append(
             {
                 "state": state,
                 "field": "avg_p_u_v",
                 "metric": "avg_relative_l2",
-                **avg_stats,
+                **subavg_stats,
+            }
+        )
+
+        channel_global_values = np.asarray(
+            [
+                float(np.mean(values))
+                for values in by_channel_global.values()
+                if len(values) == 3
+                and np.isfinite(values).all()
+            ],
+            dtype=np.float64,
+        )
+
+        global_stats = summarize_values(
+            channel_global_values
+        )
+        summary_json[
+            "avg_global_relative_l2_over_fields"
+        ][state] = global_stats
+
+        summary_rows.append(
+            {
+                "state": state,
+                "field": "avg_p_u_v",
+                "metric": "global_relative_l2",
+                **global_stats,
             }
         )
 
     return summary_rows, summary_json
-
 
 def optimizer_command(
     *,
@@ -900,7 +1012,7 @@ def main() -> None:
     print(f"  noise seed right   : {args.noise_seed_right}")
     print()
     print("Per channel")
-    print("  1. optimize all 9 unknown internal interfaces jointly")
+    print("  1. optimize all discovered unknown internal interfaces jointly")
     print("  2. evaluate known interface oracle")
     print("  3. evaluate zero-initialized/no-physics baseline")
     print("  4. evaluate physics-optimized unknown interfaces")
@@ -909,6 +1021,8 @@ def main() -> None:
         print(
             f"  [{index:02d}] "
             f"{case['case_id']} real={case['realization_id']} "
+            f"n_subdomains={case['n_subdomains']} "
+            f"n_interfaces={case['n_internal_interfaces']} "
             f"samples={case['sample_indices']}"
         )
     print("=" * 100)
@@ -974,16 +1088,22 @@ def main() -> None:
             },
             "aggregation": {
                 "channel_equal_weight": True,
-                "relative_l2": (
-                    "For each field: mean of 10 subdomain "
-                    "||pred-target||_2 / ||target||_2. "
-                    "AvgRelL2 is then mean over p/u/v per channel."
+                "avg_relative_l2": (
+                    "For each field: equal-weight mean over the actual "
+                    "number of subdomains of "
+                    "||pred-target||_2 / ||target||_2."
+                ),
+                "global_relative_l2": (
+                    "For each field: concatenate all subdomain cell-center "
+                    "predictions/truth for the whole channel, then compute "
+                    "||pred-target||_2 / max(||target||_2, 1e-12). "
+                    "This is the main-paper Relative L2 metric."
                 ),
                 "balanced_rmse": (
-                    "sqrt(mean of 10 subdomain MSE values)"
+                    "sqrt(mean of per-subdomain MSE values)"
                 ),
                 "balanced_mae": (
-                    "mean of 10 subdomain MAE values"
+                    "mean of per-subdomain MAE values"
                 ),
                 "testset_summary": (
                     "mean/std across channel-level cases"
