@@ -3,4 +3,4 @@
            Area-Weighted Average
               Velocity Magnitude                [m/s]
 -------------------------------- --------------------
-open_cascade_step_translator_7.3            1.0006258
+open_cascade_step_translator_7.3            1.0001303

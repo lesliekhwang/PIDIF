@@ -3,4 +3,4 @@
            Area-Weighted Average
                       Y Velocity                [m/s]
 -------------------------------- --------------------
-open_cascade_step_translator_7.3        -2.602322e-05
+open_cascade_step_translator_7.3        0.00058378322
