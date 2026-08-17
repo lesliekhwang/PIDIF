@@ -4,3 +4,4 @@ checkpoints/
 __pycache__
 .DS_Store
 runs_2d/cylinder/*
+DeepONet/data

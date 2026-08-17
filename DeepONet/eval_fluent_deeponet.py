@@ -428,8 +428,9 @@ def predict_edge_profiles(
     branch_raw = np.asarray(branch_inputs, dtype=np.float32)
     n_sub = branch_raw.shape[0]
 
-    left_q = branch_raw[:, layout.left, :][:, :, [layout.x_channel, layout.y_channel]]
-    right_q = branch_raw[:, layout.right, :][:, :, [layout.x_channel, layout.y_channel]]
+    query_channels = _query_channel_indices(model, branch_channel_names, layout)
+    left_q = branch_raw[:, layout.left, :][:, :, query_channels]
+    right_q = branch_raw[:, layout.right, :][:, :, query_channels]
 
     branch_norm = np.stack([
         normalize_cell_branch_with_y(
@@ -491,8 +492,9 @@ def predict_edge_grad(
     branch_raw = np.asarray(branch_inputs, dtype=np.float32)
     n_sub = branch_raw.shape[0]
 
-    left_q = branch_raw[:, layout.left, :][:, :, [layout.x_channel, layout.y_channel]]
-    right_q = branch_raw[:, layout.right, :][:, :, [layout.x_channel, layout.y_channel]]
+    query_channels = _query_channel_indices(model, branch_channel_names, layout)
+    left_q = branch_raw[:, layout.left, :][:, :, query_channels]
+    right_q = branch_raw[:, layout.right, :][:, :, query_channels]
 
     branch_norm = np.stack([
         normalize_cell_branch_with_y(
@@ -965,6 +967,107 @@ def _edge_query_tensors(
     return q_left, q_right
 
 
+def _query_channel_indices(
+    model: DeepONet,
+    branch_channel_names: Sequence[str],
+    layout: EdgeLayout,
+) -> List[int]:
+    """Branch channels forming a trunk query for this model: (x, y) plus sdf when needed."""
+    channels = [int(layout.x_channel), int(layout.y_channel)]
+    trunk_dim = int(getattr(model, "trunk_input_dim", 2))
+    if trunk_dim >= 3:
+        names = list(branch_channel_names)
+        if "sdf" not in names:
+            raise ValueError(
+                f"model.trunk_input_dim={trunk_dim} expects an 'sdf' query channel, but the "
+                "branch has no 'sdf' channel. Build the dataset with include_sdf=True."
+            )
+        channels.append(names.index("sdf"))
+    return channels
+
+
+def _torch_min_distance_to_segments(points: torch.Tensor, segments: torch.Tensor) -> torch.Tensor:
+    """Differentiable unsigned min distance from points (..., 2) to segments (S, 4).
+
+    Differentiable a.e. w.r.t. ``points`` (kinks only on the medial axis), which
+    is what the traction terms need when the SDF is a trunk input.
+    """
+    pts = points.reshape(-1, 2)
+    seg = segments.to(dtype=pts.dtype, device=pts.device).reshape(-1, 4)
+    a = seg[:, 0:2]
+    d = seg[:, 2:4] - seg[:, 0:2]
+    dd = (d * d).sum(dim=1).clamp_min(1.0e-30)
+    ap = pts[:, None, :] - a[None, :, :]
+    t = ((ap * d[None, :, :]).sum(dim=2) / dd[None, :]).clamp(0.0, 1.0)
+    closest = a[None, :, :] + t[..., None] * d[None, :, :]
+    dist = torch.linalg.norm(pts[:, None, :] - closest, dim=2)
+    return dist.min(dim=1).values.reshape(points.shape[:-1])
+
+
+@dataclass
+class EdgeSDFContext:
+    """Recomputes the wall-SDF trunk channel for edge queries, inside autograd.
+
+    Local edge coordinates are mapped to physical (mesh-unit) coordinates with
+    per-subdomain frames, then the distance to the case wall segments is taken
+    and normalized by the reference length — matching the dataset's ``sdf``
+    channel while keeping the chain rule ``d(sdf)/d(x_local, y_local)`` intact.
+    """
+
+    segments: torch.Tensor   # (S, 4), mesh units, shared across the case
+    x0: torch.Tensor         # (n_sub,) subdomain left edge, mesh units
+    width: torch.Tensor      # (n_sub,)
+    y0: torch.Tensor         # (n_sub,) local-frame y origin, mesh units
+    y_height: torch.Tensor   # (n_sub,) local-frame y scale, mesh units
+    ref_length: float        # mesh units
+
+    def augment(self, q: torch.Tensor) -> torch.Tensor:
+        """Append the sdf column to local edge queries q of shape (n_sub, N, 2)."""
+        px = self.x0[:, None] + q[..., 0] * self.width[:, None]
+        py = self.y0[:, None] + q[..., 1] * self.y_height[:, None]
+        pts = torch.stack([px, py], dim=-1)
+        sdf = _torch_min_distance_to_segments(pts, self.segments) / float(self.ref_length)
+        return torch.cat([q, sdf.unsqueeze(-1).to(q.dtype)], dim=-1)
+
+
+def make_edge_sdf_context(
+    samples: Sequence[Mapping[str, Array]],
+    metadata: Optional[Sequence[Mapping[str, object]]],
+    device: Union[str, torch.device],
+) -> Optional[EdgeSDFContext]:
+    """Build an EdgeSDFContext from dataset samples, or None when unavailable."""
+    if not samples or "wall_segments" not in samples[0]:
+        return None
+    if metadata is None:
+        raise ValueError("make_edge_sdf_context requires per-sample metadata for the local frames")
+    if len(metadata) != len(samples):
+        raise ValueError(f"metadata length {len(metadata)} does not match samples length {len(samples)}")
+
+    device = torch.device(device)
+    segments = torch.as_tensor(np.asarray(samples[0]["wall_segments"], dtype=np.float32), device=device)
+
+    x0, width, y0, y_height = [], [], [], []
+    ref_length: Optional[float] = None
+    for m in metadata:
+        x_left = float(m["x_left_mm"])
+        x_right = float(m["x_right_mm"])
+        x0.append(x_left)
+        width.append(max(x_right - x_left, 1.0e-12))
+        y0.append(float(m.get("y_local_origin_mm", m.get("y_bottom_mm", 0.0))))
+        y_height.append(max(float(m.get("y_local_scale_mm", m.get("reference_length_mesh", 1.0))), 1.0e-12))
+        if ref_length is None:
+            ref_length = float(m.get("reference_length_mesh", m.get("reference_length_mm", 1.0)))
+
+    return EdgeSDFContext(
+        segments=segments,
+        x0=torch.as_tensor(x0, dtype=torch.float32, device=device),
+        width=torch.as_tensor(width, dtype=torch.float32, device=device),
+        y0=torch.as_tensor(y0, dtype=torch.float32, device=device),
+        y_height=torch.as_tensor(y_height, dtype=torch.float32, device=device),
+        ref_length=float(ref_length if ref_length is not None else 1.0),
+    )
+
+
 def _subdomain_scales_from_metadata(
     metadata: Optional[Sequence[Mapping[str, object]]],
     n_sub: int,
@@ -1217,6 +1320,7 @@ def physics_interface_loss_torch(
     pressure_offsets_raw: Optional[torch.Tensor] = None,
     traction_scale: float = 1.0,
     flux_scale: float = 1.0,
+    sdf_ctx: Optional[EdgeSDFContext] = None,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
     """Differentiable physics loss for the unknown interface trace."""
     branch = _make_branch_with_interface_z(
@@ -1230,8 +1334,17 @@ def physics_interface_loss_torch(
     q_left = q_left_base.detach().clone().requires_grad_(True)
     q_right = q_right_base.detach().clone().requires_grad_(True)
 
-    out_left_norm = model(branch, q_left)
-    out_right_norm = model(branch, q_right)
+    # The (x, y) leaves stay 2-column so traction/flux gradients are taken w.r.t.
+    # the coordinates; the sdf trunk channel is recomputed in-graph so its
+    # spatial dependence enters those gradients through the chain rule.
+    if sdf_ctx is not None:
+        q_left_in = sdf_ctx.augment(q_left)
+        q_right_in = sdf_ctx.augment(q_right)
+    else:
+        q_left_in, q_right_in = q_left, q_right
+
+    out_left_norm = model(branch, q_left_in)
+    out_right_norm = model(branch, q_right_in)
 
     n_sub = int(branch.shape[0])
     if pressure_offsets_raw is not None:
@@ -1405,6 +1518,14 @@ def physics_unknown_interface_inference(
     z_norm = torch.nn.Parameter(z0.clone())
 
     q_left, q_right = _edge_query_tensors(init_branch, layout, device=device)
+    sdf_ctx: Optional[EdgeSDFContext] = None
+    if int(getattr(model, "trunk_input_dim", 2)) >= 3:
+        sdf_ctx = make_edge_sdf_context(samples, metadata, device)
+        if sdf_ctx is None:
+            raise ValueError(
+                "model.trunk_input_dim >= 3 requires the sdf trunk channel: build the "
+                "dataset with include_sdf=True so samples carry 'wall_segments'."
+            )
     x_scale, y_scale = _subdomain_scales_from_metadata(
         metadata=metadata,
         n_sub=branches.shape[0],
@@ -1456,6 +1577,7 @@ def physics_unknown_interface_inference(
             pressure_offsets_raw=pressure_offsets_param,
             traction_scale=traction_scale,
             flux_scale=flux_scale,
+            sdf_ctx=sdf_ctx,
         )
 
     for iteration in range(1, int(config.max_iter) + 1):

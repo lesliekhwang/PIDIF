@@ -69,16 +69,32 @@ CELL_TRUNK_CHANNELS = ["x_local", "y_local"]
 CELL_OUTPUT_CHANNELS = ["pressure", "temperature", "u", "v"]
 
 
-def make_cell_branch_channels(output_fields: Sequence[str]) -> List[str]:
+def make_cell_branch_channels(
+    output_fields: Sequence[str],
+    include_reynolds: bool = False,
+    include_sdf: bool = False,
+) -> List[str]:
     """Branch-channel layout for a given ordered list of output field names.
 
     Layout: coordinates, masks, one ``boundary_<field>`` per field, one
-    ``known_<field>`` per field, then ``local_aspect_ratio``.
+    ``known_<field>`` per field, then ``local_aspect_ratio``, then optional
+    geometry channels:
+
+    - ``log10_reynolds``: per-case ``log10(U_in * H_ref / nu)``.  Together with
+      the (globally normalized, affinely invertible) velocity values already in
+      the branch, the physical height is recoverable as ``H = Re * nu / U`` and
+      the width as ``W = local_aspect_ratio * H``.
+    - ``sdf``: unsigned distance from the sensor point to the nearest channel
+      wall, normalized by the reference length (0 on walls).
     """
     names = ["x_local", "y_local", "wall_mask", "interface_mask"]
     names += [f"boundary_{f}" for f in output_fields]
     names += [f"known_{f}" for f in output_fields]
     names += ["local_aspect_ratio"]
+    if include_reynolds:
+        names += ["log10_reynolds"]
+    if include_sdf:
+        names += ["sdf"]
     return names
 
 
@@ -1310,6 +1326,8 @@ def _stack_cell_branch_features(
     values: np.ndarray,
     known_mask: np.ndarray,
     local_aspect_ratio: float,
+    log10_reynolds: Optional[float] = None,
+    sdf: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
     Stack branch point features.
@@ -1318,6 +1336,11 @@ def _stack_cell_branch_features(
         (M, F), ordered by the dataset's output fields.
     known_mask shape:
         (M, F), one known flag per output field.
+    log10_reynolds:
+        Per-case scalar appended as a constant channel when not None.
+    sdf:
+        Per-point wall distance (normalized by reference length) appended as a
+        channel when not None.
     """
     x_local = np.asarray(x_local, dtype=np.float32).reshape(-1)
     y_local = np.asarray(y_local, dtype=np.float32).reshape(-1)
@@ -1334,17 +1357,58 @@ def _stack_cell_branch_features(
     if known_mask.shape != values.shape:
         raise ValueError(f"known_mask must have shape {values.shape}, got {known_mask.shape}")
 
-    return np.column_stack(
-        [
-            x_local,
-            y_local,
-            wall_mask,
-            interface_mask,
-            values,
-            known_mask,
-            np.full(n, float(local_aspect_ratio), dtype=np.float32),
-        ]
-    ).astype(np.float32, copy=False)
+    columns = [
+        x_local,
+        y_local,
+        wall_mask,
+        interface_mask,
+        values,
+        known_mask,
+        np.full(n, float(local_aspect_ratio), dtype=np.float32),
+    ]
+    if log10_reynolds is not None:
+        columns.append(np.full(n, float(log10_reynolds), dtype=np.float32))
+    if sdf is not None:
+        sdf = np.asarray(sdf, dtype=np.float32).reshape(-1)
+        if sdf.size != n:
+            raise ValueError(f"sdf must have length {n}, got {sdf.size}")
+        columns.append(sdf)
+
+    return np.column_stack(columns).astype(np.float32, copy=False)
+
+
+def _min_distance_to_segments(points: np.ndarray, segments: np.ndarray) -> np.ndarray:
+    """Unsigned minimum distance from each point to a set of 2D segments.
+
+    points: (N, 2); segments: (S, 4) rows of ``x1, y1, x2, y2``.
+    """
+    pts = np.asarray(points, dtype=np.float64).reshape(-1, 2)
+    seg = np.asarray(segments, dtype=np.float64).reshape(-1, 4)
+    a = seg[:, 0:2]                       # (S, 2)
+    d = seg[:, 2:4] - seg[:, 0:2]         # (S, 2)
+    dd = np.maximum((d * d).sum(axis=1), 1.0e-30)  # (S,)
+
+    ap = pts[:, None, :] - a[None, :, :]  # (N, S, 2)
+    t = np.clip((ap * d[None, :, :]).sum(axis=2) / dd[None, :], 0.0, 1.0)  # (N, S)
+    closest = a[None, :, :] + t[..., None] * d[None, :, :]                 # (N, S, 2)
+    dist = np.linalg.norm(pts[:, None, :] - closest, axis=2)               # (N, S)
+    return dist.min(axis=1)
+
+
+def _wall_polyline_segments(
+    x_points: np.ndarray,
+    y_bottom_points: np.ndarray,
+    y_top_points: np.ndarray,
+) -> np.ndarray:
+    """Segment array (S, 4) for the bottom and top wall polylines."""
+    x_pts = np.asarray(x_points, dtype=np.float64).reshape(-1)
+    yb = np.asarray(y_bottom_points, dtype=np.float64).reshape(-1)
+    yt = np.asarray(y_top_points, dtype=np.float64).reshape(-1)
+    if x_pts.size < 2 or x_pts.shape != yb.shape or x_pts.shape != yt.shape:
+        raise ValueError("wall polylines need matching x/y arrays with >= 2 points")
+    bottom = np.column_stack([x_pts[:-1], yb[:-1], x_pts[1:], yb[1:]])
+    top = np.column_stack([x_pts[:-1], yt[:-1], x_pts[1:], yt[1:]])
+    return np.vstack([bottom, top]).astype(np.float64)
 
 
 def make_rect_channel_bc_values(
@@ -1421,9 +1485,27 @@ def build_fluent_deeponet_dataset(
     bc_kwargs: Optional[Mapping[str, float]] = None,
     keep_raw_case_data: bool = False,
     n_realizations: int = 1,
+    include_reynolds: bool = False,
+    include_sdf: bool = False,
+    kinematic_viscosity: float = 1.004e-6,
 ) -> Dict[str, object]:
     """
     Build a non-grid DeepONet dataset from Fluent HDF5 files.
+
+    Geometry-encoding options
+    -------------------------
+    ``include_reynolds=True`` appends a constant per-case branch channel
+    ``log10_reynolds`` with ``Re = U_in * H_ref / kinematic_viscosity`` (SI:
+    ``U_in`` from the design config / bc_kwargs in m/s, ``H_ref`` the reference
+    length converted to meters, ``kinematic_viscosity`` in m^2/s).
+
+    ``include_sdf=True`` appends (a) a branch channel ``sdf`` with each sensor's
+    unsigned wall distance normalized by the reference length, and (b) a third
+    query/trunk column with the same quantity at every cell center, so the trunk
+    input becomes ``(x_local, y_local, sdf)`` as in Geom-DeepONet.  Each sample
+    additionally stores ``wall_segments`` (full-channel wall polyline segments in
+    mesh coordinates) so evaluation code can recompute the SDF differentiably.
+    Both options currently require the x-strip interface placements (not METIS).
 
     No Cartesian grid is constructed.  The trunk/query points are the
     original Fluent cell centers inside each subdomain.
@@ -1522,6 +1604,16 @@ def build_fluent_deeponet_dataset(
             "interface_placement='metis' partitions arbitrary cell clusters and "
             "does not support horizontal_interface=True. Use horizontal_interface=False."
         )
+    include_reynolds = bool(include_reynolds)
+    include_sdf = bool(include_sdf)
+    kinematic_viscosity = float(kinematic_viscosity)
+    if kinematic_viscosity <= 0.0:
+        raise ValueError("kinematic_viscosity must be positive")
+    if interface_placement == "metis" and (include_reynolds or include_sdf):
+        raise NotImplementedError(
+            "include_reynolds/include_sdf are implemented for the x-strip "
+            "interface placements only, not 'metis'."
+        )
     insert_sharp_control_point_interfaces = bool(insert_sharp_control_point_interfaces)
     sharp_control_point_slope_threshold = float(sharp_control_point_slope_threshold)
     horizontal_interface_jitter = float(horizontal_interface_jitter)
@@ -1541,7 +1633,12 @@ def build_fluent_deeponet_dataset(
             raise ValueError(f"output_fields {missing} are not present in field_map keys {list(field_map.keys())}")
     if not output_fields:
         raise ValueError("output_fields must be non-empty")
-    branch_channel_names = make_cell_branch_channels(output_fields)
+    branch_channel_names = make_cell_branch_channels(
+        output_fields,
+        include_reynolds=include_reynolds,
+        include_sdf=include_sdf,
+    )
+    trunk_channel_names = list(CELL_TRUNK_CHANNELS) + (["sdf"] if include_sdf else [])
 
     if case_ids is None:
         case_ids = list(case_files.keys())
@@ -1679,6 +1776,45 @@ def build_fluent_deeponet_dataset(
             ref_length_mm = float(ref_length)
             y_origin = ymin0
             channel_ar = int(case_id)
+
+        # Optional geometry channels: per-case Reynolds number and wall SDF.
+        case_log10_re: Optional[float] = None
+        if include_reynolds:
+            if "inlet_u" not in case_bc_kwargs:
+                raise ValueError(
+                    f"include_reynolds=True needs an inlet velocity for case {case_id}: "
+                    "provide bc_kwargs['inlet_u'] or a design config with metadata.Uin_mps."
+                )
+            u_in = float(case_bc_kwargs["inlet_u"])
+            if u_in <= 0.0:
+                raise ValueError(f"inlet_u must be positive for include_reynolds (case {case_id})")
+            reynolds = u_in * (float(ref_length_mm) * 1.0e-3) / kinematic_viscosity
+            case_log10_re = float(np.log10(reynolds))
+
+        case_wall_segments: Optional[np.ndarray] = None
+        if include_sdf:
+            if config is not None and config_x_edges is not None:
+                case_wall_segments = _wall_polyline_segments(
+                    config_x_edges, config_y_bottom_edges, config_y_top_edges
+                )
+            else:
+                case_wall_segments = _wall_polyline_segments(
+                    np.asarray([xmin, xmax], dtype=np.float64),
+                    np.asarray([y_origin, y_origin], dtype=np.float64),
+                    np.asarray([y_origin + ref_length, y_origin + ref_length], dtype=np.float64),
+                )
+
+        def _wall_sdf(x_phys, y_phys) -> Optional[np.ndarray]:
+            """Wall distance (reference-length units) at physical points; None when disabled."""
+            if not include_sdf:
+                return None
+            pts = np.column_stack(
+                [
+                    np.asarray(x_phys, dtype=np.float64).reshape(-1),
+                    np.asarray(y_phys, dtype=np.float64).reshape(-1),
+                ]
+            )
+            return (_min_distance_to_segments(pts, case_wall_segments) / ref_length).astype(np.float32)
 
         # Resolve the per-case subdomain count (adaptive == channel aspect ratio).
         if adaptive_n_sub:
@@ -1947,12 +2083,13 @@ def build_fluent_deeponet_dataset(
                     y_cell = y[cell_mask]
                     target = values[cell_mask].astype(np.float32)
 
-                    query = np.column_stack(
-                        [
-                            ((x_cell - x0) * inv_width).astype(np.float32),
-                            _y_to_local(y_cell, y_part),
-                        ]
-                    ).astype(np.float32, copy=False)
+                    query_columns = [
+                        ((x_cell - x0) * inv_width).astype(np.float32),
+                        _y_to_local(y_cell, y_part),
+                    ]
+                    if include_sdf:
+                        query_columns.append(_wall_sdf(x_cell, y_cell))
+                    query = np.column_stack(query_columns).astype(np.float32, copy=False)
 
                     branch_parts: List[np.ndarray] = []
 
@@ -1977,6 +2114,8 @@ def build_fluent_deeponet_dataset(
                             values=vals,
                             known_mask=known,
                             local_aspect_ratio=local_aspect,
+                            log10_reynolds=case_log10_re,
+                            sdf=_wall_sdf(x_left_phys, y_left_phys),
                         )
                     )
 
@@ -2001,6 +2140,8 @@ def build_fluent_deeponet_dataset(
                             values=vals,
                             known_mask=known,
                             local_aspect_ratio=local_aspect,
+                            log10_reynolds=case_log10_re,
+                            sdf=_wall_sdf(x_right_phys, y_right_phys),
                         )
                     )
 
@@ -2028,6 +2169,8 @@ def build_fluent_deeponet_dataset(
                                 values=vals,
                                 known_mask=known,
                                 local_aspect_ratio=local_aspect,
+                                log10_reynolds=case_log10_re,
+                                sdf=_wall_sdf(x_wall_phys, yb_wall_phys),
                             )
                         )
                     else:
@@ -2047,6 +2190,11 @@ def build_fluent_deeponet_dataset(
                                 values=vals,
                                 known_mask=known,
                                 local_aspect_ratio=local_aspect,
+                                log10_reynolds=case_log10_re,
+                                sdf=_wall_sdf(
+                                    x_iface_phys,
+                                    np.full(n_interface_points, y_split_phys, dtype=np.float64),
+                                ),
                             )
                         )
 
@@ -2065,6 +2213,8 @@ def build_fluent_deeponet_dataset(
                                 values=vals,
                                 known_mask=known,
                                 local_aspect_ratio=local_aspect,
+                                log10_reynolds=case_log10_re,
+                                sdf=_wall_sdf(x_wall_phys, yt_wall_phys),
                             )
                         )
                     else:
@@ -2084,11 +2234,23 @@ def build_fluent_deeponet_dataset(
                                 values=vals,
                                 known_mask=known,
                                 local_aspect_ratio=local_aspect,
+                                log10_reynolds=case_log10_re,
+                                sdf=_wall_sdf(
+                                    x_iface_phys,
+                                    np.full(n_interface_points, y_split_phys, dtype=np.float64),
+                                ),
                             )
                         )
 
                     branch = np.concatenate(branch_parts, axis=0).astype(np.float32, copy=False)
-                    samples.append({"branch": branch, "query": query, "target": target})
+                    sample_entry: Dict[str, np.ndarray] = {
+                        "branch": branch,
+                        "query": query,
+                        "target": target,
+                    }
+                    if include_sdf:
+                        sample_entry["wall_segments"] = case_wall_segments.astype(np.float32)
+                    samples.append(sample_entry)
 
                     if horizontal_interface:
                         subdomain_id = int(s * 2 + y_part_idx)
@@ -2136,6 +2298,9 @@ def build_fluent_deeponet_dataset(
                         "x_right_is_sharp_control_point": sharp_right,
                         "n_cells": int(query.shape[0]),
                     }
+                    if include_reynolds:
+                        meta_row["log10_reynolds"] = float(case_log10_re)
+                        meta_row["kinematic_viscosity"] = float(kinematic_viscosity)
                     if horizontal_interface:
                         meta_row["y_split"] = y_part
                         meta_row["y_center_mm"] = float(y_split_phys)
@@ -2189,7 +2354,10 @@ def build_fluent_deeponet_dataset(
         "samples": samples,
         "metadata": metadata,
         "branch_channel_names": list(branch_channel_names),
-        "trunk_channel_names": list(CELL_TRUNK_CHANNELS),
+        "trunk_channel_names": list(trunk_channel_names),
+        "include_reynolds": bool(include_reynolds),
+        "include_sdf": bool(include_sdf),
+        "kinematic_viscosity": float(kinematic_viscosity),
         "output_channel_names": list(output_fields),
         "case_ids": [m["case_id"] for m in metadata],
         "ars": np.asarray([m["aspect_ratio"] for m in metadata], dtype=np.float32),
@@ -2225,12 +2393,17 @@ def normalize_cell_branch_with_y(
     local_aspect_mean: Optional[float] = None,
     local_aspect_std: Optional[float] = None,
     zero_unknown_values: bool = True,
+    log_re_mean: Optional[float] = None,
+    log_re_std: Optional[float] = None,
 ) -> np.ndarray:
     """
     Normalize branch p/T/u/v with the target/output normalizer.
 
-    Coordinates, masks, and known_* flags are left unchanged.  If known_* masks
-    are present, unknown boundary quantities are set to zero in normalized space.
+    Coordinates, masks, known_* flags, and the ``sdf`` channel are left
+    unchanged.  The ``log10_reynolds`` channel is standardized when
+    ``log_re_mean``/``log_re_std`` are supplied (pass training-set statistics),
+    otherwise passed through.  If known_* masks are present, unknown boundary
+    quantities are set to zero in normalized space.
     """
     names = list(branch_channel_names)
     out = np.asarray(branch, dtype=np.float32).copy()
@@ -2256,6 +2429,10 @@ def normalize_cell_branch_with_y(
         aspect_idx = names.index("local_aspect_ratio")
         out[:, aspect_idx] = (out[:, aspect_idx] - float(local_aspect_mean)) / max(float(local_aspect_std), 1.0e-12)
 
+    if log_re_mean is not None and log_re_std is not None and "log10_reynolds" in names:
+        re_idx = names.index("log10_reynolds")
+        out[:, re_idx] = (out[:, re_idx] - float(log_re_mean)) / max(float(log_re_std), 1.0e-12)
+
     return out.astype(np.float32, copy=False)
 
 
@@ -2280,6 +2457,8 @@ class DeepONetCellDataset(torch.utils.data.Dataset):
         local_aspect_mean: Optional[float] = None,
         local_aspect_std: Optional[float] = None,
         branch_channel_names: Sequence[str] = CELL_BRANCH_CHANNELS,
+        log_re_mean: Optional[float] = None,
+        log_re_std: Optional[float] = None,
     ):
         self.samples = list(samples)
         if sample_indices is None:
@@ -2292,6 +2471,8 @@ class DeepONetCellDataset(torch.utils.data.Dataset):
         self.local_aspect_mean = local_aspect_mean
         self.local_aspect_std = local_aspect_std
         self.branch_channel_names = list(branch_channel_names)
+        self.log_re_mean = log_re_mean
+        self.log_re_std = log_re_std
 
     def __len__(self) -> int:
         return int(self.indices.size)
@@ -2322,6 +2503,8 @@ class DeepONetCellDataset(torch.utils.data.Dataset):
             target_y_normalizer=self.target_y_normalizer,
             local_aspect_mean=self.local_aspect_mean,
             local_aspect_std=self.local_aspect_std,
+            log_re_mean=self.log_re_mean,
+            log_re_std=self.log_re_std,
         )
 
         if self.target_y_normalizer is not None:
@@ -2359,6 +2542,8 @@ def save_deeponet_dataset_h5(dataset: Mapping[str, object], output_path: PathLik
             sg.create_dataset("branch", data=np.asarray(sample["branch"], dtype=np.float32), compression="gzip", compression_opts=4)
             sg.create_dataset("query", data=np.asarray(sample["query"], dtype=np.float32), compression="gzip", compression_opts=4)
             sg.create_dataset("target", data=np.asarray(sample["target"], dtype=np.float32), compression="gzip", compression_opts=4)
+            if "wall_segments" in sample:
+                sg.create_dataset("wall_segments", data=np.asarray(sample["wall_segments"], dtype=np.float32))
 
         meta_grp = f.create_group("metadata")
         keys = sorted({k for m in metadata for k in m.keys()})
@@ -2378,13 +2563,14 @@ def load_deeponet_dataset_h5(path: PathLike) -> Dict[str, object]:
         samples = []
         for i in range(n_samples):
             sg = f["samples"][str(i)]
-            samples.append(
-                {
-                    "branch": sg["branch"][:].astype(np.float32),
-                    "query": sg["query"][:].astype(np.float32),
-                    "target": sg["target"][:].astype(np.float32),
-                }
-            )
+            sample_entry = {
+                "branch": sg["branch"][:].astype(np.float32),
+                "query": sg["query"][:].astype(np.float32),
+                "target": sg["target"][:].astype(np.float32),
+            }
+            if "wall_segments" in sg:
+                sample_entry["wall_segments"] = sg["wall_segments"][:].astype(np.float32)
+            samples.append(sample_entry)
 
         metadata = []
         meta_grp = f["metadata"]

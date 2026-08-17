@@ -1,0 +1,27 @@
+On branch Alan
+Your branch is up to date with 'origin/Alan'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .gitignore
+	modified:   DeepONet/deeponet_fluent_dataset.py
+	modified:   DeepONet/eval_fluent_deeponet.py
+	modified:   DeepONet/fluent_deeponet.py
+	modified:   DeepONet/iterative_inference.ipynb
+	modified:   DeepONet/results/080426_1/checkpoint.pt
+	modified:   DeepONet/results/080426_1/code_snapshot/git_commit.txt
+	modified:   DeepONet/results/080426_1/code_snapshot/git_diff.patch
+	modified:   DeepONet/results/080426_1/code_snapshot/git_status.txt
+	modified:   DeepONet/results/080426_1/training.log
+	modified:   DeepONet/train_deeponet.ipynb
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	DeepONet/results/080426_1/loss_history.png
+	DeepONet/results/080426_1/predictions/
+	DeepONet/results/081426_1/
+	DeepONet/results/081526_1/
+	DeepONet/train_deeponet_1.ipynb
+
+no changes added to commit (use "git add" and/or "git commit -a")

@@ -8,6 +8,7 @@ training, evaluation, and prediction code here.
 
 from __future__ import annotations
 
+import math
 from typing import Dict, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -87,6 +88,46 @@ class FeatureNormalizer:
         return obj
 
 
+class Sine(nn.Module):
+    """SIREN sinusoidal activation ``sin(w0 * x)``."""
+
+    def __init__(self, w0: float = 30.0):
+        super().__init__()
+        self.w0 = float(w0)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.sin(self.w0 * x)
+
+
+def _siren_init_(module: nn.Module, w0: float = 30.0) -> None:
+    """Apply the SIREN initialization scheme (Sitzmann et al., 2020) in place.
+
+    First linear layer: U(-1/fan_in, 1/fan_in); subsequent layers:
+    U(-sqrt(6/fan_in)/w0, sqrt(6/fan_in)/w0).
+    """
+    linears = [m for m in module.modules() if isinstance(m, nn.Linear)]
+    with torch.no_grad():
+        for i, lin in enumerate(linears):
+            fan_in = int(lin.in_features)
+            bound = (1.0 / fan_in) if i == 0 else (math.sqrt(6.0 / fan_in) / float(w0))
+            lin.weight.uniform_(-bound, bound)
+            if lin.bias is not None:
+                lin.bias.uniform_(-bound, bound)
+
+
+def _make_activation(activation: str, siren_w0: float = 30.0) -> nn.Module:
+    name = str(activation).lower()
+    if name == "relu":
+        return nn.ReLU()
+    if name == "tanh":
+        return nn.Tanh()
+    if name == "silu":
+        return nn.SiLU()
+    if name == "siren":
+        return Sine(siren_w0)
+    return nn.GELU()
+
+
 def _make_mlp(
     input_dim: int,
     output_dim: int,
@@ -94,18 +135,15 @@ def _make_mlp(
     depth: int,
     activation: str = "gelu",
     layer_norm: bool = False,
+    siren_w0: float = 30.0,
 ) -> nn.Sequential:
     if depth < 1:
         raise ValueError("depth must be >= 1")
+    is_siren = str(activation).lower() == "siren"
+    if is_siren and layer_norm:
+        raise ValueError("layer_norm is not supported with the siren activation")
 
-    if activation.lower() == "relu":
-        act: nn.Module = nn.ReLU()
-    elif activation.lower() == "tanh":
-        act = nn.Tanh()
-    elif activation.lower() == "silu":
-        act = nn.SiLU()
-    else:
-        act = nn.GELU()
+    act = _make_activation(activation, siren_w0)
 
     layers = []
     in_dim = int(input_dim)
@@ -116,7 +154,10 @@ def _make_mlp(
         layers.append(act)
         in_dim = int(hidden_dim)
     layers.append(nn.Linear(in_dim, int(output_dim)))
-    return nn.Sequential(*layers)
+    mlp = nn.Sequential(*layers)
+    if is_siren:
+        _siren_init_(mlp, siren_w0)
+    return mlp
 
 
 class PointSetBranchNet(nn.Module):
@@ -160,20 +201,21 @@ class PointSetBranchNet(nn.Module):
             layer_norm=layer_norm,
         )
 
-    def forward(self, branch: torch.Tensor, branch_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def pooled_hidden(self, branch: torch.Tensor, branch_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """Permutation-invariant pooled point encoding, shape (B, point_hidden_dim)."""
         if branch.ndim != 3:
             raise ValueError(f"Expected branch shape (B,M,C), got {tuple(branch.shape)}")
         h = self.point_encoder(branch)
-        
+
         if branch_mask is not None:
             if branch_mask.ndim != 2:
                 raise ValueError(f"Expected branch_mask shape (B,M), got {tuple(branch_mask.shape)}")
             if branch_mask.shape != branch.shape[:2]:
                 raise ValueError(f"branch_mask shape {tuple(branch_mask.shape)} does not match branch shape {tuple(branch.shape[:2])}")
-            
+
             mask_bool = branch_mask.to(device=h.device, dtype=torch.bool)
             mask = mask_bool.unsqueeze(-1).to(dtype=h.dtype)
-            
+
             if self.aggregation == "mean":
                 h = (h * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
             elif self.aggregation == "sum":
@@ -183,7 +225,7 @@ class PointSetBranchNet(nn.Module):
                 h = h_masked.max(dim=1).values
                 valid_any = mask_bool.any(dim=1)
                 h = torch.where(valid_any.unsqueeze(-1), h, torch.zeros_like(h))
-        
+
         else:
             if self.aggregation == "mean":
                 h = h.mean(dim=1)
@@ -191,9 +233,20 @@ class PointSetBranchNet(nn.Module):
                 h = h.sum(dim=1)
             else:
                 h = h.max(dim=1).values
-            
+
+        return h
+
+    def forward_with_hidden(
+        self, branch: torch.Tensor, branch_mask: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Return branch coefficients plus the pooled hidden state for trunk mixing."""
+        h = self.pooled_hidden(branch, branch_mask)
         coeff = self.global_mlp(h)
-        return coeff.reshape(branch.shape[0], self.output_channels, self.latent_dim)
+        return coeff.reshape(branch.shape[0], self.output_channels, self.latent_dim), h
+
+    def forward(self, branch: torch.Tensor, branch_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        coeff, _ = self.forward_with_hidden(branch, branch_mask)
+        return coeff
 
 
 class TrunkNet(nn.Module):
@@ -207,6 +260,7 @@ class TrunkNet(nn.Module):
         depth: int = 4,
         activation: str = "gelu",
         layer_norm: bool = False,
+        siren_w0: float = 30.0,
     ):
         super().__init__()
         self.trunk_input_dim = int(trunk_input_dim)
@@ -218,10 +272,78 @@ class TrunkNet(nn.Module):
             depth=int(depth),
             activation=activation,
             layer_norm=layer_norm,
+            siren_w0=siren_w0,
         )
 
-    def forward(self, query: torch.Tensor) -> torch.Tensor:
+    def forward(self, query: torch.Tensor, cond: Optional[torch.Tensor] = None) -> torch.Tensor:
+        # cond is accepted for interface compatibility with MixedTrunkNet.
         return self.net(query)
+
+
+class MixedTrunkNet(nn.Module):
+    """Trunk net with multiplicative branch--trunk mixing (Geom-DeepONet style).
+
+    After every hidden activation, features are modulated elementwise by a gate
+    computed from a per-sample branch summary ``cond``::
+
+        h <- h * (1 + gate_l(cond))
+
+    (an einsum ``...h,...h->...h`` interaction).  The ``1 +`` residual form makes
+    the network start near the unmixed trunk, which keeps early training stable.
+    With ``cond=None`` the gates are skipped and this reduces to a plain trunk.
+    """
+
+    def __init__(
+        self,
+        trunk_input_dim: int = 2,
+        latent_dim: int = 128,
+        hidden_dim: int = 128,
+        depth: int = 4,
+        cond_dim: int = 128,
+        activation: str = "gelu",
+        layer_norm: bool = False,
+        siren_w0: float = 30.0,
+    ):
+        super().__init__()
+        if depth < 1:
+            raise ValueError("depth must be >= 1")
+        is_siren = str(activation).lower() == "siren"
+        if is_siren and layer_norm:
+            raise ValueError("layer_norm is not supported with the siren activation")
+
+        self.trunk_input_dim = int(trunk_input_dim)
+        self.latent_dim = int(latent_dim)
+        self.cond_dim = int(cond_dim)
+        self.depth = int(depth)
+        self.act = _make_activation(activation, siren_w0)
+        self.use_layer_norm = bool(layer_norm)
+
+        hidden_dim = int(hidden_dim)
+        self.hidden_layers = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        self.gates = nn.ModuleList()
+        in_dim = self.trunk_input_dim
+        for _ in range(self.depth - 1):
+            self.hidden_layers.append(nn.Linear(in_dim, hidden_dim))
+            self.norms.append(nn.LayerNorm(hidden_dim) if layer_norm else nn.Identity())
+            self.gates.append(nn.Linear(self.cond_dim, hidden_dim))
+            in_dim = hidden_dim
+        self.output_layer = nn.Linear(in_dim, self.latent_dim)
+
+        if is_siren:
+            _siren_init_(nn.Sequential(*self.hidden_layers, self.output_layer), siren_w0)
+        # Zero-init the gates so training starts at the plain-trunk solution.
+        for gate in self.gates:
+            nn.init.zeros_(gate.weight)
+            nn.init.zeros_(gate.bias)
+
+    def forward(self, query: torch.Tensor, cond: Optional[torch.Tensor] = None) -> torch.Tensor:
+        h = query
+        for layer, norm, gate in zip(self.hidden_layers, self.norms, self.gates):
+            h = self.act(norm(layer(h)))
+            if cond is not None:
+                h = h * (1.0 + gate(cond))
+        return self.output_layer(h)
 
 
 class DeepONet(nn.Module):
@@ -248,6 +370,9 @@ class DeepONet(nn.Module):
         aggregation: str = "mean",
         activation: str = "gelu",
         layer_norm: bool = False,
+        trunk_activation: Optional[str] = None,
+        branch_trunk_mixing: bool = False,
+        siren_w0: float = 30.0,
     ):
         super().__init__()
         self.branch_input_dim = int(branch_input_dim)
@@ -263,6 +388,10 @@ class DeepONet(nn.Module):
         self.aggregation = str(aggregation)
         self.activation = str(activation)
         self.layer_norm = bool(layer_norm)
+        # trunk_activation lets the trunk use e.g. "siren" while the branch keeps gelu.
+        self.trunk_activation = str(trunk_activation) if trunk_activation is not None else self.activation
+        self.branch_trunk_mixing = bool(branch_trunk_mixing)
+        self.siren_w0 = float(siren_w0)
 
         self.branch_net = PointSetBranchNet(
             branch_input_dim=self.branch_input_dim,
@@ -276,20 +405,38 @@ class DeepONet(nn.Module):
             activation=activation,
             layer_norm=layer_norm,
         )
-        self.trunk_net = TrunkNet(
-            trunk_input_dim=self.trunk_input_dim,
-            latent_dim=self.latent_dim,
-            hidden_dim=int(trunk_hidden_dim),
-            depth=int(trunk_depth),
-            activation=activation,
-            layer_norm=layer_norm,
-        )
+        trunk_layer_norm = bool(layer_norm) and self.trunk_activation.lower() != "siren"
+        if self.branch_trunk_mixing:
+            self.trunk_net: nn.Module = MixedTrunkNet(
+                trunk_input_dim=self.trunk_input_dim,
+                latent_dim=self.latent_dim,
+                hidden_dim=int(trunk_hidden_dim),
+                depth=int(trunk_depth),
+                cond_dim=int(branch_point_hidden_dim),
+                activation=self.trunk_activation,
+                layer_norm=trunk_layer_norm,
+                siren_w0=self.siren_w0,
+            )
+        else:
+            self.trunk_net = TrunkNet(
+                trunk_input_dim=self.trunk_input_dim,
+                latent_dim=self.latent_dim,
+                hidden_dim=int(trunk_hidden_dim),
+                depth=int(trunk_depth),
+                activation=self.trunk_activation,
+                layer_norm=trunk_layer_norm,
+                siren_w0=self.siren_w0,
+            )
         self.bias = nn.Parameter(torch.zeros(self.output_channels))
 
     def forward(self, branch: torch.Tensor, query: torch.Tensor, query_batch_id: Optional[torch.Tensor] = None, branch_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         if branch.ndim != 3:
             raise ValueError(f"Expected branch shape (B,M,C), got {tuple(branch.shape)}")
-        coeff = self.branch_net(branch, branch_mask)  # (B, Cout, R)
+        if self.branch_trunk_mixing:
+            coeff, pooled = self.branch_net.forward_with_hidden(branch, branch_mask)  # (B, Cout, R), (B, H)
+        else:
+            coeff = self.branch_net(branch, branch_mask)  # (B, Cout, R)
+            pooled = None
         
         # ------------------------------------------------------------
         # Concatenated mode:
@@ -311,7 +458,8 @@ class DeepONet(nn.Module):
             if query.shape[0] != query_batch_id.shape[0]:
                 raise ValueError("query and query_batch_id must have the same first dimension")
 
-            basis = self.trunk_net(query)  # (N_total, R)
+            cond = pooled[query_batch_id] if pooled is not None else None
+            basis = self.trunk_net(query, cond)  # (N_total, R)
 
             if basis.ndim == 3 and basis.shape[0] == 1:
                 basis = basis.squeeze(0)
@@ -345,7 +493,8 @@ class DeepONet(nn.Module):
             else:
                 raise ValueError("branch and query batch dimensions do not match")
 
-        basis = self.trunk_net(query)  # (B, Q, R)
+        cond = pooled.unsqueeze(1).expand(-1, query.shape[1], -1) if pooled is not None else None
+        basis = self.trunk_net(query, cond)  # (B, Q, R)
 
         out = torch.einsum("bcr,bqr->bqc", coeff, basis)
 
@@ -366,6 +515,9 @@ class DeepONet(nn.Module):
             "aggregation": self.aggregation,
             "activation": self.activation,
             "layer_norm": self.layer_norm,
+            "trunk_activation": self.trunk_activation,
+            "branch_trunk_mixing": self.branch_trunk_mixing,
+            "siren_w0": self.siren_w0,
         }
 
 def relative_L2_loss(pred: torch.Tensor, target: torch.Tensor, eps: float = 1.0e-12) -> torch.Tensor:
@@ -440,7 +592,15 @@ def boundary_loss(
         f"known_{f}" for f in output_channel_names
     ]
 
-    query_bc = branch[..., [x_ch, y_ch]]
+    query_channels = [x_ch, y_ch]
+    if int(getattr(model, "trunk_input_dim", 2)) >= 3:
+        if "sdf" not in names:
+            raise ValueError(
+                "model.trunk_input_dim >= 3 expects an 'sdf' branch channel for the "
+                "boundary loss; build the dataset with include_sdf=True."
+            )
+        query_channels.append(names.index("sdf"))
+    query_bc = branch[..., query_channels]
     target_bc = branch[..., value_ch]
     pred_bc = model(branch, query_bc, branch_mask=branch_mask)
 
