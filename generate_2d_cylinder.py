@@ -16,8 +16,8 @@ OUT_DIR = BASE_DIR / "2d_geometry_specs" / "cylinder"
 STEP_DIR = BASE_DIR / "2d_geometry_step" / "cylinder"
 
 SEED = 42
-START_CASE = 10
-N_CASES = 10
+START_CASE = 20
+N_CASES = 80
 UIN = 1.0  # m/s
 
 if START_CASE == 0:
@@ -102,15 +102,22 @@ def make_geometry_spec(case: str, cylinder_x: float, cylinder_y: float) -> dict:
 def main() -> None:
     validate_dimensions()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    rng = np.random.default_rng(SEED)
     rows = []
 
     # Keep the complete cylinder inside the rectangle for every random sample.
     x_min = CYLINDER_RADIUS
     x_max = CHANNEL_LENGTH - CYLINDER_RADIUS - 0.3
-    
+
     y_min = 0.03
     y_max = 0.07
+
+    # Draw from a fresh stream and burn the draws for cases before START_CASE so
+    # that the (x, y) sample for a given case index stays fixed regardless of
+    # how the case range is batched across separate script runs.
+    rng = np.random.default_rng(SEED)
+    for _ in range(START_CASE):
+        rng.uniform(x_min, x_max)
+        rng.uniform(y_min, y_max)
 
     for i in range(START_CASE, START_CASE + N_CASES):
         case = make_case_name(i)

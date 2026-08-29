@@ -36,7 +36,7 @@ MASS_CONSERVATION_REL_TOL = 0.02   # 2% mismatch between inlet/outlet flux
 REYNOLDS_LAMINAR_LIMIT = 2300.0    # below this the laminar model is appropriate
 
 BASE_DIR = Path("/home/hantianl/Documents/PIDIF")
-DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "channel_water"
+DEFAULT_RUNS_ROOT = BASE_DIR / "runs_2d" / "cylinder"
 
 
 # ============================================================
@@ -114,16 +114,21 @@ def get_case_info_from_spec(spec_json: Path) -> dict[str, Any]:
     # Backward + forward compatibility:
     # old schema: Lx_mm/Ly_mm
     # new schema: L_mm
+    # cylinder schema: channel_length_mm/channel_height_mm
     if "Lx_mm" in meta and "Ly_mm" in meta:
         lx_m = float(meta["Lx_mm"]) / 1000.0
         ly_m = float(meta["Ly_mm"]) / 1000.0
     elif "L_mm" in meta:
         lx_m = float(meta["L_mm"]) / 1000.0
         ly_m = float(meta["L_mm"]) / 1000.0
+    elif "channel_length_mm" in meta and "channel_height_mm" in meta:
+        lx_m = float(meta["channel_length_mm"]) / 1000.0
+        ly_m = float(meta["channel_height_mm"]) / 1000.0
     else:
         raise KeyError(
             "Spec metadata missing geometry size fields. "
-            "Expected either (Lx_mm, Ly_mm) or L_mm."
+            "Expected one of (Lx_mm, Ly_mm), L_mm, or "
+            "(channel_length_mm, channel_height_mm)."
         )
 
     # Inlet/outlet heights for mass-conservation and Reynolds-number checks.

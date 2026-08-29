@@ -1,0 +1,86 @@
+{
+  "case": "channel_043",
+  "units": "mm",
+  "geometry_type": "2d_rectangular_channel_with_cylinder",
+  "topology": {
+    "fluid_region_type": "rectangle_with_one_circular_hole",
+    "notes": "The cylinder is represented by a circular inner boundary removed from the rectangular 2D fluid face."
+  },
+  "boundaries": {
+    "wall_bottom": [
+      {
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "x": 1.0,
+        "y": 0.0
+      }
+    ],
+    "wall_top": [
+      {
+        "x": 0.0,
+        "y": 0.1
+      },
+      {
+        "x": 1.0,
+        "y": 0.1
+      }
+    ],
+    "inlet": [
+      {
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "x": 0.0,
+        "y": 0.1
+      }
+    ],
+    "outlet": [
+      {
+        "x": 1.0,
+        "y": 0.0
+      },
+      {
+        "x": 1.0,
+        "y": 0.1
+      }
+    ],
+    "fluid_polygon": [
+      {
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "x": 1.0,
+        "y": 0.0
+      },
+      {
+        "x": 1.0,
+        "y": 0.1
+      },
+      {
+        "x": 0.0,
+        "y": 0.1
+      }
+    ],
+    "cylinder": {
+      "center": {
+        "x": 0.500092561652604,
+        "y": 0.0484750892100555
+      },
+      "diameter": 0.025
+    }
+  },
+  "metadata": {
+    "random_seed": 42,
+    "channel_length_mm": 1.0,
+    "channel_height_mm": 0.1,
+    "cylinder_center_x_mm": 0.500092561652604,
+    "cylinder_center_y_mm": 0.0484750892100555,
+    "cylinder_diameter_mm": 0.025,
+    "Uin_mps": 1.0,
+    "target_geometry_file": "/home/hantianl/Documents/PIDIF/2d_geometry_step/cylinder/channel_043.step"
+  }
+}
