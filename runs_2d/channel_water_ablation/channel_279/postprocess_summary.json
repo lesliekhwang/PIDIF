@@ -1,0 +1,63 @@
+{
+  "case": "channel_279",
+  "boundaries": {
+    "inlet": "open_cascade_step_translator_7.5",
+    "outlet": "open_cascade_step_translator_7.3",
+    "wall_top": "open_cascade_step_translator_7.4",
+    "wall_bottom": "open_cascade_step_translator_7.2",
+    "inlet_zones": [
+      "open_cascade_step_translator_7.5"
+    ],
+    "outlet_zones": [
+      "open_cascade_step_translator_7.3"
+    ],
+    "wall_top_zones": [
+      "open_cascade_step_translator_7.4"
+    ],
+    "wall_bottom_zones": [
+      "open_cascade_step_translator_7.2"
+    ]
+  },
+  "inlet": {
+    "pressure_pa": 3214.3509,
+    "velocity_mps": 0.99999995,
+    "txt_files": {
+      "pressure": "runs_2d/channel_water_ablation/channel_279/pin.txt",
+      "velocity": "runs_2d/channel_water_ablation/channel_279/vin.txt",
+      "x-velocity": "runs_2d/channel_water_ablation/channel_279/vin_x.txt",
+      "y-velocity": "runs_2d/channel_water_ablation/channel_279/vin_y.txt"
+    }
+  },
+  "outlet": {
+    "pressure_pa": 0.0,
+    "velocity_mps": 1.0008766,
+    "txt_files": {
+      "pressure": "runs_2d/channel_water_ablation/channel_279/pout.txt",
+      "velocity": "runs_2d/channel_water_ablation/channel_279/vout.txt",
+      "x-velocity": "runs_2d/channel_water_ablation/channel_279/vout_x.txt",
+      "y-velocity": "runs_2d/channel_water_ablation/channel_279/vout_y.txt"
+    }
+  },
+  "derived": {
+    "dp_pa": 3214.3509
+  },
+  "physics_checks": {
+    "dp_pa": 3214.3509,
+    "dp_positive": true,
+    "mass_flux_in_per_depth_m2ps": 6.2499996875e-05,
+    "mass_flux_out_per_depth_m2ps": 6.254760625e-05,
+    "mass_conservation_rel_error": 0.0007617500380874883,
+    "mass_conserved": true,
+    "reynolds_number": 124.40178839606182,
+    "flow_regime": "laminar",
+    "laminar_assumption_valid": true,
+    "physics_ok": true
+  },
+  "residual_files": {
+    "combined_csv": "runs_2d/channel_water_ablation/channel_279/residuals.csv",
+    "plot_png": "runs_2d/channel_water_ablation/channel_279/residuals.png",
+    "pressure_csv": "runs_2d/channel_water_ablation/channel_279/pressure.csv",
+    "x_velocity_csv": "runs_2d/channel_water_ablation/channel_279/x-velocity.csv",
+    "y_velocity_csv": "runs_2d/channel_water_ablation/channel_279/y-velocity.csv"
+  }
+}
