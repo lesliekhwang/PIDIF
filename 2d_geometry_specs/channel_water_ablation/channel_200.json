@@ -1,0 +1,150 @@
+{
+  "case": "channel_200",
+  "units": "mm",
+  "geometry_type": "2d_connected_trapezoid_channel",
+  "topology": {
+    "fluid_region_type": "single_closed_polygon",
+    "boundary_order_ccw": [
+      "wall_bottom:left_to_right",
+      "wall_top:right_to_left"
+    ],
+    "notes": "fluid_polygon is the authoritative closed loop for downstream geometry creation. inlet/outlet are provided separately for named boundary reconstruction."
+  },
+  "boundaries": {
+    "wall_bottom": [
+      {
+        "x": 0.0,
+        "y": -0.0
+      },
+      {
+        "x": 0.38573549240440064,
+        "y": 0.004579995365833536
+      },
+      {
+        "x": 0.8187334752858004,
+        "y": 0.004267428808375685
+      },
+      {
+        "x": 0.930477043639309,
+        "y": -0.0009580929565279799
+      },
+      {
+        "x": 1.0,
+        "y": -0.0
+      }
+    ],
+    "wall_top": [
+      {
+        "x": 0.0,
+        "y": 0.25
+      },
+      {
+        "x": 0.38573549240440064,
+        "y": 0.24542000463416647
+      },
+      {
+        "x": 0.8187334752858004,
+        "y": 0.2457325711916243
+      },
+      {
+        "x": 0.930477043639309,
+        "y": 0.250958092956528
+      },
+      {
+        "x": 1.0,
+        "y": 0.25
+      }
+    ],
+    "inlet": [
+      {
+        "x": 0.0,
+        "y": -0.0
+      },
+      {
+        "x": 0.0,
+        "y": 0.25
+      }
+    ],
+    "outlet": [
+      {
+        "x": 1.0,
+        "y": -0.0
+      },
+      {
+        "x": 1.0,
+        "y": 0.25
+      }
+    ],
+    "fluid_polygon": [
+      {
+        "x": 0.0,
+        "y": -0.0
+      },
+      {
+        "x": 0.38573549240440064,
+        "y": 0.004579995365833536
+      },
+      {
+        "x": 0.8187334752858004,
+        "y": 0.004267428808375685
+      },
+      {
+        "x": 0.930477043639309,
+        "y": -0.0009580929565279799
+      },
+      {
+        "x": 1.0,
+        "y": -0.0
+      },
+      {
+        "x": 1.0,
+        "y": 0.25
+      },
+      {
+        "x": 0.930477043639309,
+        "y": 0.250958092956528
+      },
+      {
+        "x": 0.8187334752858004,
+        "y": 0.2457325711916243
+      },
+      {
+        "x": 0.38573549240440064,
+        "y": 0.24542000463416647
+      },
+      {
+        "x": 0.0,
+        "y": 0.25
+      }
+    ]
+  },
+  "metadata": {
+    "random_seed": 2026,
+    "case_seed": [
+      2026,
+      150
+    ],
+    "L_mm": 0.25,
+    "AR": 4,
+    "channel_length_mm": 1.0,
+    "x_points_mm": [
+      0.0,
+      0.38573549240440064,
+      0.8187334752858004,
+      0.930477043639309,
+      1.0
+    ],
+    "deltas_mm": [
+      0.0,
+      -0.004579995365833536,
+      -0.004267428808375685,
+      0.0009580929565279799,
+      0.0
+    ],
+    "inlet_height_mm": 0.25,
+    "outlet_height_mm": 0.25,
+    "Uin_mps": 1.0,
+    "target_geometry_file": "/home/hantianl/Documents/PIDIF/2d_geometry_step/channel_water_ablation/channel_200.step",
+    "renamed_from": "channel_050"
+  }
+}

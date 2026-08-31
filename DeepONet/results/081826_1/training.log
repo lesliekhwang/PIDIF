@@ -1,0 +1,403 @@
+2026-08-18 12:34:20 - deeponet - INFO - Training comment
+2026-08-18 12:34:20 - deeponet - INFO - multi-AR geometry encoding (Re + SDF): train AR5+AR16+50xAR10, test AR8 interp / AR4+AR20 extrap
+2026-08-18 12:34:20 - deeponet - INFO - Output directory: /home/hantianl/Documents/PIDIF/DeepONet/results/081826_1
+2026-08-18 12:34:20 - deeponet - INFO - Available cases: 330 (200 channel_water + 130 multi-AR)
+2026-08-18 12:34:20 - deeponet - INFO - AR5: 45 train, valid=['channel_213', 'channel_217', 'channel_223', 'channel_232', 'channel_257']
+2026-08-18 12:34:20 - deeponet - INFO - AR16: 45 train, valid=['channel_273', 'channel_278', 'channel_285', 'channel_287', 'channel_313']
+2026-08-18 12:34:20 - deeponet - INFO - AR10: 45 train, valid=['channel_05', 'channel_10', 'channel_92', 'channel_126', 'channel_154']
+2026-08-18 12:34:20 - deeponet - INFO - 
+Train cases: 135 | Valid cases: 15
+2026-08-18 12:34:20 - deeponet - INFO - Test [ar10_shapes]: 150
+2026-08-18 12:34:20 - deeponet - INFO - Test [ar8_interp]: 10
+2026-08-18 12:34:20 - deeponet - INFO - Test [ar4_extrap]: 10
+2026-08-18 12:34:20 - deeponet - INFO - Test [ar20_extrap]: 10
+2026-08-18 17:35:43 - deeponet - INFO - Train samples: 13950
+2026-08-18 17:35:43 - deeponet - INFO - Valid samples: 155
+2026-08-18 17:35:43 - deeponet - INFO - Train branch channels: ['x_local', 'y_local', 'wall_mask', 'interface_mask', 'boundary_pressure', 'boundary_u', 'boundary_v', 'known_pressure', 'known_u', 'known_v', 'local_aspect_ratio', 'log10_reynolds', 'sdf']
+2026-08-18 17:35:43 - deeponet - INFO - Train trunk channels: ['x_local', 'y_local', 'sdf']
+2026-08-18 17:35:43 - deeponet - INFO - Output channels: ['pressure', 'u', 'v']
+2026-08-18 17:35:43 - deeponet - INFO - Train Reynolds numbers: [62.2, 99.5, 199.0]
+2026-08-18 17:35:43 - deeponet - INFO - Example train sample:
+2026-08-18 17:35:43 - deeponet - INFO - branch: (1024, 13)
+2026-08-18 17:35:43 - deeponet - INFO - query: (138257, 3)
+2026-08-18 17:35:43 - deeponet - INFO - target: (138257, 3)
+2026-08-18 17:35:43 - deeponet - INFO - Train cases: [0, 6, 13, 35, 39, 54, 60, 65, 68, 71, 72, 80, 83, 84, 89, 90, 91, 99, 105, 111, 116, 117, 119, 123, 131, 136, 138, 139, 142, 145, 152, 153, 157, 158, 159, 160, 163, 165, 168, 171, 172, 179, 180, 191, 198, 210, 211, 212, 214, 215, 216, 218, 219, 220, 221, 222, 224, 225, 226, 227, 228, 229, 230, 231, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 258, 259, 270, 271, 272, 274, 275, 276, 277, 279, 280, 281, 282, 283, 284, 286, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 314, 315, 316, 317, 318, 319]
+2026-08-18 17:35:43 - deeponet - INFO - Valid cases: [5, 10, 92, 126, 154, 213, 217, 223, 232, 257, 273, 278, 285, 287, 313]
+2026-08-18 17:35:50 - deeponet - INFO - Y mean: tensor([ 5.8356e+02,  9.9984e-01, -7.5460e-06])
+2026-08-18 17:35:50 - deeponet - INFO - Y std: tensor([6.9449e+02, 3.9754e-01, 2.2882e-02])
+2026-08-18 17:35:50 - deeponet - INFO - local_aspect_mean: 0.9999999403953552
+2026-08-18 17:35:50 - deeponet - INFO - local_aspect_std: 0.7965306043624878
+2026-08-18 17:35:50 - deeponet - INFO - train log10(Re) values: [1.7937999963760376, 1.9979000091552734, 2.2988998889923096]
+2026-08-18 17:35:50 - deeponet - INFO - PDE Reynolds-number range: 9.96368408203125 768.0214233398438
+2026-08-18 17:35:50 - deeponet - INFO - branch batch: torch.Size([30, 1024, 13])
+2026-08-18 17:35:50 - deeponet - INFO - query batch: torch.Size([1319933, 3])
+2026-08-18 17:35:50 - deeponet - INFO - target batch: torch.Size([1319933, 3])
+2026-08-18 17:35:50 - deeponet - INFO - query batch id: tensor(0) tensor(29)
+2026-08-18 17:35:50 - deeponet - INFO - sample indices: tensor([ 8526,   775,  7403,   566,  7271, 11846,   477,  6113,   602,  5053,
+         4791, 13084,  7952,  7713,  3045,  7608,  3579,  2229,  4793,  6268,
+        12588, 13444,   801,  5139,   531,  2984,  3992,  5004,  3517, 13921])
+2026-08-18 17:35:50 - deeponet - INFO - branch mask batch: torch.Size([30, 1024])
+2026-08-18 17:35:51 - deeponet - INFO - {'branch_input_dim': 13, 'trunk_input_dim': 3, 'output_channels': 3, 'latent_dim': 128, 'branch_point_hidden_dim': 128, 'branch_point_depth': 3, 'branch_global_hidden_dim': 128, 'branch_global_depth': 3, 'trunk_hidden_dim': 128, 'trunk_depth': 4, 'aggregation': 'mean', 'activation': 'gelu', 'layer_norm': False, 'trunk_activation': 'gelu', 'branch_trunk_mixing': False, 'siren_w0': 30.0}
+2026-08-18 17:35:51 - deeponet - INFO - No checkpoint found; training from scratch.
+2026-08-18 17:37:33 - deeponet - INFO - Epoch 0001 | data loss=5.571e-01 | bc loss=2.977e-01 | PDE loss=0.000e+00 | valid MSE=7.221e+03 | valid rel L2=2.881e-01 | pressure=1.574e-01, u=1.070e-01, v=7.395e-01 | Time: 0:01:41.826094
+2026-08-18 17:52:53 - deeponet - INFO - Epoch 0010 | data loss=7.032e-02 | bc loss=2.716e-02 | PDE loss=0.000e+00 | valid MSE=1.528e+03 | valid rel L2=2.800e-01 | pressure=7.871e-02, u=3.552e-02, v=4.640e-01 | Time: 0:17:01.401616
+2026-08-18 18:09:52 - deeponet - INFO - Epoch 0020 | data loss=3.411e-02 | bc loss=1.008e-02 | PDE loss=0.000e+00 | valid MSE=2.881e+02 | valid rel L2=7.680e-02 | pressure=3.208e-02, u=2.052e-02, v=3.110e-01 | Time: 0:34:00.515642
+2026-08-18 18:26:49 - deeponet - INFO - Epoch 0030 | data loss=2.601e-02 | bc loss=7.738e-03 | PDE loss=0.000e+00 | valid MSE=3.144e+02 | valid rel L2=7.910e-02 | pressure=3.321e-02, u=1.556e-02, v=2.690e-01 | Time: 0:50:57.381791
+2026-08-18 18:44:04 - deeponet - INFO - Epoch 0040 | data loss=2.129e-02 | bc loss=5.701e-03 | PDE loss=0.000e+00 | valid MSE=2.593e+02 | valid rel L2=6.943e-02 | pressure=2.785e-02, u=1.748e-02, v=2.561e-01 | Time: 1:08:12.419443
+2026-08-18 19:01:02 - deeponet - INFO - Epoch 0050 | data loss=1.760e-02 | bc loss=4.901e-03 | PDE loss=0.000e+00 | valid MSE=2.677e+02 | valid rel L2=1.048e-01 | pressure=2.481e-02, u=1.527e-02, v=2.284e-01 | Time: 1:25:10.680204
+2026-08-18 19:18:00 - deeponet - INFO - Epoch 0060 | data loss=1.528e-02 | bc loss=3.768e-03 | PDE loss=0.000e+00 | valid MSE=2.383e+02 | valid rel L2=6.875e-02 | pressure=2.465e-02, u=1.183e-02, v=2.062e-01 | Time: 1:42:08.997087
+2026-08-18 19:35:02 - deeponet - INFO - Epoch 0070 | data loss=1.471e-02 | bc loss=4.118e-03 | PDE loss=0.000e+00 | valid MSE=1.008e+02 | valid rel L2=5.015e-02 | pressure=1.646e-02, u=1.105e-02, v=1.908e-01 | Time: 1:59:10.049761
+2026-08-18 19:52:03 - deeponet - INFO - Epoch 0080 | data loss=1.170e-02 | bc loss=3.293e-03 | PDE loss=0.000e+00 | valid MSE=1.462e+02 | valid rel L2=6.326e-02 | pressure=1.772e-02, u=9.869e-03, v=1.638e-01 | Time: 2:16:11.514806
+2026-08-18 20:09:02 - deeponet - INFO - Epoch 0090 | data loss=9.962e-03 | bc loss=2.987e-03 | PDE loss=0.000e+00 | valid MSE=1.622e+02 | valid rel L2=6.001e-02 | pressure=2.137e-02, u=9.937e-03, v=1.626e-01 | Time: 2:33:10.928839
+2026-08-18 20:26:02 - deeponet - INFO - Epoch 0100 | data loss=9.442e-03 | bc loss=2.805e-03 | PDE loss=0.000e+00 | valid MSE=8.479e+01 | valid rel L2=4.813e-02 | pressure=1.665e-02, u=8.933e-03, v=1.486e-01 | Time: 2:50:10.284584
+2026-08-18 20:42:58 - deeponet - INFO - Epoch 0110 | data loss=7.716e-03 | bc loss=2.081e-03 | PDE loss=0.000e+00 | valid MSE=7.334e+01 | valid rel L2=5.762e-02 | pressure=1.385e-02, u=8.608e-03, v=1.492e-01 | Time: 3:07:06.828722
+2026-08-18 20:59:56 - deeponet - INFO - Epoch 0120 | data loss=6.931e-03 | bc loss=1.830e-03 | PDE loss=0.000e+00 | valid MSE=1.133e+02 | valid rel L2=3.925e-02 | pressure=1.699e-02, u=1.049e-02, v=1.335e-01 | Time: 3:24:04.306841
+2026-08-18 21:16:52 - deeponet - INFO - Epoch 0130 | data loss=6.631e-03 | bc loss=1.743e-03 | PDE loss=0.000e+00 | valid MSE=3.272e+02 | valid rel L2=5.705e-02 | pressure=2.695e-02, u=7.955e-03, v=1.202e-01 | Time: 3:41:00.397612
+2026-08-18 21:33:52 - deeponet - INFO - Epoch 0140 | data loss=5.723e-03 | bc loss=1.569e-03 | PDE loss=0.000e+00 | valid MSE=6.834e+01 | valid rel L2=4.064e-02 | pressure=1.945e-02, u=7.713e-03, v=1.240e-01 | Time: 3:58:00.620738
+2026-08-18 21:50:49 - deeponet - INFO - Epoch 0150 | data loss=5.058e-03 | bc loss=1.243e-03 | PDE loss=0.000e+00 | valid MSE=1.479e+02 | valid rel L2=6.828e-02 | pressure=1.885e-02, u=9.602e-03, v=1.214e-01 | Time: 4:14:57.535046
+2026-08-18 22:07:51 - deeponet - INFO - Epoch 0160 | data loss=4.578e-03 | bc loss=1.166e-03 | PDE loss=0.000e+00 | valid MSE=1.188e+02 | valid rel L2=4.213e-02 | pressure=1.631e-02, u=9.366e-03, v=1.197e-01 | Time: 4:31:59.747232
+2026-08-18 22:24:59 - deeponet - INFO - Epoch 0170 | data loss=4.323e-03 | bc loss=1.045e-03 | PDE loss=0.000e+00 | valid MSE=5.787e+01 | valid rel L2=3.871e-02 | pressure=1.218e-02, u=7.225e-03, v=1.041e-01 | Time: 4:49:07.437301
+2026-08-18 22:41:59 - deeponet - INFO - Epoch 0180 | data loss=4.307e-03 | bc loss=1.136e-03 | PDE loss=0.000e+00 | valid MSE=7.919e+02 | valid rel L2=8.468e-02 | pressure=4.535e-02, u=7.423e-03, v=1.146e-01 | Time: 5:06:07.176178
+2026-08-18 22:58:54 - deeponet - INFO - Epoch 0190 | data loss=4.417e-03 | bc loss=1.176e-03 | PDE loss=0.000e+00 | valid MSE=1.144e+02 | valid rel L2=3.889e-02 | pressure=1.601e-02, u=8.107e-03, v=1.026e-01 | Time: 5:23:02.948193
+2026-08-18 23:15:53 - deeponet - INFO - Epoch 0200 | data loss=4.730e-03 | bc loss=1.275e-03 | PDE loss=0.000e+00 | valid MSE=6.031e+01 | valid rel L2=4.545e-02 | pressure=1.475e-02, u=6.283e-03, v=9.764e-02 | Time: 5:40:02.034926
+2026-08-18 23:32:52 - deeponet - INFO - Epoch 0210 | data loss=3.912e-03 | bc loss=1.026e-03 | PDE loss=0.000e+00 | valid MSE=7.398e+01 | valid rel L2=5.334e-02 | pressure=1.595e-02, u=6.992e-03, v=1.032e-01 | Time: 5:57:00.396275
+2026-08-18 23:49:43 - deeponet - INFO - Epoch 0220 | data loss=3.756e-03 | bc loss=1.066e-03 | PDE loss=0.000e+00 | valid MSE=5.439e+01 | valid rel L2=5.436e-02 | pressure=1.383e-02, u=6.583e-03, v=1.032e-01 | Time: 6:13:51.705282
+2026-08-19 00:06:44 - deeponet - INFO - Epoch 0230 | data loss=3.769e-03 | bc loss=1.058e-03 | PDE loss=0.000e+00 | valid MSE=1.062e+02 | valid rel L2=4.379e-02 | pressure=1.737e-02, u=7.894e-03, v=1.019e-01 | Time: 6:30:52.331929
+2026-08-19 00:23:53 - deeponet - INFO - Epoch 0240 | data loss=3.946e-03 | bc loss=1.041e-03 | PDE loss=0.000e+00 | valid MSE=5.552e+01 | valid rel L2=4.153e-02 | pressure=1.340e-02, u=6.426e-03, v=9.564e-02 | Time: 6:48:01.191481
+2026-08-19 00:41:09 - deeponet - INFO - Epoch 0250 | data loss=3.451e-03 | bc loss=8.883e-04 | PDE loss=0.000e+00 | valid MSE=3.323e+01 | valid rel L2=3.557e-02 | pressure=1.128e-02, u=6.469e-03, v=9.246e-02 | Time: 7:05:17.923487
+2026-08-19 00:58:08 - deeponet - INFO - Epoch 0260 | data loss=2.929e-03 | bc loss=7.332e-04 | PDE loss=0.000e+00 | valid MSE=4.873e+01 | valid rel L2=4.503e-02 | pressure=1.177e-02, u=6.167e-03, v=9.339e-02 | Time: 7:22:16.142169
+2026-08-19 01:15:15 - deeponet - INFO - Epoch 0270 | data loss=2.954e-03 | bc loss=7.193e-04 | PDE loss=0.000e+00 | valid MSE=3.883e+01 | valid rel L2=2.877e-02 | pressure=1.069e-02, u=5.987e-03, v=9.184e-02 | Time: 7:39:23.490986
+2026-08-19 01:32:11 - deeponet - INFO - Epoch 0280 | data loss=2.693e-03 | bc loss=6.509e-04 | PDE loss=0.000e+00 | valid MSE=5.012e+01 | valid rel L2=5.859e-02 | pressure=1.427e-02, u=6.003e-03, v=9.000e-02 | Time: 7:56:19.074809
+2026-08-19 01:49:07 - deeponet - INFO - Epoch 0290 | data loss=2.439e-03 | bc loss=5.339e-04 | PDE loss=0.000e+00 | valid MSE=3.087e+01 | valid rel L2=2.853e-02 | pressure=1.014e-02, u=6.786e-03, v=8.721e-02 | Time: 8:13:15.551653
+2026-08-19 02:06:05 - deeponet - INFO - Epoch 0300 | data loss=2.334e-03 | bc loss=4.942e-04 | PDE loss=0.000e+00 | valid MSE=5.000e+01 | valid rel L2=3.582e-02 | pressure=1.319e-02, u=6.868e-03, v=9.556e-02 | Time: 8:30:13.853601
+2026-08-19 02:23:04 - deeponet - INFO - Epoch 0310 | data loss=3.127e-03 | bc loss=8.406e-04 | PDE loss=0.000e+00 | valid MSE=3.268e+01 | valid rel L2=3.226e-02 | pressure=1.146e-02, u=6.198e-03, v=8.737e-02 | Time: 8:47:13.027655
+2026-08-19 02:39:59 - deeponet - INFO - Epoch 0320 | data loss=2.697e-03 | bc loss=7.959e-04 | PDE loss=0.000e+00 | valid MSE=5.856e+01 | valid rel L2=4.141e-02 | pressure=1.329e-02, u=5.259e-03, v=8.223e-02 | Time: 9:04:07.122841
+2026-08-19 02:56:51 - deeponet - INFO - Epoch 0330 | data loss=2.053e-03 | bc loss=4.122e-04 | PDE loss=0.000e+00 | valid MSE=3.233e+01 | valid rel L2=2.702e-02 | pressure=9.805e-03, u=6.910e-03, v=8.417e-02 | Time: 9:20:59.246839
+2026-08-19 03:13:39 - deeponet - INFO - Epoch 0340 | data loss=2.244e-03 | bc loss=5.193e-04 | PDE loss=0.000e+00 | valid MSE=5.839e+01 | valid rel L2=3.787e-02 | pressure=1.386e-02, u=6.545e-03, v=9.167e-02 | Time: 9:37:47.339959
+2026-08-19 03:30:45 - deeponet - INFO - Epoch 0350 | data loss=2.118e-03 | bc loss=4.728e-04 | PDE loss=0.000e+00 | valid MSE=2.926e+01 | valid rel L2=3.048e-02 | pressure=9.874e-03, u=6.005e-03, v=8.954e-02 | Time: 9:54:53.279211
+2026-08-19 03:47:45 - deeponet - INFO - Epoch 0360 | data loss=2.095e-03 | bc loss=5.213e-04 | PDE loss=0.000e+00 | valid MSE=3.919e+01 | valid rel L2=2.498e-02 | pressure=1.192e-02, u=6.611e-03, v=8.341e-02 | Time: 10:11:53.627057
+2026-08-19 04:04:46 - deeponet - INFO - Epoch 0370 | data loss=2.477e-03 | bc loss=6.188e-04 | PDE loss=0.000e+00 | valid MSE=2.728e+01 | valid rel L2=2.828e-02 | pressure=1.033e-02, u=4.890e-03, v=8.155e-02 | Time: 10:28:55.007712
+2026-08-19 04:21:44 - deeponet - INFO - Epoch 0380 | data loss=2.731e-03 | bc loss=7.103e-04 | PDE loss=0.000e+00 | valid MSE=1.016e+02 | valid rel L2=4.803e-02 | pressure=1.853e-02, u=6.420e-03, v=8.283e-02 | Time: 10:45:52.650675
+2026-08-19 04:38:45 - deeponet - INFO - Epoch 0390 | data loss=2.076e-03 | bc loss=4.820e-04 | PDE loss=0.000e+00 | valid MSE=2.888e+01 | valid rel L2=4.085e-02 | pressure=1.097e-02, u=5.376e-03, v=8.145e-02 | Time: 11:02:54.000292
+2026-08-19 04:55:35 - deeponet - INFO - Epoch 0400 | data loss=1.975e-03 | bc loss=4.643e-04 | PDE loss=0.000e+00 | valid MSE=6.134e+01 | valid rel L2=5.596e-02 | pressure=1.337e-02, u=7.448e-03, v=9.554e-02 | Time: 11:19:43.545960
+2026-08-19 05:12:32 - deeponet - INFO - Epoch 0410 | data loss=1.975e-03 | bc loss=4.669e-04 | PDE loss=0.000e+00 | valid MSE=1.843e+01 | valid rel L2=3.168e-02 | pressure=8.504e-03, u=4.763e-03, v=7.637e-02 | Time: 11:36:40.247878
+2026-08-19 05:29:30 - deeponet - INFO - Epoch 0420 | data loss=1.683e-03 | bc loss=3.471e-04 | PDE loss=0.000e+00 | valid MSE=3.120e+01 | valid rel L2=2.620e-02 | pressure=9.265e-03, u=6.640e-03, v=8.485e-02 | Time: 11:53:38.461085
+2026-08-19 05:46:25 - deeponet - INFO - Epoch 0430 | data loss=1.916e-03 | bc loss=4.155e-04 | PDE loss=0.000e+00 | valid MSE=6.152e+01 | valid rel L2=4.676e-02 | pressure=1.346e-02, u=5.433e-03, v=8.275e-02 | Time: 12:10:33.095603
+2026-08-19 06:03:22 - deeponet - INFO - Epoch 0440 | data loss=1.659e-03 | bc loss=3.562e-04 | PDE loss=0.000e+00 | valid MSE=7.341e+01 | valid rel L2=4.750e-02 | pressure=1.620e-02, u=5.260e-03, v=7.728e-02 | Time: 12:27:30.528427
+2026-08-19 06:20:24 - deeponet - INFO - Epoch 0450 | data loss=1.543e-03 | bc loss=3.379e-04 | PDE loss=0.000e+00 | valid MSE=2.547e+01 | valid rel L2=2.617e-02 | pressure=8.790e-03, u=5.035e-03, v=7.560e-02 | Time: 12:44:32.941253
+2026-08-19 06:37:14 - deeponet - INFO - Epoch 0460 | data loss=1.598e-03 | bc loss=3.659e-04 | PDE loss=0.000e+00 | valid MSE=2.498e+01 | valid rel L2=2.469e-02 | pressure=1.000e-02, u=5.380e-03, v=7.832e-02 | Time: 13:01:22.338603
+2026-08-19 06:54:08 - deeponet - INFO - Epoch 0470 | data loss=1.548e-03 | bc loss=3.577e-04 | PDE loss=0.000e+00 | valid MSE=2.555e+01 | valid rel L2=3.185e-02 | pressure=9.458e-03, u=5.376e-03, v=7.474e-02 | Time: 13:18:16.931560
+2026-08-19 07:11:04 - deeponet - INFO - Epoch 0480 | data loss=1.498e-03 | bc loss=3.149e-04 | PDE loss=0.000e+00 | valid MSE=4.373e+01 | valid rel L2=3.226e-02 | pressure=1.018e-02, u=5.456e-03, v=7.159e-02 | Time: 13:35:13.016822
+2026-08-19 07:27:57 - deeponet - INFO - Epoch 0490 | data loss=1.439e-03 | bc loss=2.909e-04 | PDE loss=0.000e+00 | valid MSE=2.914e+01 | valid rel L2=2.757e-02 | pressure=8.975e-03, u=4.555e-03, v=7.064e-02 | Time: 13:52:05.270960
+2026-08-19 07:44:50 - deeponet - INFO - Epoch 0500 | data loss=1.480e-03 | bc loss=3.056e-04 | PDE loss=0.000e+00 | valid MSE=1.652e+01 | valid rel L2=2.686e-02 | pressure=7.925e-03, u=4.594e-03, v=6.828e-02 | Time: 14:08:58.551325
+2026-08-19 08:01:51 - deeponet - INFO - Epoch 0510 | data loss=1.389e-03 | bc loss=2.949e-04 | PDE loss=0.000e+00 | valid MSE=2.232e+01 | valid rel L2=2.828e-02 | pressure=7.969e-03, u=4.749e-03, v=6.809e-02 | Time: 14:25:59.857939
+2026-08-19 08:18:43 - deeponet - INFO - Epoch 0520 | data loss=1.529e-03 | bc loss=3.140e-04 | PDE loss=0.000e+00 | valid MSE=2.086e+01 | valid rel L2=2.265e-02 | pressure=8.680e-03, u=4.525e-03, v=6.847e-02 | Time: 14:42:51.427699
+2026-08-19 08:35:35 - deeponet - INFO - Epoch 0530 | data loss=1.233e-03 | bc loss=2.252e-04 | PDE loss=0.000e+00 | valid MSE=1.641e+01 | valid rel L2=2.418e-02 | pressure=7.285e-03, u=4.336e-03, v=6.952e-02 | Time: 14:59:43.890996
+2026-08-19 08:52:30 - deeponet - INFO - Epoch 0540 | data loss=1.208e-03 | bc loss=2.124e-04 | PDE loss=0.000e+00 | valid MSE=1.927e+01 | valid rel L2=3.425e-02 | pressure=8.906e-03, u=4.371e-03, v=6.659e-02 | Time: 15:16:38.950368
+2026-08-19 09:09:23 - deeponet - INFO - Epoch 0550 | data loss=1.221e-03 | bc loss=2.417e-04 | PDE loss=0.000e+00 | valid MSE=1.204e+01 | valid rel L2=2.369e-02 | pressure=6.592e-03, u=4.202e-03, v=6.597e-02 | Time: 15:33:31.837960
+2026-08-19 09:26:15 - deeponet - INFO - Epoch 0560 | data loss=1.259e-03 | bc loss=2.423e-04 | PDE loss=0.000e+00 | valid MSE=4.231e+01 | valid rel L2=4.845e-02 | pressure=1.059e-02, u=4.333e-03, v=6.610e-02 | Time: 15:50:23.221741
+2026-08-19 09:43:07 - deeponet - INFO - Epoch 0570 | data loss=1.149e-03 | bc loss=2.185e-04 | PDE loss=0.000e+00 | valid MSE=2.581e+01 | valid rel L2=3.179e-02 | pressure=8.275e-03, u=4.007e-03, v=6.412e-02 | Time: 16:07:16.011925
+2026-08-19 10:00:06 - deeponet - INFO - Epoch 0580 | data loss=1.208e-03 | bc loss=2.208e-04 | PDE loss=0.000e+00 | valid MSE=1.706e+01 | valid rel L2=2.982e-02 | pressure=7.287e-03, u=4.601e-03, v=6.710e-02 | Time: 16:24:14.116863
+2026-08-19 10:16:57 - deeponet - INFO - Epoch 0590 | data loss=1.133e-03 | bc loss=2.034e-04 | PDE loss=0.000e+00 | valid MSE=1.568e+01 | valid rel L2=2.461e-02 | pressure=7.173e-03, u=4.398e-03, v=6.546e-02 | Time: 16:41:05.840997
+2026-08-19 10:33:51 - deeponet - INFO - Epoch 0600 | data loss=1.063e-03 | bc loss=1.860e-04 | PDE loss=0.000e+00 | valid MSE=1.041e+01 | valid rel L2=2.112e-02 | pressure=6.091e-03, u=4.007e-03, v=6.445e-02 | Time: 16:57:59.635386
+2026-08-19 10:50:41 - deeponet - INFO - Epoch 0610 | data loss=1.032e-03 | bc loss=1.716e-04 | PDE loss=0.000e+00 | valid MSE=1.701e+01 | valid rel L2=2.327e-02 | pressure=7.682e-03, u=4.076e-03, v=6.323e-02 | Time: 17:14:49.069049
+2026-08-19 11:07:30 - deeponet - INFO - Epoch 0620 | data loss=1.045e-03 | bc loss=1.885e-04 | PDE loss=0.000e+00 | valid MSE=1.533e+01 | valid rel L2=2.632e-02 | pressure=7.317e-03, u=4.072e-03, v=6.381e-02 | Time: 17:31:38.289354
+2026-08-19 11:24:26 - deeponet - INFO - Epoch 0630 | data loss=9.888e-04 | bc loss=1.634e-04 | PDE loss=0.000e+00 | valid MSE=1.982e+01 | valid rel L2=2.451e-02 | pressure=8.357e-03, u=3.917e-03, v=6.163e-02 | Time: 17:48:34.635522
+2026-08-19 11:41:18 - deeponet - INFO - Epoch 0640 | data loss=9.561e-04 | bc loss=1.512e-04 | PDE loss=0.000e+00 | valid MSE=1.881e+01 | valid rel L2=3.010e-02 | pressure=7.946e-03, u=4.214e-03, v=6.050e-02 | Time: 18:05:26.929492
+2026-08-19 11:58:10 - deeponet - INFO - Epoch 0650 | data loss=1.058e-03 | bc loss=2.094e-04 | PDE loss=0.000e+00 | valid MSE=1.115e+01 | valid rel L2=2.226e-02 | pressure=6.129e-03, u=4.190e-03, v=6.346e-02 | Time: 18:22:18.142489
+2026-08-19 12:15:03 - deeponet - INFO - Epoch 0660 | data loss=9.299e-04 | bc loss=1.481e-04 | PDE loss=0.000e+00 | valid MSE=1.101e+01 | valid rel L2=3.029e-02 | pressure=6.365e-03, u=3.758e-03, v=6.028e-02 | Time: 18:39:11.414071
+2026-08-19 12:31:57 - deeponet - INFO - Epoch 0670 | data loss=8.879e-04 | bc loss=1.318e-04 | PDE loss=0.000e+00 | valid MSE=1.070e+01 | valid rel L2=2.328e-02 | pressure=5.943e-03, u=3.983e-03, v=5.873e-02 | Time: 18:56:05.551846
+2026-08-19 12:48:59 - deeponet - INFO - Epoch 0680 | data loss=8.771e-04 | bc loss=1.350e-04 | PDE loss=0.000e+00 | valid MSE=9.386e+00 | valid rel L2=2.216e-02 | pressure=6.099e-03, u=3.848e-03, v=5.941e-02 | Time: 19:13:07.611146
+2026-08-19 13:06:02 - deeponet - INFO - Epoch 0690 | data loss=8.717e-04 | bc loss=1.300e-04 | PDE loss=0.000e+00 | valid MSE=9.263e+00 | valid rel L2=2.105e-02 | pressure=5.729e-03, u=3.646e-03, v=5.863e-02 | Time: 19:30:10.218962
+2026-08-19 13:22:57 - deeponet - INFO - Epoch 0700 | data loss=8.395e-04 | bc loss=1.227e-04 | PDE loss=0.000e+00 | valid MSE=1.006e+01 | valid rel L2=1.946e-02 | pressure=6.419e-03, u=3.790e-03, v=5.925e-02 | Time: 19:47:05.569194
+2026-08-19 13:39:54 - deeponet - INFO - Epoch 0710 | data loss=8.165e-04 | bc loss=1.216e-04 | PDE loss=0.000e+00 | valid MSE=1.431e+01 | valid rel L2=2.960e-02 | pressure=7.544e-03, u=3.596e-03, v=5.703e-02 | Time: 20:04:02.988972
+2026-08-19 13:56:43 - deeponet - INFO - Epoch 0720 | data loss=8.023e-04 | bc loss=1.138e-04 | PDE loss=0.000e+00 | valid MSE=1.120e+01 | valid rel L2=2.212e-02 | pressure=5.914e-03, u=3.662e-03, v=5.642e-02 | Time: 20:20:51.322358
+2026-08-19 14:13:41 - deeponet - INFO - Epoch 0730 | data loss=7.867e-04 | bc loss=1.108e-04 | PDE loss=0.000e+00 | valid MSE=1.033e+01 | valid rel L2=1.994e-02 | pressure=6.025e-03, u=3.490e-03, v=5.604e-02 | Time: 20:37:49.862584
+2026-08-19 14:30:44 - deeponet - INFO - Epoch 0740 | data loss=7.655e-04 | bc loss=1.084e-04 | PDE loss=0.000e+00 | valid MSE=8.380e+00 | valid rel L2=1.804e-02 | pressure=5.718e-03, u=3.432e-03, v=5.657e-02 | Time: 20:54:53.008017
+2026-08-19 14:47:45 - deeponet - INFO - Epoch 0750 | data loss=7.548e-04 | bc loss=1.044e-04 | PDE loss=0.000e+00 | valid MSE=7.715e+00 | valid rel L2=1.967e-02 | pressure=5.195e-03, u=3.567e-03, v=5.632e-02 | Time: 21:11:54.012008
+2026-08-19 15:04:44 - deeponet - INFO - Epoch 0760 | data loss=7.414e-04 | bc loss=9.710e-05 | PDE loss=0.000e+00 | valid MSE=9.488e+00 | valid rel L2=1.935e-02 | pressure=5.689e-03, u=3.476e-03, v=5.663e-02 | Time: 21:28:52.345984
+2026-08-19 15:21:41 - deeponet - INFO - Epoch 0770 | data loss=7.311e-04 | bc loss=9.525e-05 | PDE loss=0.000e+00 | valid MSE=8.904e+00 | valid rel L2=1.833e-02 | pressure=5.501e-03, u=3.506e-03, v=5.496e-02 | Time: 21:45:49.161667
+2026-08-19 15:38:35 - deeponet - INFO - Epoch 0780 | data loss=7.163e-04 | bc loss=9.351e-05 | PDE loss=0.000e+00 | valid MSE=7.438e+00 | valid rel L2=1.976e-02 | pressure=5.071e-03, u=3.415e-03, v=5.550e-02 | Time: 22:02:44.023503
+2026-08-19 15:55:38 - deeponet - INFO - Epoch 0790 | data loss=7.085e-04 | bc loss=8.987e-05 | PDE loss=0.000e+00 | valid MSE=8.405e+00 | valid rel L2=1.872e-02 | pressure=5.461e-03, u=3.530e-03, v=5.416e-02 | Time: 22:19:46.331317
+2026-08-19 16:12:30 - deeponet - INFO - Epoch 0800 | data loss=6.952e-04 | bc loss=8.648e-05 | PDE loss=0.000e+00 | valid MSE=7.711e+00 | valid rel L2=1.756e-02 | pressure=5.347e-03, u=3.385e-03, v=5.463e-02 | Time: 22:36:38.481342
+2026-08-19 16:29:19 - deeponet - INFO - Epoch 0810 | data loss=6.839e-04 | bc loss=8.487e-05 | PDE loss=0.000e+00 | valid MSE=7.836e+00 | valid rel L2=1.708e-02 | pressure=5.340e-03, u=3.478e-03, v=5.364e-02 | Time: 22:53:27.796827
+2026-08-19 16:46:08 - deeponet - INFO - Epoch 0820 | data loss=6.739e-04 | bc loss=8.205e-05 | PDE loss=0.000e+00 | valid MSE=7.532e+00 | valid rel L2=2.018e-02 | pressure=5.261e-03, u=3.356e-03, v=5.378e-02 | Time: 23:10:16.863425
+2026-08-19 17:03:04 - deeponet - INFO - Epoch 0830 | data loss=6.689e-04 | bc loss=8.007e-05 | PDE loss=0.000e+00 | valid MSE=7.466e+00 | valid rel L2=1.855e-02 | pressure=5.159e-03, u=3.320e-03, v=5.248e-02 | Time: 23:27:12.985807
+2026-08-19 17:19:58 - deeponet - INFO - Epoch 0840 | data loss=6.610e-04 | bc loss=7.896e-05 | PDE loss=0.000e+00 | valid MSE=7.697e+00 | valid rel L2=1.991e-02 | pressure=5.056e-03, u=3.376e-03, v=5.270e-02 | Time: 23:44:06.778780
+2026-08-19 17:36:55 - deeponet - INFO - Epoch 0850 | data loss=6.520e-04 | bc loss=7.788e-05 | PDE loss=0.000e+00 | valid MSE=7.150e+00 | valid rel L2=1.785e-02 | pressure=5.179e-03, u=3.323e-03, v=5.279e-02 | Time: 1 day, 0:01:03.861325
+2026-08-19 17:53:47 - deeponet - INFO - Epoch 0860 | data loss=6.433e-04 | bc loss=7.506e-05 | PDE loss=0.000e+00 | valid MSE=6.787e+00 | valid rel L2=1.768e-02 | pressure=4.969e-03, u=3.317e-03, v=5.254e-02 | Time: 1 day, 0:17:55.631149
+2026-08-19 18:10:38 - deeponet - INFO - Epoch 0870 | data loss=6.378e-04 | bc loss=7.384e-05 | PDE loss=0.000e+00 | valid MSE=6.870e+00 | valid rel L2=1.788e-02 | pressure=4.975e-03, u=3.355e-03, v=5.226e-02 | Time: 1 day, 0:34:46.605857
+2026-08-19 18:27:29 - deeponet - INFO - Epoch 0880 | data loss=6.316e-04 | bc loss=7.239e-05 | PDE loss=0.000e+00 | valid MSE=6.953e+00 | valid rel L2=1.782e-02 | pressure=5.016e-03, u=3.301e-03, v=5.179e-02 | Time: 1 day, 0:51:37.726634
+2026-08-19 18:44:25 - deeponet - INFO - Epoch 0890 | data loss=6.270e-04 | bc loss=7.130e-05 | PDE loss=0.000e+00 | valid MSE=6.810e+00 | valid rel L2=1.677e-02 | pressure=5.023e-03, u=3.267e-03, v=5.147e-02 | Time: 1 day, 1:08:33.722413
+2026-08-19 19:01:22 - deeponet - INFO - Epoch 0900 | data loss=6.220e-04 | bc loss=7.024e-05 | PDE loss=0.000e+00 | valid MSE=6.731e+00 | valid rel L2=1.701e-02 | pressure=5.015e-03, u=3.299e-03, v=5.121e-02 | Time: 1 day, 1:25:30.628743
+2026-08-19 19:18:15 - deeponet - INFO - Epoch 0910 | data loss=6.184e-04 | bc loss=6.944e-05 | PDE loss=0.000e+00 | valid MSE=6.910e+00 | valid rel L2=1.860e-02 | pressure=5.020e-03, u=3.309e-03, v=5.155e-02 | Time: 1 day, 1:42:23.809070
+2026-08-19 19:35:14 - deeponet - INFO - Epoch 0920 | data loss=6.148e-04 | bc loss=6.850e-05 | PDE loss=0.000e+00 | valid MSE=6.704e+00 | valid rel L2=1.721e-02 | pressure=4.979e-03, u=3.267e-03, v=5.145e-02 | Time: 1 day, 1:59:22.708151
+2026-08-19 19:52:16 - deeponet - INFO - Epoch 0930 | data loss=6.118e-04 | bc loss=6.785e-05 | PDE loss=0.000e+00 | valid MSE=6.602e+00 | valid rel L2=1.682e-02 | pressure=4.946e-03, u=3.279e-03, v=5.128e-02 | Time: 1 day, 2:16:24.893603
+2026-08-19 20:09:14 - deeponet - INFO - Epoch 0940 | data loss=6.093e-04 | bc loss=6.737e-05 | PDE loss=0.000e+00 | valid MSE=6.804e+00 | valid rel L2=1.745e-02 | pressure=5.015e-03, u=3.255e-03, v=5.099e-02 | Time: 1 day, 2:33:22.468436
+2026-08-19 20:26:06 - deeponet - INFO - Epoch 0950 | data loss=6.068e-04 | bc loss=6.681e-05 | PDE loss=0.000e+00 | valid MSE=6.749e+00 | valid rel L2=1.723e-02 | pressure=5.002e-03, u=3.266e-03, v=5.107e-02 | Time: 1 day, 2:50:14.610697
+2026-08-19 20:43:09 - deeponet - INFO - Epoch 0960 | data loss=6.050e-04 | bc loss=6.644e-05 | PDE loss=0.000e+00 | valid MSE=6.620e+00 | valid rel L2=1.737e-02 | pressure=4.945e-03, u=3.251e-03, v=5.098e-02 | Time: 1 day, 3:07:17.869800
+2026-08-19 21:00:01 - deeponet - INFO - Epoch 0970 | data loss=6.035e-04 | bc loss=6.617e-05 | PDE loss=0.000e+00 | valid MSE=6.635e+00 | valid rel L2=1.713e-02 | pressure=4.957e-03, u=3.255e-03, v=5.090e-02 | Time: 1 day, 3:24:10.008929
+2026-08-19 21:17:00 - deeponet - INFO - Epoch 0980 | data loss=6.025e-04 | bc loss=6.589e-05 | PDE loss=0.000e+00 | valid MSE=6.630e+00 | valid rel L2=1.718e-02 | pressure=4.971e-03, u=3.251e-03, v=5.090e-02 | Time: 1 day, 3:41:08.573250
+2026-08-19 21:33:55 - deeponet - INFO - Epoch 0990 | data loss=6.019e-04 | bc loss=6.578e-05 | PDE loss=0.000e+00 | valid MSE=6.582e+00 | valid rel L2=1.715e-02 | pressure=4.951e-03, u=3.251e-03, v=5.097e-02 | Time: 1 day, 3:58:03.720173
+2026-08-19 21:50:48 - deeponet - INFO - Epoch 1000 | data loss=6.016e-04 | bc loss=6.573e-05 | PDE loss=0.000e+00 | valid MSE=6.580e+00 | valid rel L2=1.713e-02 | pressure=4.947e-03, u=3.250e-03, v=5.093e-02 | Time: 1 day, 4:14:57.018463
+2026-08-19 21:50:49 - deeponet - INFO - Best validation MSE: 6.511314576671969
+2026-08-19 21:50:49 - deeponet - INFO - Saved: /home/hantianl/Documents/PIDIF/DeepONet/results/081826_1/checkpoint.pt
+2026-08-19 21:50:50 - deeponet - INFO - Loaded: /home/hantianl/Documents/PIDIF/DeepONet/results/081826_1/checkpoint.pt
+2026-08-19 21:50:50 - deeponet - INFO - Total plotted points: 452644
+2026-08-19 21:50:50 - deeponet - INFO - x range: 0.0002636758 0.99973226
+2026-08-19 21:50:50 - deeponet - INFO - y range: 0.00027718078 0.19971794
+2026-08-19 21:52:33 - deeponet - INFO - Total plotted points: 451268
+2026-08-19 21:52:33 - deeponet - INFO - x range: 0.00025669852 0.9997555
+2026-08-19 21:52:33 - deeponet - INFO - y range: -0.0034824933 0.20348866
+2026-08-19 21:54:16 - deeponet - INFO - Total plotted points: 469228
+2026-08-19 21:54:16 - deeponet - INFO - x range: 0.00024169084 0.9997393
+2026-08-19 21:54:16 - deeponet - INFO - y range: -0.0041800635 0.20418096
+2026-08-19 21:55:58 - deeponet - INFO - Total plotted points: 456018
+2026-08-19 21:55:58 - deeponet - INFO - x range: 0.00025206534 0.99973655
+2026-08-19 21:55:58 - deeponet - INFO - y range: 0.00028049323 0.19973642
+2026-08-19 21:57:36 - deeponet - INFO - Total plotted points: 460842
+2026-08-19 21:57:36 - deeponet - INFO - x range: 0.00023659697 0.9997449
+2026-08-19 21:57:36 - deeponet - INFO - y range: -0.0032334623 0.2032355
+2026-08-19 21:59:25 - deeponet - INFO - Total plotted points: 150778
+2026-08-19 21:59:25 - deeponet - INFO - x range: 0.0002715249 0.9997446
+2026-08-19 21:59:25 - deeponet - INFO - y range: -0.0044358354 0.066946164
+2026-08-19 22:00:07 - deeponet - INFO - Total plotted points: 139488
+2026-08-19 22:00:07 - deeponet - INFO - x range: 0.00023998061 0.99973464
+2026-08-19 22:00:07 - deeponet - INFO - y range: -0.0033410348 0.065836474
+2026-08-19 22:00:44 - deeponet - INFO - Total plotted points: 151534
+2026-08-19 22:00:44 - deeponet - INFO - x range: 0.00027139529 0.999763
+2026-08-19 22:00:44 - deeponet - INFO - y range: -0.0046139495 0.06710634
+2026-08-19 22:01:23 - deeponet - INFO - Total plotted points: 140900
+2026-08-19 22:01:23 - deeponet - INFO - x range: 0.00024788687 0.9997303
+2026-08-19 22:01:23 - deeponet - INFO - y range: -0.0037544123 0.06625305
+2026-08-19 22:02:01 - deeponet - INFO - Total plotted points: 145674
+2026-08-19 22:02:01 - deeponet - INFO - x range: 0.00025996292 0.9997358
+2026-08-19 22:02:01 - deeponet - INFO - y range: -0.0039763413 0.06647895
+2026-08-19 22:02:39 - deeponet - INFO - Total plotted points: 231234
+2026-08-19 22:02:39 - deeponet - INFO - x range: 0.0002544599 0.9997338
+2026-08-19 22:02:39 - deeponet - INFO - y range: -0.0036920444 0.103693955
+2026-08-19 22:03:35 - deeponet - INFO - Total plotted points: 229860
+2026-08-19 22:03:35 - deeponet - INFO - x range: 0.0002581519 0.9997631
+2026-08-19 22:03:35 - deeponet - INFO - y range: -0.004454319 0.10445569
+2026-08-19 22:04:31 - deeponet - INFO - Total plotted points: 228450
+2026-08-19 22:04:31 - deeponet - INFO - x range: 0.00026601035 0.9997357
+2026-08-19 22:04:31 - deeponet - INFO - y range: -0.00433341 0.10431906
+2026-08-19 22:05:30 - deeponet - INFO - Total plotted points: 233020
+2026-08-19 22:05:30 - deeponet - INFO - x range: 0.00025546126 0.99974644
+2026-08-19 22:05:30 - deeponet - INFO - y range: -0.0035673329 0.10356911
+2026-08-19 22:06:25 - deeponet - INFO - Total plotted points: 224556
+2026-08-19 22:06:25 - deeponet - INFO - x range: 0.00026252322 0.99973255
+2026-08-19 22:06:25 - deeponet - INFO - y range: -0.0031026672 0.10310036
+2026-08-19 22:32:54 - deeponet - INFO - [ar10_shapes] samples: 1500
+2026-08-19 22:35:21 - deeponet - INFO - [ar8_interp] samples: 80
+2026-08-19 22:39:55 - deeponet - INFO - [ar4_extrap] samples: 40
+2026-08-19 22:40:44 - deeponet - INFO - [ar20_extrap] samples: 200
+2026-08-19 22:43:41 - deeponet - INFO - [ar10_shapes] n=150
+2026-08-19 22:43:41 - deeponet - INFO -   pressure  mean rel L2 = 3.019e-03 | max = 5.911e-03
+2026-08-19 22:43:41 - deeponet - INFO -   u         mean rel L2 = 1.744e-03 | max = 3.055e-03
+2026-08-19 22:43:41 - deeponet - INFO -   v         mean rel L2 = 2.528e-02 | max = 5.179e-02
+2026-08-19 22:47:06 - deeponet - INFO - [ar8_interp] n=10
+2026-08-19 22:47:06 - deeponet - INFO -   pressure  mean rel L2 = 4.795e-03 | max = 5.750e-03
+2026-08-19 22:47:06 - deeponet - INFO -   u         mean rel L2 = 1.862e-03 | max = 2.028e-03
+2026-08-19 22:47:06 - deeponet - INFO -   v         mean rel L2 = 2.211e-02 | max = 3.094e-02
+2026-08-19 22:53:33 - deeponet - INFO - [ar4_extrap] n=10
+2026-08-19 22:53:33 - deeponet - INFO -   pressure  mean rel L2 = 1.793e-02 | max = 2.243e-02
+2026-08-19 22:53:33 - deeponet - INFO -   u         mean rel L2 = 4.351e-03 | max = 5.386e-03
+2026-08-19 22:53:33 - deeponet - INFO -   v         mean rel L2 = 2.609e-02 | max = 3.085e-02
+2026-08-19 22:55:11 - deeponet - INFO - [ar20_extrap] n=10
+2026-08-19 22:55:11 - deeponet - INFO -   pressure  mean rel L2 = 2.484e-02 | max = 4.896e-02
+2026-08-19 22:55:11 - deeponet - INFO -   u         mean rel L2 = 1.088e-02 | max = 2.281e-02
+2026-08-19 22:55:11 - deeponet - INFO -   v         mean rel L2 = 1.276e-01 | max = 3.067e-01
+2026-08-19 22:55:11 - deeponet - INFO - 
+=== Summary (mean rel L2 per field) ===
+2026-08-19 22:55:11 - deeponet - INFO - set               pressure           u           v
+2026-08-19 22:55:11 - deeponet - INFO - ar10_shapes      3.019e-03   1.744e-03   2.528e-02
+2026-08-19 22:55:11 - deeponet - INFO - ar8_interp       4.795e-03   1.862e-03   2.211e-02
+2026-08-19 22:55:11 - deeponet - INFO - ar4_extrap       1.793e-02   4.351e-03   2.609e-02
+2026-08-19 22:55:11 - deeponet - INFO - ar20_extrap      2.484e-02   1.088e-02   1.276e-01
+2026-08-19 22:55:11 - deeponet - INFO - Saved: /home/hantianl/Documents/PIDIF/DeepONet/results/081826_1/test_set_summary.csv
+2026-08-19 22:55:11 - deeponet - INFO - Ablation cases (30): ['channel_000', 'channel_001', 'channel_002', 'channel_003', 'channel_004', 'channel_005', 'channel_006', 'channel_007', 'channel_008', 'channel_009', 'channel_010', 'channel_011', 'channel_012', 'channel_013', 'channel_014', 'channel_015', 'channel_016', 'channel_017', 'channel_018', 'channel_019', 'channel_040', 'channel_041', 'channel_042', 'channel_043', 'channel_044', 'channel_045', 'channel_046', 'channel_047', 'channel_048', 'channel_049']
+2026-08-19 23:01:28 - deeponet - INFO - Ablation test samples: 350
+2026-08-19 23:01:28 - deeponet - INFO - Ablation test cases: ['channel_000', 'channel_001', 'channel_002', 'channel_003', 'channel_004', 'channel_005', 'channel_006', 'channel_007', 'channel_008', 'channel_009', 'channel_010', 'channel_011', 'channel_012', 'channel_013', 'channel_014', 'channel_015', 'channel_016', 'channel_017', 'channel_018', 'channel_019', 'channel_040', 'channel_041', 'channel_042', 'channel_043', 'channel_044', 'channel_045', 'channel_046', 'channel_047', 'channel_048', 'channel_049']
+2026-08-19 23:01:28 - deeponet - INFO - Total plotted points: 121542
+2026-08-19 23:01:28 - deeponet - INFO - x range: 0.000253387 0.49975085
+2026-08-19 23:01:28 - deeponet - INFO - y range: -0.004461245 0.10446125
+2026-08-19 23:01:28 - deeponet - INFO - Test case channel_000 rel l2: [0.01243827 0.00385814 0.06198348]
+2026-08-19 23:01:28 - deeponet - INFO - Test case channel_000 overall avg rel L2: 2.609e-02
+2026-08-19 23:01:28 - deeponet - INFO - Test case channel_000 max field err: [2.8442627e+02 6.0826182e-02 4.0067166e-02]
+2026-08-19 23:01:58 - deeponet - INFO - Total plotted points: 112624
+2026-08-19 23:01:58 - deeponet - INFO - x range: 0.000256185 0.49976388
+2026-08-19 23:01:58 - deeponet - INFO - y range: -0.00024934742 0.10024885
+2026-08-19 23:01:58 - deeponet - INFO - Test case channel_001 rel l2: [0.00661959 0.0026152  0.02506226]
+2026-08-19 23:01:58 - deeponet - INFO - Test case channel_001 overall avg rel L2: 1.143e-02
+2026-08-19 23:01:58 - deeponet - INFO - Test case channel_001 max field err: [3.0961572e+02 6.6888690e-02 3.0886814e-02]
+2026-08-19 23:02:28 - deeponet - INFO - Total plotted points: 117134
+2026-08-19 23:02:28 - deeponet - INFO - x range: 0.00025992218 0.4997359
+2026-08-19 23:02:28 - deeponet - INFO - y range: -0.0036395767 0.103632234
+2026-08-19 23:02:28 - deeponet - INFO - Test case channel_002 rel l2: [0.00989606 0.00271292 0.02638749]
+2026-08-19 23:02:28 - deeponet - INFO - Test case channel_002 overall avg rel L2: 1.300e-02
+2026-08-19 23:02:28 - deeponet - INFO - Test case channel_002 max field err: [3.0331689e+02 6.8577528e-02 3.0627243e-02]
+2026-08-19 23:03:00 - deeponet - INFO - Total plotted points: 112578
+2026-08-19 23:03:00 - deeponet - INFO - x range: 0.0002794724 0.49973118
+2026-08-19 23:03:00 - deeponet - INFO - y range: 0.00028162193 0.09971426
+2026-08-19 23:03:00 - deeponet - INFO - Test case channel_003 rel l2: [0.0086737  0.00282541 0.0249823 ]
+2026-08-19 23:03:00 - deeponet - INFO - Test case channel_003 overall avg rel L2: 1.216e-02
+2026-08-19 23:03:00 - deeponet - INFO - Test case channel_003 max field err: [2.6114331e+02 5.5299819e-02 3.1204015e-02]
+2026-08-19 23:03:30 - deeponet - INFO - Total plotted points: 118686
+2026-08-19 23:03:30 - deeponet - INFO - x range: 0.00024805617 0.4997573
+2026-08-19 23:03:30 - deeponet - INFO - y range: -0.003030781 0.10303249
+2026-08-19 23:03:30 - deeponet - INFO - Test case channel_004 rel l2: [0.01199021 0.00291749 0.02763999]
+2026-08-19 23:03:30 - deeponet - INFO - Test case channel_004 overall avg rel L2: 1.418e-02
+2026-08-19 23:03:30 - deeponet - INFO - Test case channel_004 max field err: [3.6918042e+02 7.6007724e-02 2.8622001e-02]
+2026-08-19 23:04:02 - deeponet - INFO - Total plotted points: 112034
+2026-08-19 23:04:02 - deeponet - INFO - x range: 0.00025516894 0.49972665
+2026-08-19 23:04:02 - deeponet - INFO - y range: -0.0025692058 0.1025728
+2026-08-19 23:04:02 - deeponet - INFO - Test case channel_005 rel l2: [0.00905275 0.00296457 0.02274597]
+2026-08-19 23:04:02 - deeponet - INFO - Test case channel_005 overall avg rel L2: 1.159e-02
+2026-08-19 23:04:02 - deeponet - INFO - Test case channel_005 max field err: [3.3509717e+02 6.0005546e-02 3.3443049e-02]
+2026-08-19 23:04:33 - deeponet - INFO - Total plotted points: 113022
+2026-08-19 23:04:33 - deeponet - INFO - x range: 0.00026630537 0.49975508
+2026-08-19 23:04:33 - deeponet - INFO - y range: -0.0013682148 0.101372175
+2026-08-19 23:04:33 - deeponet - INFO - Test case channel_006 rel l2: [0.00859578 0.00294945 0.02313492]
+2026-08-19 23:04:33 - deeponet - INFO - Test case channel_006 overall avg rel L2: 1.156e-02
+2026-08-19 23:04:33 - deeponet - INFO - Test case channel_006 max field err: [2.8539014e+02 6.0978770e-02 3.2338694e-02]
+2026-08-19 23:05:04 - deeponet - INFO - Total plotted points: 110932
+2026-08-19 23:05:04 - deeponet - INFO - x range: 0.0002658703 0.49973857
+2026-08-19 23:05:04 - deeponet - INFO - y range: 0.00027391347 0.09971364
+2026-08-19 23:05:04 - deeponet - INFO - Test case channel_007 rel l2: [0.00750219 0.00290002 0.02106557]
+2026-08-19 23:05:04 - deeponet - INFO - Test case channel_007 overall avg rel L2: 1.049e-02
+2026-08-19 23:05:04 - deeponet - INFO - Test case channel_007 max field err: [2.6529834e+02 6.5918684e-02 3.7963390e-02]
+2026-08-19 23:05:35 - deeponet - INFO - Total plotted points: 118358
+2026-08-19 23:05:35 - deeponet - INFO - x range: 0.0002709674 0.49974006
+2026-08-19 23:05:35 - deeponet - INFO - y range: -0.00255133 0.10254594
+2026-08-19 23:05:35 - deeponet - INFO - Test case channel_008 rel l2: [0.0122813  0.00289336 0.02976482]
+2026-08-19 23:05:35 - deeponet - INFO - Test case channel_008 overall avg rel L2: 1.498e-02
+2026-08-19 23:05:35 - deeponet - INFO - Test case channel_008 max field err: [2.8485815e+02 6.8063974e-02 4.3345243e-02]
+2026-08-19 23:06:07 - deeponet - INFO - Total plotted points: 115582
+2026-08-19 23:06:07 - deeponet - INFO - x range: 0.0002485589 0.49974287
+2026-08-19 23:06:07 - deeponet - INFO - y range: -0.001928638 0.10192746
+2026-08-19 23:06:07 - deeponet - INFO - Test case channel_009 rel l2: [0.00949942 0.00265478 0.02415054]
+2026-08-19 23:06:07 - deeponet - INFO - Test case channel_009 overall avg rel L2: 1.210e-02
+2026-08-19 23:06:07 - deeponet - INFO - Test case channel_009 max field err: [4.1417627e+02 8.4946632e-02 3.5658315e-02]
+2026-08-19 23:06:38 - deeponet - INFO - Total plotted points: 454598
+2026-08-19 23:06:38 - deeponet - INFO - x range: 0.0002600262 1.9997942
+2026-08-19 23:06:38 - deeponet - INFO - y range: -0.003261111 0.1032591
+2026-08-19 23:06:38 - deeponet - INFO - Test case channel_010 rel l2: [0.0025226  0.00247274 0.04551234]
+2026-08-19 23:06:38 - deeponet - INFO - Test case channel_010 overall avg rel L2: 1.684e-02
+2026-08-19 23:06:38 - deeponet - INFO - Test case channel_010 max field err: [3.521626e+02 8.659512e-02 6.240049e-02]
+2026-08-19 23:08:20 - deeponet - INFO - Total plotted points: 461464
+2026-08-19 23:08:20 - deeponet - INFO - x range: 0.00025463788 1.9997588
+2026-08-19 23:08:20 - deeponet - INFO - y range: -0.0038535034 0.10383343
+2026-08-19 23:08:20 - deeponet - INFO - Test case channel_011 rel l2: [0.00278487 0.00252474 0.04272853]
+2026-08-19 23:08:20 - deeponet - INFO - Test case channel_011 overall avg rel L2: 1.601e-02
+2026-08-19 23:08:20 - deeponet - INFO - Test case channel_011 max field err: [4.1370142e+02 9.0857804e-02 5.9161812e-02]
+2026-08-19 23:10:03 - deeponet - INFO - Total plotted points: 452032
+2026-08-19 23:10:03 - deeponet - INFO - x range: 0.00025644343 1.9997628
+2026-08-19 23:10:03 - deeponet - INFO - y range: -0.004429627 0.10442058
+2026-08-19 23:10:03 - deeponet - INFO - Test case channel_012 rel l2: [0.00325643 0.00316393 0.04367659]
+2026-08-19 23:10:03 - deeponet - INFO - Test case channel_012 overall avg rel L2: 1.670e-02
+2026-08-19 23:10:03 - deeponet - INFO - Test case channel_012 max field err: [3.4037891e+02 8.5522354e-02 5.0600946e-02]
+2026-08-19 23:11:39 - deeponet - INFO - Total plotted points: 464772
+2026-08-19 23:11:39 - deeponet - INFO - x range: 0.00025487502 1.9997271
+2026-08-19 23:11:39 - deeponet - INFO - y range: -0.0043600635 0.10436537
+2026-08-19 23:11:39 - deeponet - INFO - Test case channel_013 rel l2: [0.00268947 0.00231386 0.03902334]
+2026-08-19 23:11:39 - deeponet - INFO - Test case channel_013 overall avg rel L2: 1.468e-02
+2026-08-19 23:11:39 - deeponet - INFO - Test case channel_013 max field err: [3.8652637e+02 8.7422431e-02 6.5380335e-02]
+2026-08-19 23:13:24 - deeponet - INFO - Total plotted points: 443896
+2026-08-19 23:13:24 - deeponet - INFO - x range: 0.0002789741 1.9997596
+2026-08-19 23:13:24 - deeponet - INFO - y range: -0.0034652986 0.10346412
+2026-08-19 23:13:24 - deeponet - INFO - Test case channel_014 rel l2: [0.00344665 0.00309848 0.04874785]
+2026-08-19 23:13:24 - deeponet - INFO - Test case channel_014 overall avg rel L2: 1.843e-02
+2026-08-19 23:13:24 - deeponet - INFO - Test case channel_014 max field err: [4.8624121e+02 9.4744265e-02 6.9292516e-02]
+2026-08-19 23:15:04 - deeponet - INFO - Total plotted points: 461906
+2026-08-19 23:15:04 - deeponet - INFO - x range: 0.0002399293 1.999756
+2026-08-19 23:15:04 - deeponet - INFO - y range: -0.004200125 0.10420103
+2026-08-19 23:15:04 - deeponet - INFO - Test case channel_015 rel l2: [0.00208784 0.00237426 0.03776191]
+2026-08-19 23:15:04 - deeponet - INFO - Test case channel_015 overall avg rel L2: 1.407e-02
+2026-08-19 23:15:04 - deeponet - INFO - Test case channel_015 max field err: [2.9864355e+02 7.7687979e-02 4.5040056e-02]
+2026-08-19 23:16:49 - deeponet - INFO - Total plotted points: 463768
+2026-08-19 23:16:49 - deeponet - INFO - x range: 0.00025810365 1.9997555
+2026-08-19 23:16:49 - deeponet - INFO - y range: -0.0041588205 0.10415856
+2026-08-19 23:16:49 - deeponet - INFO - Test case channel_016 rel l2: [0.00265094 0.00270268 0.04638481]
+2026-08-19 23:16:49 - deeponet - INFO - Test case channel_016 overall avg rel L2: 1.725e-02
+2026-08-19 23:16:49 - deeponet - INFO - Test case channel_016 max field err: [2.9266846e+02 7.0482254e-02 5.0451353e-02]
+2026-08-19 23:18:33 - deeponet - INFO - Total plotted points: 473252
+2026-08-19 23:18:33 - deeponet - INFO - x range: 0.0002821404 1.9997244
+2026-08-19 23:18:33 - deeponet - INFO - y range: -0.0045765494 0.10457442
+2026-08-19 23:18:33 - deeponet - INFO - Test case channel_017 rel l2: [0.00236486 0.00278185 0.0531936 ]
+2026-08-19 23:18:33 - deeponet - INFO - Test case channel_017 overall avg rel L2: 1.945e-02
+2026-08-19 23:18:33 - deeponet - INFO - Test case channel_017 max field err: [1.7983862e+02 6.3031197e-02 3.5887182e-02]
+2026-08-19 23:20:19 - deeponet - INFO - Total plotted points: 468132
+2026-08-19 23:20:19 - deeponet - INFO - x range: 0.000245452 1.9997245
+2026-08-19 23:20:19 - deeponet - INFO - y range: -0.004493169 0.10450154
+2026-08-19 23:20:19 - deeponet - INFO - Test case channel_018 rel l2: [0.00322463 0.00289424 0.06148781]
+2026-08-19 23:20:19 - deeponet - INFO - Test case channel_018 overall avg rel L2: 2.254e-02
+2026-08-19 23:20:19 - deeponet - INFO - Test case channel_018 max field err: [5.7064258e+02 1.2323797e-01 1.1457847e-01]
+2026-08-19 23:22:04 - deeponet - INFO - Total plotted points: 453508
+2026-08-19 23:22:04 - deeponet - INFO - x range: 0.00026187807 1.9997439
+2026-08-19 23:22:04 - deeponet - INFO - y range: -0.004064483 0.10405039
+2026-08-19 23:22:04 - deeponet - INFO - Test case channel_019 rel l2: [0.00230832 0.00299506 0.05638137]
+2026-08-19 23:22:04 - deeponet - INFO - Test case channel_019 overall avg rel L2: 2.056e-02
+2026-08-19 23:22:04 - deeponet - INFO - Test case channel_019 max field err: [2.5926025e+02 8.5309923e-02 3.1561509e-02]
+2026-08-19 23:23:45 - deeponet - INFO - Total plotted points: 239234
+2026-08-19 23:23:45 - deeponet - INFO - x range: 0.00025746948 0.9997589
+2026-08-19 23:23:45 - deeponet - INFO - y range: -0.009547266 0.10951817
+2026-08-19 23:23:45 - deeponet - INFO - Test case channel_040 rel l2: [0.00759896 0.00808623 0.08108527]
+2026-08-19 23:23:45 - deeponet - INFO - Test case channel_040 overall avg rel L2: 3.226e-02
+2026-08-19 23:23:45 - deeponet - INFO - Test case channel_040 max field err: [2.5447900e+02 1.6435760e-01 5.0157554e-02]
+2026-08-19 23:24:43 - deeponet - INFO - Total plotted points: 230156
+2026-08-19 23:24:43 - deeponet - INFO - x range: 0.00026920703 0.9997667
+2026-08-19 23:24:43 - deeponet - INFO - y range: -0.008631109 0.10862924
+2026-08-19 23:24:43 - deeponet - INFO - Test case channel_041 rel l2: [0.00499649 0.00295685 0.04076764]
+2026-08-19 23:24:43 - deeponet - INFO - Test case channel_041 overall avg rel L2: 1.624e-02
+2026-08-19 23:24:43 - deeponet - INFO - Test case channel_041 max field err: [1.9707031e+02 6.0207963e-02 2.3269296e-02]
+2026-08-19 23:25:39 - deeponet - INFO - Total plotted points: 235798
+2026-08-19 23:25:39 - deeponet - INFO - x range: 0.0002519942 0.99976313
+2026-08-19 23:25:39 - deeponet - INFO - y range: -0.007818606 0.10782405
+2026-08-19 23:25:39 - deeponet - INFO - Test case channel_042 rel l2: [0.0031441  0.00177703 0.02261332]
+2026-08-19 23:25:39 - deeponet - INFO - Test case channel_042 overall avg rel L2: 9.178e-03
+2026-08-19 23:25:39 - deeponet - INFO - Test case channel_042 max field err: [4.3677954e+02 5.8131337e-02 3.4987226e-02]
+2026-08-19 23:26:35 - deeponet - INFO - Total plotted points: 225604
+2026-08-19 23:26:35 - deeponet - INFO - x range: 0.000267157 0.99974304
+2026-08-19 23:26:35 - deeponet - INFO - y range: -0.007890942 0.10789453
+2026-08-19 23:26:35 - deeponet - INFO - Test case channel_043 rel l2: [0.00494519 0.00381755 0.04021287]
+2026-08-19 23:26:35 - deeponet - INFO - Test case channel_043 overall avg rel L2: 1.633e-02
+2026-08-19 23:26:35 - deeponet - INFO - Test case channel_043 max field err: [2.4845361e+02 9.3402147e-02 2.0530805e-02]
+2026-08-19 23:27:30 - deeponet - INFO - Total plotted points: 236484
+2026-08-19 23:27:30 - deeponet - INFO - x range: 0.00025884758 0.99973077
+2026-08-19 23:27:30 - deeponet - INFO - y range: -0.008432771 0.10843158
+2026-08-19 23:27:30 - deeponet - INFO - Test case channel_044 rel l2: [0.00589277 0.00334749 0.04031952]
+2026-08-19 23:27:30 - deeponet - INFO - Test case channel_044 overall avg rel L2: 1.652e-02
+2026-08-19 23:27:30 - deeponet - INFO - Test case channel_044 max field err: [2.4175684e+02 8.8898718e-02 3.1480417e-02]
+2026-08-19 23:28:28 - deeponet - INFO - Total plotted points: 229708
+2026-08-19 23:28:28 - deeponet - INFO - x range: 0.00026273835 0.99972725
+2026-08-19 23:28:28 - deeponet - INFO - y range: -0.0050104177 0.10500782
+2026-08-19 23:28:28 - deeponet - INFO - Test case channel_045 rel l2: [0.00263007 0.00208875 0.02460262]
+2026-08-19 23:28:28 - deeponet - INFO - Test case channel_045 overall avg rel L2: 9.774e-03
+2026-08-19 23:28:28 - deeponet - INFO - Test case channel_045 max field err: [2.5549512e+02 7.0169926e-02 3.1820998e-02]
+2026-08-19 23:29:23 - deeponet - INFO - Total plotted points: 232016
+2026-08-19 23:29:23 - deeponet - INFO - x range: 0.00025423017 0.99973506
+2026-08-19 23:29:23 - deeponet - INFO - y range: -0.009617492 0.10962778
+2026-08-19 23:29:23 - deeponet - INFO - Test case channel_046 rel l2: [0.00871101 0.00547203 0.04716224]
+2026-08-19 23:29:23 - deeponet - INFO - Test case channel_046 overall avg rel L2: 2.045e-02
+2026-08-19 23:29:23 - deeponet - INFO - Test case channel_046 max field err: [3.9255835e+02 8.0162466e-02 3.4140654e-02]
+2026-08-19 23:30:17 - deeponet - INFO - Total plotted points: 239070
+2026-08-19 23:30:17 - deeponet - INFO - x range: 0.00026653323 0.9997583
+2026-08-19 23:30:17 - deeponet - INFO - y range: -0.009709659 0.10969996
+2026-08-19 23:30:17 - deeponet - INFO - Test case channel_047 rel l2: [0.00491505 0.00343526 0.03959468]
+2026-08-19 23:30:17 - deeponet - INFO - Test case channel_047 overall avg rel L2: 1.598e-02
+2026-08-19 23:30:17 - deeponet - INFO - Test case channel_047 max field err: [1.9694238e+02 6.2053025e-02 2.6063949e-02]
+2026-08-19 23:31:14 - deeponet - INFO - Total plotted points: 227926
+2026-08-19 23:31:14 - deeponet - INFO - x range: 0.00025448122 0.99974597
+2026-08-19 23:31:14 - deeponet - INFO - y range: -0.007482994 0.10751597
+2026-08-19 23:31:14 - deeponet - INFO - Test case channel_048 rel l2: [0.00498486 0.00363389 0.03901162]
+2026-08-19 23:31:14 - deeponet - INFO - Test case channel_048 overall avg rel L2: 1.588e-02
+2026-08-19 23:31:14 - deeponet - INFO - Test case channel_048 max field err: [2.1955054e+02 5.9056401e-02 3.8712829e-02]
+2026-08-19 23:32:10 - deeponet - INFO - Total plotted points: 231122
+2026-08-19 23:32:10 - deeponet - INFO - x range: 0.00024757988 0.99975413
+2026-08-19 23:32:10 - deeponet - INFO - y range: -0.006930858 0.10693238
+2026-08-19 23:32:10 - deeponet - INFO - Test case channel_049 rel l2: [0.00638926 0.00423401 0.0363006 ]
+2026-08-19 23:32:10 - deeponet - INFO - Test case channel_049 overall avg rel L2: 1.564e-02
+2026-08-19 23:32:10 - deeponet - INFO - Test case channel_049 max field err: [4.4449170e+02 1.6236037e-01 8.7352358e-02]
+2026-08-19 23:33:05 - deeponet - INFO - [0.00593645 0.00318208 0.0391162 ]
+2026-08-19 23:33:05 - deeponet - INFO - [0.01243827 0.00808623 0.08108527]

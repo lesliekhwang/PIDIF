@@ -800,3 +800,608 @@
 2026-08-14 00:56:40 - deeponet - INFO - [0.00608456 0.00284802 0.05899719]
 2026-08-14 11:36:22 - deeponet - INFO - e976ee50-99ed-4aba-9b6b-9dcd5634d07d:IPyWidgets:8.1.5
 2026-08-14 11:36:22 - deeponet - INFO - ['/jupyter-js-widgets/extension.js']
+2026-08-17 19:25:23 - deeponet - INFO - Total plotted points: 121542
+2026-08-17 19:25:23 - deeponet - INFO - x range: 0.000253387 0.49975085
+2026-08-17 19:25:23 - deeponet - INFO - y range: -0.004461245 0.10446125
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_000 rel l2: [0.11466216 0.00507854 0.06808021]
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_000 overall avg rel L2: 6.261e-02
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_000 max field err: [2.0167285e+02 1.8122798e-01 2.2675708e-02]
+2026-08-17 19:25:23 - deeponet - INFO - Total plotted points: 112624
+2026-08-17 19:25:23 - deeponet - INFO - x range: 0.000256185 0.49976388
+2026-08-17 19:25:23 - deeponet - INFO - y range: -0.00024934742 0.10024885
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_001 rel l2: [0.05214438 0.00316131 0.02792029]
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_001 overall avg rel L2: 2.774e-02
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_001 max field err: [1.8939233e+02 1.7704463e-01 2.1503150e-02]
+2026-08-17 19:25:23 - deeponet - INFO - Total plotted points: 117134
+2026-08-17 19:25:23 - deeponet - INFO - x range: 0.00025992218 0.4997359
+2026-08-17 19:25:23 - deeponet - INFO - y range: -0.0036395767 0.103632234
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_002 rel l2: [0.10288521 0.00386228 0.0423329 ]
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_002 overall avg rel L2: 4.969e-02
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_002 max field err: [2.1071960e+02 1.7991602e-01 2.5220096e-02]
+2026-08-17 19:25:23 - deeponet - INFO - Total plotted points: 112578
+2026-08-17 19:25:23 - deeponet - INFO - x range: 0.0002794724 0.49973118
+2026-08-17 19:25:23 - deeponet - INFO - y range: 0.00028162193 0.09971426
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_003 rel l2: [0.06947228 0.00316134 0.031907  ]
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_003 overall avg rel L2: 3.485e-02
+2026-08-17 19:25:23 - deeponet - INFO - Test case channel_003 max field err: [2.2228198e+02 1.5341878e-01 2.5088131e-02]
+2026-08-17 19:25:24 - deeponet - INFO - Total plotted points: 118686
+2026-08-17 19:25:24 - deeponet - INFO - x range: 0.00024805617 0.4997573
+2026-08-17 19:25:24 - deeponet - INFO - y range: -0.003030781 0.10303249
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_004 rel l2: [0.12922171 0.00403024 0.04733422]
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_004 overall avg rel L2: 6.020e-02
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_004 max field err: [2.1715234e+02 1.9852644e-01 2.5346354e-02]
+2026-08-17 19:25:24 - deeponet - INFO - Total plotted points: 112034
+2026-08-17 19:25:24 - deeponet - INFO - x range: 0.00025516894 0.49972665
+2026-08-17 19:25:24 - deeponet - INFO - y range: -0.0025692058 0.1025728
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_005 rel l2: [0.06829457 0.00338296 0.02944788]
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_005 overall avg rel L2: 3.371e-02
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_005 max field err: [2.0476855e+02 1.7368299e-01 2.5187910e-02]
+2026-08-17 19:25:24 - deeponet - INFO - Total plotted points: 113022
+2026-08-17 19:25:24 - deeponet - INFO - x range: 0.00026630537 0.49975508
+2026-08-17 19:25:24 - deeponet - INFO - y range: -0.0013682148 0.101372175
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_006 rel l2: [0.07768396 0.00327959 0.03205037]
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_006 overall avg rel L2: 3.767e-02
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_006 max field err: [1.8665308e+02 1.5944821e-01 1.9985974e-02]
+2026-08-17 19:25:24 - deeponet - INFO - Total plotted points: 110932
+2026-08-17 19:25:24 - deeponet - INFO - x range: 0.0002658703 0.49973857
+2026-08-17 19:25:24 - deeponet - INFO - y range: 0.00027391347 0.09971364
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_007 rel l2: [0.05368516 0.00305806 0.02627347]
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_007 overall avg rel L2: 2.767e-02
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_007 max field err: [2.1938672e+02 1.6539580e-01 3.0330598e-02]
+2026-08-17 19:25:24 - deeponet - INFO - Total plotted points: 118358
+2026-08-17 19:25:24 - deeponet - INFO - x range: 0.0002709674 0.49974006
+2026-08-17 19:25:24 - deeponet - INFO - y range: -0.00255133 0.10254594
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_008 rel l2: [0.12382163 0.00387668 0.04721129]
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_008 overall avg rel L2: 5.830e-02
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_008 max field err: [2.5648865e+02 1.6831005e-01 2.9213816e-02]
+2026-08-17 19:25:24 - deeponet - INFO - Total plotted points: 115582
+2026-08-17 19:25:24 - deeponet - INFO - x range: 0.0002485589 0.49974287
+2026-08-17 19:25:24 - deeponet - INFO - y range: -0.001928638 0.10192746
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_009 rel l2: [0.08722395 0.0032319  0.03661972]
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_009 overall avg rel L2: 4.236e-02
+2026-08-17 19:25:24 - deeponet - INFO - Test case channel_009 max field err: [1.7286206e+02 1.7124659e-01 3.2078013e-02]
+2026-08-17 19:25:24 - deeponet - INFO - Total plotted points: 454598
+2026-08-17 19:25:24 - deeponet - INFO - x range: 0.0002600262 1.9997942
+2026-08-17 19:25:24 - deeponet - INFO - y range: -0.003261111 0.1032591
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_010 rel l2: [0.09508769 0.04505275 0.43839154]
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_010 overall avg rel L2: 1.928e-01
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_010 max field err: [7.0514331e+02 3.1710896e-01 1.1470786e-01]
+2026-08-17 19:25:25 - deeponet - INFO - Total plotted points: 461464
+2026-08-17 19:25:25 - deeponet - INFO - x range: 0.00025463788 1.9997588
+2026-08-17 19:25:25 - deeponet - INFO - y range: -0.0038535034 0.10383343
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_011 rel l2: [0.07931301 0.03692706 0.27654994]
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_011 overall avg rel L2: 1.309e-01
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_011 max field err: [5.73237061e+02 2.86445320e-01 1.15042865e-01]
+2026-08-17 19:25:25 - deeponet - INFO - Total plotted points: 452032
+2026-08-17 19:25:25 - deeponet - INFO - x range: 0.00025644343 1.9997628
+2026-08-17 19:25:25 - deeponet - INFO - y range: -0.004429627 0.10442058
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_012 rel l2: [0.11878084 0.05405732 0.5779134 ]
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_012 overall avg rel L2: 2.503e-01
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_012 max field err: [9.8041895e+02 3.7036863e-01 1.2423221e-01]
+2026-08-17 19:25:25 - deeponet - INFO - Total plotted points: 464772
+2026-08-17 19:25:25 - deeponet - INFO - x range: 0.00025487502 1.9997271
+2026-08-17 19:25:25 - deeponet - INFO - y range: -0.0043600635 0.10436537
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_013 rel l2: [0.07016324 0.03591029 0.2542976 ]
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_013 overall avg rel L2: 1.201e-01
+2026-08-17 19:25:25 - deeponet - INFO - Test case channel_013 max field err: [4.7374219e+02 3.2149643e-01 8.6656153e-02]
+2026-08-17 19:25:26 - deeponet - INFO - Total plotted points: 443896
+2026-08-17 19:25:26 - deeponet - INFO - x range: 0.0002789741 1.9997596
+2026-08-17 19:25:26 - deeponet - INFO - y range: -0.0034652986 0.10346412
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_014 rel l2: [0.15891372 0.06463246 0.6150358 ]
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_014 overall avg rel L2: 2.795e-01
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_014 max field err: [7.7882251e+02 5.4392231e-01 1.8505505e-01]
+2026-08-17 19:25:26 - deeponet - INFO - Total plotted points: 461906
+2026-08-17 19:25:26 - deeponet - INFO - x range: 0.0002399293 1.999756
+2026-08-17 19:25:26 - deeponet - INFO - y range: -0.004200125 0.10420103
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_015 rel l2: [0.08785887 0.03226455 0.34050527]
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_015 overall avg rel L2: 1.535e-01
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_015 max field err: [6.0020825e+02 2.2360969e-01 6.2448278e-02]
+2026-08-17 19:25:26 - deeponet - INFO - Total plotted points: 463768
+2026-08-17 19:25:26 - deeponet - INFO - x range: 0.00025810365 1.9997555
+2026-08-17 19:25:26 - deeponet - INFO - y range: -0.0041588205 0.10415856
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_016 rel l2: [0.0921944  0.0374886  0.42741263]
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_016 overall avg rel L2: 1.857e-01
+2026-08-17 19:25:26 - deeponet - INFO - Test case channel_016 max field err: [8.779214e+02 2.336061e-01 6.737503e-02]
+2026-08-17 19:25:27 - deeponet - INFO - Total plotted points: 473252
+2026-08-17 19:25:27 - deeponet - INFO - x range: 0.0002821404 1.9997244
+2026-08-17 19:25:27 - deeponet - INFO - y range: -0.0045765494 0.10457442
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_017 rel l2: [0.08762528 0.02875765 0.3336688 ]
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_017 overall avg rel L2: 1.500e-01
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_017 max field err: [7.3616748e+02 1.7575048e-01 5.5345315e-02]
+2026-08-17 19:25:27 - deeponet - INFO - Total plotted points: 468132
+2026-08-17 19:25:27 - deeponet - INFO - x range: 0.000245452 1.9997245
+2026-08-17 19:25:27 - deeponet - INFO - y range: -0.004493169 0.10450154
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_018 rel l2: [0.0563132  0.02954997 0.21421376]
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_018 overall avg rel L2: 1.000e-01
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_018 max field err: [4.1048901e+02 2.1214163e-01 8.8735819e-02]
+2026-08-17 19:25:27 - deeponet - INFO - Total plotted points: 453508
+2026-08-17 19:25:27 - deeponet - INFO - x range: 0.00026187807 1.9997439
+2026-08-17 19:25:27 - deeponet - INFO - y range: -0.004064483 0.10405039
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_019 rel l2: [0.09224357 0.04802313 0.5062156 ]
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_019 overall avg rel L2: 2.155e-01
+2026-08-17 19:25:27 - deeponet - INFO - Test case channel_019 max field err: [6.8116968e+02 3.4910077e-01 9.9485651e-02]
+2026-08-17 19:25:27 - deeponet - INFO - Total plotted points: 473582
+2026-08-17 19:25:27 - deeponet - INFO - x range: 0.00027533242 0.9997638
+2026-08-17 19:25:27 - deeponet - INFO - y range: -0.0044643464 0.2044649
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_020 rel l2: [0.39162472 0.02972157 0.36452076]
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_020 overall avg rel L2: 2.620e-01
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_020 max field err: [1.5176843e+03 3.7295508e-01 1.5093350e-01]
+2026-08-17 19:25:28 - deeponet - INFO - Total plotted points: 456164
+2026-08-17 19:25:28 - deeponet - INFO - x range: 0.00025369794 0.99974614
+2026-08-17 19:25:28 - deeponet - INFO - y range: -0.00025311916 0.20025317
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_021 rel l2: [0.34324256 0.02884505 0.3239036 ]
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_021 overall avg rel L2: 2.320e-01
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_021 max field err: [1.5681924e+03 3.5920018e-01 1.5987635e-01]
+2026-08-17 19:25:28 - deeponet - INFO - Total plotted points: 464766
+2026-08-17 19:25:28 - deeponet - INFO - x range: 0.0002593662 0.9997432
+2026-08-17 19:25:28 - deeponet - INFO - y range: -0.0036405593 0.20363854
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_022 rel l2: [0.38670686 0.02931459 0.35986346]
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_022 overall avg rel L2: 2.586e-01
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_022 max field err: [1.5393235e+03 3.7260503e-01 1.5517852e-01]
+2026-08-17 19:25:28 - deeponet - INFO - Total plotted points: 456018
+2026-08-17 19:25:28 - deeponet - INFO - x range: 0.00025206534 0.99973655
+2026-08-17 19:25:28 - deeponet - INFO - y range: 0.00028049323 0.19973642
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_023 rel l2: [0.37284502 0.02995716 0.314505  ]
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_023 overall avg rel L2: 2.391e-01
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_023 max field err: [1.6456597e+03 3.5533082e-01 1.7054293e-01]
+2026-08-17 19:25:28 - deeponet - INFO - Total plotted points: 468194
+2026-08-17 19:25:28 - deeponet - INFO - x range: 0.0002634227 0.9997531
+2026-08-17 19:25:28 - deeponet - INFO - y range: -0.0030331167 0.2030351
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_024 rel l2: [0.4188733  0.02918032 0.3598867 ]
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_024 overall avg rel L2: 2.693e-01
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_024 max field err: [1.5233972e+03 3.7260669e-01 1.5315722e-01]
+2026-08-17 19:25:28 - deeponet - INFO - Total plotted points: 454788
+2026-08-17 19:25:28 - deeponet - INFO - x range: 0.00025173638 0.99973345
+2026-08-17 19:25:28 - deeponet - INFO - y range: -0.0025745837 0.20258324
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_025 rel l2: [0.39123875 0.02923559 0.30989724]
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_025 overall avg rel L2: 2.435e-01
+2026-08-17 19:25:28 - deeponet - INFO - Test case channel_025 max field err: [1.4632175e+03 3.5375571e-01 1.6831082e-01]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 456688
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00025838427 0.9997417
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.0013856784 0.20139192
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_026 rel l2: [0.39126968 0.02917159 0.31530192]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_026 overall avg rel L2: 2.452e-01
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_026 max field err: [1.5325383e+03 3.5831064e-01 1.6399427e-01]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 452644
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00026367579 0.99973226
+2026-08-17 19:25:29 - deeponet - INFO - y range: 0.00027718078 0.19971794
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_027 rel l2: [0.36290014 0.02891983 0.3083515 ]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_027 overall avg rel L2: 2.334e-01
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_027 max field err: [1.5325691e+03 3.5963494e-01 1.6772798e-01]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 467160
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.0002613632 0.99972904
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.0025471228 0.20254783
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_028 rel l2: [0.41576877 0.02957509 0.34408236]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_028 overall avg rel L2: 2.631e-01
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_028 max field err: [1.5757871e+03 3.6321640e-01 1.6078477e-01]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 462046
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00023694453 0.9997433
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.0019334836 0.2019342
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_029 rel l2: [0.37517428 0.02907598 0.3428477 ]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_029 overall avg rel L2: 2.490e-01
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_029 max field err: [1.5859385e+03 3.6078244e-01 1.6454569e-01]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 111940
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00025295216 0.9997376
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.0032205805 0.05324256
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_030 rel l2: [0.45447263 0.3258585  6.04277   ]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_030 overall avg rel L2: 2.274e+00
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_030 max field err: [7.2452954e+03 8.8429480e+00 1.5207655e+00]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 115214
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00024973397 0.9997233
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.0037942554 0.05377388
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_031 rel l2: [0.42209682 0.29757982 3.3678942 ]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_031 overall avg rel L2: 1.363e+00
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_031 max field err: [6.6843066e+03 1.1630002e+01 1.1026542e+00]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 110488
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00027123824 0.99975765
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.0044208295 0.054417353
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_032 rel l2: [0.549358  0.5019115 7.768457 ]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_032 overall avg rel L2: 2.940e+00
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_032 max field err: [7.9559463e+03 8.0911331e+00 1.9645748e+00]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 117002
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00026909116 0.9997261
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.004321025 0.05436329
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_033 rel l2: [0.365315   0.21854843 2.6346836 ]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_033 overall avg rel L2: 1.073e+00
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_033 max field err: [5.6356865e+03 5.5408196e+00 8.0764121e-01]
+2026-08-17 19:25:29 - deeponet - INFO - Total plotted points: 106460
+2026-08-17 19:25:29 - deeponet - INFO - x range: 0.00025151632 0.9997678
+2026-08-17 19:25:29 - deeponet - INFO - y range: -0.0034639311 0.053460307
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_034 rel l2: [0.56585455 0.32202846 5.684344  ]
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_034 overall avg rel L2: 2.191e+00
+2026-08-17 19:25:29 - deeponet - INFO - Test case channel_034 max field err: [8.8674004e+03 4.1528287e+00 2.1083524e+00]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 115446
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.00026200368 0.99974257
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.0042031202 0.054203797
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_035 rel l2: [0.38333547 0.23463519 4.9414783 ]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_035 overall avg rel L2: 1.853e+00
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_035 max field err: [6.4090352e+03 3.2780507e+00 1.1172642e+00]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 116508
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.0002589969 0.9997455
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.0041116113 0.05412155
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_036 rel l2: [0.3839266  0.29430476 5.300855  ]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_036 overall avg rel L2: 1.993e+00
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_036 max field err: [7.3145332e+03 1.2581286e+01 1.2770560e+00]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 121192
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.0002567099 0.9997208
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.0045647747 0.054547664
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_037 rel l2: [0.36254713 0.3686547  3.7454271 ]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_037 overall avg rel L2: 1.492e+00
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_037 max field err: [5.5014097e+03 1.3011875e+01 1.1124235e+00]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 118374
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.0002473225 0.99973655
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.004464435 0.05446994
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_038 rel l2: [0.40538722 0.3149468  2.644783  ]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_038 overall avg rel L2: 1.122e+00
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_038 max field err: [5.0491411e+03 1.0118998e+01 1.0566405e+00]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 111332
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.00025851285 0.9997594
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.0039835153 0.05396828
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_039 rel l2: [0.4734972  0.38215256 6.8270025 ]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_039 overall avg rel L2: 2.561e+00
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_039 max field err: [6.0037461e+03 5.6530685e+00 1.5618221e+00]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 239234
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.00025746948 0.9997589
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.009547266 0.10951817
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_040 rel l2: [0.01569906 0.0173889  0.12281275]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_040 overall avg rel L2: 5.197e-02
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_040 max field err: [1.6925708e+02 5.4768825e-01 5.8897384e-02]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 230156
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.00026920703 0.9997667
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.008631109 0.10862924
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_041 rel l2: [0.00546777 0.00780724 0.06105376]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_041 overall avg rel L2: 2.478e-02
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_041 max field err: [1.8842090e+02 5.2661860e-01 2.6447391e-02]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 235798
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.0002519942 0.99976313
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.007818606 0.10782405
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_042 rel l2: [0.00326401 0.00461027 0.02913387]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_042 overall avg rel L2: 1.234e-02
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_042 max field err: [3.3414355e+02 3.6306530e-01 3.6469888e-02]
+2026-08-17 19:25:30 - deeponet - INFO - Total plotted points: 225604
+2026-08-17 19:25:30 - deeponet - INFO - x range: 0.000267157 0.99974304
+2026-08-17 19:25:30 - deeponet - INFO - y range: -0.007890942 0.10789453
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_043 rel l2: [0.00520067 0.00551429 0.06067088]
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_043 overall avg rel L2: 2.380e-02
+2026-08-17 19:25:30 - deeponet - INFO - Test case channel_043 max field err: [2.1942554e+02 2.2946805e-01 2.6708692e-02]
+2026-08-17 19:25:31 - deeponet - INFO - Total plotted points: 236484
+2026-08-17 19:25:31 - deeponet - INFO - x range: 0.00025884758 0.99973077
+2026-08-17 19:25:31 - deeponet - INFO - y range: -0.008432771 0.10843158
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_044 rel l2: [0.007419   0.01156718 0.08621518]
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_044 overall avg rel L2: 3.507e-02
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_044 max field err: [1.6321631e+02 7.2805303e-01 3.0291228e-02]
+2026-08-17 19:25:31 - deeponet - INFO - Total plotted points: 229708
+2026-08-17 19:25:31 - deeponet - INFO - x range: 0.00026273835 0.99972725
+2026-08-17 19:25:31 - deeponet - INFO - y range: -0.0050104177 0.10500782
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_045 rel l2: [0.00195298 0.00261244 0.02428206]
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_045 overall avg rel L2: 9.616e-03
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_045 max field err: [1.7422803e+02 1.8694741e-01 2.4464905e-02]
+2026-08-17 19:25:31 - deeponet - INFO - Total plotted points: 232016
+2026-08-17 19:25:31 - deeponet - INFO - x range: 0.00025423017 0.99973506
+2026-08-17 19:25:31 - deeponet - INFO - y range: -0.009617492 0.10962778
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_046 rel l2: [0.01498457 0.01465807 0.08395786]
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_046 overall avg rel L2: 3.787e-02
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_046 max field err: [2.5387817e+02 8.5561430e-01 5.6448083e-02]
+2026-08-17 19:25:31 - deeponet - INFO - Total plotted points: 239070
+2026-08-17 19:25:31 - deeponet - INFO - x range: 0.00026653323 0.9997583
+2026-08-17 19:25:31 - deeponet - INFO - y range: -0.009709659 0.10969996
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_047 rel l2: [0.00940881 0.02279506 0.12887082]
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_047 overall avg rel L2: 5.369e-02
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_047 max field err: [2.2434888e+02 1.5321183e+00 9.3061231e-02]
+2026-08-17 19:25:31 - deeponet - INFO - Total plotted points: 227926
+2026-08-17 19:25:31 - deeponet - INFO - x range: 0.00025448122 0.99974597
+2026-08-17 19:25:31 - deeponet - INFO - y range: -0.007482994 0.10751597
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_048 rel l2: [0.00610479 0.0062894  0.05336318]
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_048 overall avg rel L2: 2.192e-02
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_048 max field err: [1.9135547e+02 1.5557909e-01 2.9005378e-02]
+2026-08-17 19:25:31 - deeponet - INFO - Total plotted points: 231122
+2026-08-17 19:25:31 - deeponet - INFO - x range: 0.00024757988 0.99975413
+2026-08-17 19:25:31 - deeponet - INFO - y range: -0.006930858 0.10693238
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_049 rel l2: [0.00633271 0.00605119 0.05795429]
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_049 overall avg rel L2: 2.345e-02
+2026-08-17 19:25:31 - deeponet - INFO - Test case channel_049 max field err: [3.8325171e+02 1.5082487e-01 8.6734504e-02]
+2026-08-17 19:25:31 - deeponet - INFO - [0.20217712 0.08203396 1.1476511 ]
+2026-08-17 19:25:31 - deeponet - INFO - [0.56585455 0.5019115  7.768457  ]
+2026-08-17 19:28:16 - deeponet - INFO - Loaded: DeepONet/results/080426_1/checkpoint.pt
+2026-08-17 19:28:59 - deeponet - INFO - Total plotted points: 121542
+2026-08-17 19:28:59 - deeponet - INFO - x range: 0.000253387 0.49975085
+2026-08-17 19:28:59 - deeponet - INFO - y range: -0.004461245 0.10446125
+2026-08-17 19:28:59 - deeponet - INFO - Test case channel_000 rel l2: [0.07015952 0.00465271 0.08193675]
+2026-08-17 19:28:59 - deeponet - INFO - Test case channel_000 overall avg rel L2: 5.225e-02
+2026-08-17 19:28:59 - deeponet - INFO - Test case channel_000 max field err: [5.8798901e+02 1.0315454e-01 1.2618759e-01]
+2026-08-17 19:29:50 - deeponet - INFO - Total plotted points: 112624
+2026-08-17 19:29:50 - deeponet - INFO - x range: 0.000256185 0.49976388
+2026-08-17 19:29:50 - deeponet - INFO - y range: -0.00024934742 0.10024885
+2026-08-17 19:29:50 - deeponet - INFO - Test case channel_001 rel l2: [0.0328768  0.00316505 0.03595307]
+2026-08-17 19:29:50 - deeponet - INFO - Test case channel_001 overall avg rel L2: 2.400e-02
+2026-08-17 19:29:50 - deeponet - INFO - Test case channel_001 max field err: [6.7477368e+02 1.2449813e-01 1.2979148e-01]
+2026-08-17 19:30:39 - deeponet - INFO - Total plotted points: 117134
+2026-08-17 19:30:39 - deeponet - INFO - x range: 0.00025992218 0.4997359
+2026-08-17 19:30:39 - deeponet - INFO - y range: -0.0036395767 0.103632234
+2026-08-17 19:30:39 - deeponet - INFO - Test case channel_002 rel l2: [0.06272661 0.00338064 0.04585264]
+2026-08-17 19:30:39 - deeponet - INFO - Test case channel_002 overall avg rel L2: 3.732e-02
+2026-08-17 19:30:39 - deeponet - INFO - Test case channel_002 max field err: [6.3544849e+02 1.1568451e-01 1.2605523e-01]
+2026-08-17 19:31:26 - deeponet - INFO - Total plotted points: 112578
+2026-08-17 19:31:26 - deeponet - INFO - x range: 0.0002794724 0.49973118
+2026-08-17 19:31:26 - deeponet - INFO - y range: 0.00028162193 0.09971426
+2026-08-17 19:31:26 - deeponet - INFO - Test case channel_003 rel l2: [0.0414532  0.00370931 0.03350643]
+2026-08-17 19:31:26 - deeponet - INFO - Test case channel_003 overall avg rel L2: 2.622e-02
+2026-08-17 19:31:26 - deeponet - INFO - Test case channel_003 max field err: [5.7859985e+02 1.3520491e-01 1.3728800e-01]
+2026-08-17 19:32:06 - deeponet - INFO - Total plotted points: 118686
+2026-08-17 19:32:06 - deeponet - INFO - x range: 0.00024805617 0.4997573
+2026-08-17 19:32:06 - deeponet - INFO - y range: -0.003030781 0.10303249
+2026-08-17 19:32:06 - deeponet - INFO - Test case channel_004 rel l2: [0.07787655 0.00377821 0.04828945]
+2026-08-17 19:32:06 - deeponet - INFO - Test case channel_004 overall avg rel L2: 4.331e-02
+2026-08-17 19:32:06 - deeponet - INFO - Test case channel_004 max field err: [7.3892798e+02 1.2576759e-01 1.2155154e-01]
+2026-08-17 19:33:01 - deeponet - INFO - Total plotted points: 112034
+2026-08-17 19:33:01 - deeponet - INFO - x range: 0.00025516894 0.49972665
+2026-08-17 19:33:01 - deeponet - INFO - y range: -0.0025692058 0.1025728
+2026-08-17 19:33:01 - deeponet - INFO - Test case channel_005 rel l2: [0.04443974 0.00343739 0.03384651]
+2026-08-17 19:33:01 - deeponet - INFO - Test case channel_005 overall avg rel L2: 2.724e-02
+2026-08-17 19:33:01 - deeponet - INFO - Test case channel_005 max field err: [6.9674072e+02 1.2882864e-01 1.3377602e-01]
+2026-08-17 19:33:49 - deeponet - INFO - Total plotted points: 113022
+2026-08-17 19:33:49 - deeponet - INFO - x range: 0.00026630537 0.49975508
+2026-08-17 19:33:49 - deeponet - INFO - y range: -0.0013682148 0.101372175
+2026-08-17 19:33:49 - deeponet - INFO - Test case channel_006 rel l2: [0.04943601 0.00330847 0.03342152]
+2026-08-17 19:33:49 - deeponet - INFO - Test case channel_006 overall avg rel L2: 2.872e-02
+2026-08-17 19:33:49 - deeponet - INFO - Test case channel_006 max field err: [5.7380908e+02 1.2467635e-01 1.2723118e-01]
+2026-08-17 19:34:42 - deeponet - INFO - Total plotted points: 110932
+2026-08-17 19:34:42 - deeponet - INFO - x range: 0.0002658703 0.49973857
+2026-08-17 19:34:42 - deeponet - INFO - y range: 0.00027391347 0.09971364
+2026-08-17 19:34:42 - deeponet - INFO - Test case channel_007 rel l2: [0.03604059 0.0029972  0.03062643]
+2026-08-17 19:34:42 - deeponet - INFO - Test case channel_007 overall avg rel L2: 2.322e-02
+2026-08-17 19:34:42 - deeponet - INFO - Test case channel_007 max field err: [6.2497754e+02 1.2392259e-01 1.4128275e-01]
+2026-08-17 19:35:32 - deeponet - INFO - Total plotted points: 118358
+2026-08-17 19:35:32 - deeponet - INFO - x range: 0.0002709674 0.49974006
+2026-08-17 19:35:32 - deeponet - INFO - y range: -0.00255133 0.10254594
+2026-08-17 19:35:32 - deeponet - INFO - Test case channel_008 rel l2: [0.07542422 0.00358871 0.04106375]
+2026-08-17 19:35:32 - deeponet - INFO - Test case channel_008 overall avg rel L2: 4.003e-02
+2026-08-17 19:35:32 - deeponet - INFO - Test case channel_008 max field err: [6.0434375e+02 1.0511136e-01 1.3660745e-01]
+2026-08-17 19:36:24 - deeponet - INFO - Total plotted points: 115582
+2026-08-17 19:36:24 - deeponet - INFO - x range: 0.0002485589 0.49974287
+2026-08-17 19:36:24 - deeponet - INFO - y range: -0.001928638 0.10192746
+2026-08-17 19:36:24 - deeponet - INFO - Test case channel_009 rel l2: [0.05323628 0.00314041 0.03928073]
+2026-08-17 19:36:24 - deeponet - INFO - Test case channel_009 overall avg rel L2: 3.189e-02
+2026-08-17 19:36:24 - deeponet - INFO - Test case channel_009 max field err: [8.4499268e+02 1.2529534e-01 1.4058150e-01]
+2026-08-17 19:37:18 - deeponet - INFO - Total plotted points: 454598
+2026-08-17 19:37:18 - deeponet - INFO - x range: 0.0002600262 1.9997942
+2026-08-17 19:37:18 - deeponet - INFO - y range: -0.003261111 0.1032591
+2026-08-17 19:37:18 - deeponet - INFO - Test case channel_010 rel l2: [0.09077509 0.01954941 0.24015366]
+2026-08-17 19:37:18 - deeponet - INFO - Test case channel_010 overall avg rel L2: 1.168e-01
+2026-08-17 19:37:18 - deeponet - INFO - Test case channel_010 max field err: [1.1935171e+03 1.7552674e-01 1.4860912e-01]
+2026-08-17 19:39:56 - deeponet - INFO - Total plotted points: 461464
+2026-08-17 19:39:56 - deeponet - INFO - x range: 0.00025463788 1.9997588
+2026-08-17 19:39:56 - deeponet - INFO - y range: -0.0038535034 0.10383343
+2026-08-17 19:39:56 - deeponet - INFO - Test case channel_011 rel l2: [0.07535852 0.01668849 0.16361266]
+2026-08-17 19:39:56 - deeponet - INFO - Test case channel_011 overall avg rel L2: 8.522e-02
+2026-08-17 19:39:56 - deeponet - INFO - Test case channel_011 max field err: [1.1563242e+03 1.5766108e-01 1.4927700e-01]
+2026-08-17 19:42:13 - deeponet - INFO - Total plotted points: 452032
+2026-08-17 19:42:13 - deeponet - INFO - x range: 0.00025644343 1.9997628
+2026-08-17 19:42:13 - deeponet - INFO - y range: -0.004429627 0.10442058
+2026-08-17 19:42:13 - deeponet - INFO - Test case channel_012 rel l2: [0.11424437 0.0235855  0.32438603]
+2026-08-17 19:42:13 - deeponet - INFO - Test case channel_012 overall avg rel L2: 1.541e-01
+2026-08-17 19:42:13 - deeponet - INFO - Test case channel_012 max field err: [1.2238071e+03 1.7069709e-01 1.2535831e-01]
+2026-08-17 19:44:08 - deeponet - INFO - Total plotted points: 464772
+2026-08-17 19:44:08 - deeponet - INFO - x range: 0.00025487502 1.9997271
+2026-08-17 19:44:08 - deeponet - INFO - y range: -0.0043600635 0.10436537
+2026-08-17 19:44:08 - deeponet - INFO - Test case channel_013 rel l2: [0.0660123  0.01553561 0.13721149]
+2026-08-17 19:44:08 - deeponet - INFO - Test case channel_013 overall avg rel L2: 7.292e-02
+2026-08-17 19:44:08 - deeponet - INFO - Test case channel_013 max field err: [1.2034243e+03 1.4992702e-01 1.5435295e-01]
+2026-08-17 19:46:15 - deeponet - INFO - Total plotted points: 443896
+2026-08-17 19:46:15 - deeponet - INFO - x range: 0.0002789741 1.9997596
+2026-08-17 19:46:15 - deeponet - INFO - y range: -0.0034652986 0.10346412
+2026-08-17 19:46:15 - deeponet - INFO - Test case channel_014 rel l2: [0.12827007 0.02326217 0.26719868]
+2026-08-17 19:46:15 - deeponet - INFO - Test case channel_014 overall avg rel L2: 1.396e-01
+2026-08-17 19:46:15 - deeponet - INFO - Test case channel_014 max field err: [1.2731118e+03 1.8489945e-01 1.4268792e-01]
+2026-08-17 19:48:26 - deeponet - INFO - Total plotted points: 461906
+2026-08-17 19:48:26 - deeponet - INFO - x range: 0.0002399293 1.999756
+2026-08-17 19:48:26 - deeponet - INFO - y range: -0.004200125 0.10420103
+2026-08-17 19:48:26 - deeponet - INFO - Test case channel_015 rel l2: [0.07241082 0.01393185 0.19325793]
+2026-08-17 19:48:26 - deeponet - INFO - Test case channel_015 overall avg rel L2: 9.320e-02
+2026-08-17 19:48:26 - deeponet - INFO - Test case channel_015 max field err: [9.8039844e+02 1.4624870e-01 1.3327768e-01]
+2026-08-17 19:50:34 - deeponet - INFO - Total plotted points: 463768
+2026-08-17 19:50:34 - deeponet - INFO - x range: 0.00025810365 1.9997555
+2026-08-17 19:50:34 - deeponet - INFO - y range: -0.0041588205 0.10415856
+2026-08-17 19:50:34 - deeponet - INFO - Test case channel_016 rel l2: [0.07626648 0.01471326 0.23445378]
+2026-08-17 19:50:34 - deeponet - INFO - Test case channel_016 overall avg rel L2: 1.085e-01
+2026-08-17 19:50:34 - deeponet - INFO - Test case channel_016 max field err: [1.0810308e+03 1.5205967e-01 1.2766884e-01]
+2026-08-17 19:52:46 - deeponet - INFO - Total plotted points: 473252
+2026-08-17 19:52:46 - deeponet - INFO - x range: 0.0002821404 1.9997244
+2026-08-17 19:52:46 - deeponet - INFO - y range: -0.0045765494 0.10457442
+2026-08-17 19:52:46 - deeponet - INFO - Test case channel_017 rel l2: [0.0705422  0.01492904 0.20156372]
+2026-08-17 19:52:46 - deeponet - INFO - Test case channel_017 overall avg rel L2: 9.568e-02
+2026-08-17 19:52:46 - deeponet - INFO - Test case channel_017 max field err: [8.6671289e+02 1.2412065e-01 1.0675605e-01]
+2026-08-17 19:54:51 - deeponet - INFO - Total plotted points: 468132
+2026-08-17 19:54:51 - deeponet - INFO - x range: 0.000245452 1.9997245
+2026-08-17 19:54:51 - deeponet - INFO - y range: -0.004493169 0.10450154
+2026-08-17 19:54:51 - deeponet - INFO - Test case channel_018 rel l2: [0.0651499  0.01478869 0.14901173]
+2026-08-17 19:54:51 - deeponet - INFO - Test case channel_018 overall avg rel L2: 7.632e-02
+2026-08-17 19:54:51 - deeponet - INFO - Test case channel_018 max field err: [1.5361499e+03 1.3056040e-01 1.5105128e-01]
+2026-08-17 19:56:48 - deeponet - INFO - Total plotted points: 453508
+2026-08-17 19:56:48 - deeponet - INFO - x range: 0.00026187807 1.9997439
+2026-08-17 19:56:48 - deeponet - INFO - y range: -0.004064483 0.10405039
+2026-08-17 19:56:48 - deeponet - INFO - Test case channel_019 rel l2: [0.10157868 0.02320673 0.31041417]
+2026-08-17 19:56:48 - deeponet - INFO - Test case channel_019 overall avg rel L2: 1.451e-01
+2026-08-17 19:56:48 - deeponet - INFO - Test case channel_019 max field err: [1.15669189e+03 1.37158632e-01 1.13605276e-01]
+2026-08-17 19:58:59 - deeponet - INFO - Total plotted points: 473582
+2026-08-17 19:58:59 - deeponet - INFO - x range: 0.00027533242 0.9997638
+2026-08-17 19:58:59 - deeponet - INFO - y range: -0.0044643464 0.2044649
+2026-08-17 19:58:59 - deeponet - INFO - Test case channel_020 rel l2: [0.24980879 0.03053647 0.37233126]
+2026-08-17 19:58:59 - deeponet - INFO - Test case channel_020 overall avg rel L2: 2.176e-01
+2026-08-17 19:58:59 - deeponet - INFO - Test case channel_020 max field err: [9.1841455e+02 3.2232761e-01 2.1072476e-01]
+2026-08-17 20:01:14 - deeponet - INFO - Total plotted points: 456164
+2026-08-17 20:01:14 - deeponet - INFO - x range: 0.00025369794 0.99974614
+2026-08-17 20:01:14 - deeponet - INFO - y range: -0.00025311916 0.20025317
+2026-08-17 20:01:14 - deeponet - INFO - Test case channel_021 rel l2: [0.21845092 0.03080614 0.33085132]
+2026-08-17 20:01:14 - deeponet - INFO - Test case channel_021 overall avg rel L2: 1.934e-01
+2026-08-17 20:01:14 - deeponet - INFO - Test case channel_021 max field err: [1.01566516e+03 3.36796105e-01 2.24180073e-01]
+2026-08-17 20:03:20 - deeponet - INFO - Total plotted points: 464766
+2026-08-17 20:03:20 - deeponet - INFO - x range: 0.0002593662 0.9997432
+2026-08-17 20:03:20 - deeponet - INFO - y range: -0.0036405593 0.20363854
+2026-08-17 20:03:20 - deeponet - INFO - Test case channel_022 rel l2: [0.24529585 0.03010427 0.36699864]
+2026-08-17 20:03:20 - deeponet - INFO - Test case channel_022 overall avg rel L2: 2.141e-01
+2026-08-17 20:03:20 - deeponet - INFO - Test case channel_022 max field err: [9.3959045e+02 3.1370682e-01 2.1474458e-01]
+2026-08-17 20:05:34 - deeponet - INFO - Total plotted points: 456018
+2026-08-17 20:05:34 - deeponet - INFO - x range: 0.00025206534 0.99973655
+2026-08-17 20:05:34 - deeponet - INFO - y range: 0.00028049323 0.19973642
+2026-08-17 20:05:34 - deeponet - INFO - Test case channel_023 rel l2: [0.23570693 0.03171938 0.32398465]
+2026-08-17 20:05:34 - deeponet - INFO - Test case channel_023 overall avg rel L2: 1.971e-01
+2026-08-17 20:05:34 - deeponet - INFO - Test case channel_023 max field err: [1.0767866e+03 3.5976022e-01 2.3911533e-01]
+2026-08-17 20:07:33 - deeponet - INFO - Total plotted points: 468194
+2026-08-17 20:07:33 - deeponet - INFO - x range: 0.0002634227 0.9997531
+2026-08-17 20:07:33 - deeponet - INFO - y range: -0.0030331167 0.2030351
+2026-08-17 20:07:33 - deeponet - INFO - Test case channel_024 rel l2: [0.26471016 0.03008732 0.36557263]
+2026-08-17 20:07:33 - deeponet - INFO - Test case channel_024 overall avg rel L2: 2.201e-01
+2026-08-17 20:07:33 - deeponet - INFO - Test case channel_024 max field err: [9.2778735e+02 3.1060547e-01 2.1199457e-01]
+2026-08-17 20:09:57 - deeponet - INFO - Total plotted points: 454788
+2026-08-17 20:09:57 - deeponet - INFO - x range: 0.00025173638 0.99973345
+2026-08-17 20:09:57 - deeponet - INFO - y range: -0.0025745837 0.20258324
+2026-08-17 20:09:57 - deeponet - INFO - Test case channel_025 rel l2: [0.24958035 0.03107953 0.31684676]
+2026-08-17 20:09:57 - deeponet - INFO - Test case channel_025 overall avg rel L2: 1.992e-01
+2026-08-17 20:09:57 - deeponet - INFO - Test case channel_025 max field err: [1.0402253e+03 3.3730119e-01 2.2981036e-01]
+2026-08-17 20:12:05 - deeponet - INFO - Total plotted points: 456688
+2026-08-17 20:12:05 - deeponet - INFO - x range: 0.00025838427 0.9997417
+2026-08-17 20:12:05 - deeponet - INFO - y range: -0.0013856784 0.20139192
+2026-08-17 20:12:05 - deeponet - INFO - Test case channel_026 rel l2: [0.24927637 0.03088238 0.32269657]
+2026-08-17 20:12:05 - deeponet - INFO - Test case channel_026 overall avg rel L2: 2.010e-01
+2026-08-17 20:12:05 - deeponet - INFO - Test case channel_026 max field err: [1.0271771e+03 3.3732098e-01 2.3307556e-01]
+2026-08-17 20:14:00 - deeponet - INFO - Total plotted points: 452644
+2026-08-17 20:14:00 - deeponet - INFO - x range: 0.00026367579 0.99973226
+2026-08-17 20:14:00 - deeponet - INFO - y range: 0.00027718078 0.19971794
+2026-08-17 20:14:00 - deeponet - INFO - Test case channel_027 rel l2: [0.23203018 0.03083056 0.3155527 ]
+2026-08-17 20:14:00 - deeponet - INFO - Test case channel_027 overall avg rel L2: 1.928e-01
+2026-08-17 20:14:00 - deeponet - INFO - Test case channel_027 max field err: [1.01335596e+03 3.38371634e-01 2.33315676e-01]
+2026-08-17 20:15:53 - deeponet - INFO - Total plotted points: 467160
+2026-08-17 20:15:53 - deeponet - INFO - x range: 0.0002613632 0.99972904
+2026-08-17 20:15:53 - deeponet - INFO - y range: -0.0025471228 0.20254783
+2026-08-17 20:15:53 - deeponet - INFO - Test case channel_028 rel l2: [0.26442915 0.03077763 0.3513835 ]
+2026-08-17 20:15:53 - deeponet - INFO - Test case channel_028 overall avg rel L2: 2.155e-01
+2026-08-17 20:15:53 - deeponet - INFO - Test case channel_028 max field err: [9.9092944e+02 3.1952727e-01 2.2044766e-01]
+2026-08-17 20:17:51 - deeponet - INFO - Total plotted points: 462046
+2026-08-17 20:17:51 - deeponet - INFO - x range: 0.00023694453 0.9997433
+2026-08-17 20:17:51 - deeponet - INFO - y range: -0.0019334836 0.2019342
+2026-08-17 20:17:51 - deeponet - INFO - Test case channel_029 rel l2: [0.23896082 0.03047117 0.35077125]
+2026-08-17 20:17:51 - deeponet - INFO - Test case channel_029 overall avg rel L2: 2.067e-01
+2026-08-17 20:17:51 - deeponet - INFO - Test case channel_029 max field err: [1.0030740e+03 3.3148229e-01 2.2841124e-01]
+2026-08-17 20:19:34 - deeponet - INFO - Total plotted points: 111940
+2026-08-17 20:19:34 - deeponet - INFO - x range: 0.00025295216 0.9997376
+2026-08-17 20:19:34 - deeponet - INFO - y range: -0.0032205805 0.05324256
+2026-08-17 20:19:34 - deeponet - INFO - Test case channel_030 rel l2: [0.3067447  0.23881651 3.3682911 ]
+2026-08-17 20:19:34 - deeponet - INFO - Test case channel_030 overall avg rel L2: 1.305e+00
+2026-08-17 20:19:34 - deeponet - INFO - Test case channel_030 max field err: [3.3457227e+03 6.1622610e+00 5.8632368e-01]
+2026-08-17 20:20:06 - deeponet - INFO - Total plotted points: 115214
+2026-08-17 20:20:06 - deeponet - INFO - x range: 0.00024973397 0.9997233
+2026-08-17 20:20:06 - deeponet - INFO - y range: -0.0037942554 0.05377388
+2026-08-17 20:20:06 - deeponet - INFO - Test case channel_031 rel l2: [0.30238348 0.19285165 1.8821794 ]
+2026-08-17 20:20:06 - deeponet - INFO - Test case channel_031 overall avg rel L2: 7.925e-01
+2026-08-17 20:20:06 - deeponet - INFO - Test case channel_031 max field err: [3.1793594e+03 6.4374995e+00 8.6837733e-01]
+2026-08-17 20:20:40 - deeponet - INFO - Total plotted points: 110488
+2026-08-17 20:20:40 - deeponet - INFO - x range: 0.00027123824 0.99975765
+2026-08-17 20:20:40 - deeponet - INFO - y range: -0.0044208295 0.054417353
+2026-08-17 20:20:40 - deeponet - INFO - Test case channel_032 rel l2: [0.33713195 0.40365607 4.299519  ]
+2026-08-17 20:20:40 - deeponet - INFO - Test case channel_032 overall avg rel L2: 1.680e+00
+2026-08-17 20:20:40 - deeponet - INFO - Test case channel_032 max field err: [3.5055093e+03 9.5019217e+00 8.3022940e-01]
+2026-08-17 20:21:12 - deeponet - INFO - Total plotted points: 117002
+2026-08-17 20:21:12 - deeponet - INFO - x range: 0.00026909116 0.9997261
+2026-08-17 20:21:12 - deeponet - INFO - y range: -0.004321025 0.05436329
+2026-08-17 20:21:12 - deeponet - INFO - Test case channel_033 rel l2: [0.29989564 0.1430206  1.4732413 ]
+2026-08-17 20:21:12 - deeponet - INFO - Test case channel_033 overall avg rel L2: 6.387e-01
+2026-08-17 20:21:12 - deeponet - INFO - Test case channel_033 max field err: [3.2096733e+03 2.0919101e+00 3.8802189e-01]
+2026-08-17 20:21:45 - deeponet - INFO - Total plotted points: 106460
+2026-08-17 20:21:45 - deeponet - INFO - x range: 0.00025151632 0.9997678
+2026-08-17 20:21:45 - deeponet - INFO - y range: -0.0034639311 0.053460307
+2026-08-17 20:21:45 - deeponet - INFO - Test case channel_034 rel l2: [0.34307992 0.29165486 3.1313157 ]
+2026-08-17 20:21:45 - deeponet - INFO - Test case channel_034 overall avg rel L2: 1.255e+00
+2026-08-17 20:21:45 - deeponet - INFO - Test case channel_034 max field err: [5.1529043e+03 2.6349478e+00 7.8152752e-01]
+2026-08-17 20:22:15 - deeponet - INFO - Total plotted points: 115446
+2026-08-17 20:22:15 - deeponet - INFO - x range: 0.00026200368 0.99974257
+2026-08-17 20:22:15 - deeponet - INFO - y range: -0.0042031202 0.054203797
+2026-08-17 20:22:15 - deeponet - INFO - Test case channel_035 rel l2: [0.2789229  0.16236927 2.5616794 ]
+2026-08-17 20:22:15 - deeponet - INFO - Test case channel_035 overall avg rel L2: 1.001e+00
+2026-08-17 20:22:15 - deeponet - INFO - Test case channel_035 max field err: [2.4813833e+03 1.4945245e+00 3.9060283e-01]
+2026-08-17 20:22:49 - deeponet - INFO - Total plotted points: 116508
+2026-08-17 20:22:49 - deeponet - INFO - x range: 0.0002589969 0.9997455
+2026-08-17 20:22:49 - deeponet - INFO - y range: -0.0041116113 0.05412155
+2026-08-17 20:22:49 - deeponet - INFO - Test case channel_036 rel l2: [0.286823   0.25558016 3.1040833 ]
+2026-08-17 20:22:49 - deeponet - INFO - Test case channel_036 overall avg rel L2: 1.215e+00
+2026-08-17 20:22:49 - deeponet - INFO - Test case channel_036 max field err: [5.8524902e+03 1.8985163e+01 1.1159263e+00]
+2026-08-17 20:23:22 - deeponet - INFO - Total plotted points: 121192
+2026-08-17 20:23:22 - deeponet - INFO - x range: 0.0002567099 0.9997208
+2026-08-17 20:23:22 - deeponet - INFO - y range: -0.0045647747 0.054547664
+2026-08-17 20:23:22 - deeponet - INFO - Test case channel_037 rel l2: [0.3094069  0.25150782 2.15683   ]
+2026-08-17 20:23:22 - deeponet - INFO - Test case channel_037 overall avg rel L2: 9.059e-01
+2026-08-17 20:23:22 - deeponet - INFO - Test case channel_037 max field err: [3.2844944e+03 1.1429166e+01 8.0600441e-01]
+2026-08-17 20:23:57 - deeponet - INFO - Total plotted points: 118374
+2026-08-17 20:23:57 - deeponet - INFO - x range: 0.0002473225 0.99973655
+2026-08-17 20:23:57 - deeponet - INFO - y range: -0.004464435 0.05446994
+2026-08-17 20:23:57 - deeponet - INFO - Test case channel_038 rel l2: [0.2941094  0.19306634 1.663655  ]
+2026-08-17 20:23:57 - deeponet - INFO - Test case channel_038 overall avg rel L2: 7.169e-01
+2026-08-17 20:23:57 - deeponet - INFO - Test case channel_038 max field err: [3.5664761e+03 6.3032379e+00 8.3043224e-01]
+2026-08-17 20:24:31 - deeponet - INFO - Total plotted points: 111332
+2026-08-17 20:24:31 - deeponet - INFO - x range: 0.00025851285 0.9997594
+2026-08-17 20:24:31 - deeponet - INFO - y range: -0.0039835153 0.05396828
+2026-08-17 20:24:31 - deeponet - INFO - Test case channel_039 rel l2: [0.29936352 0.2793505  3.703667  ]
+2026-08-17 20:24:31 - deeponet - INFO - Test case channel_039 overall avg rel L2: 1.427e+00
+2026-08-17 20:24:31 - deeponet - INFO - Test case channel_039 max field err: [3.9999441e+03 2.3314462e+00 5.7692468e-01]
+2026-08-17 20:25:03 - deeponet - INFO - Total plotted points: 239234
+2026-08-17 20:25:03 - deeponet - INFO - x range: 0.00025746948 0.9997589
+2026-08-17 20:25:03 - deeponet - INFO - y range: -0.009547266 0.10951817
+2026-08-17 20:25:03 - deeponet - INFO - Test case channel_040 rel l2: [0.03733968 0.01196012 0.14097886]
+2026-08-17 20:25:03 - deeponet - INFO - Test case channel_040 overall avg rel L2: 6.343e-02
+2026-08-17 20:25:03 - deeponet - INFO - Test case channel_040 max field err: [7.0325562e+02 2.1735904e-01 1.1617662e-01]
+2026-08-17 20:26:02 - deeponet - INFO - Total plotted points: 230156
+2026-08-17 20:26:02 - deeponet - INFO - x range: 0.00026920703 0.9997667
+2026-08-17 20:26:02 - deeponet - INFO - y range: -0.008631109 0.10862924
+2026-08-17 20:26:02 - deeponet - INFO - Test case channel_041 rel l2: [0.00548789 0.00527196 0.07350042]
+2026-08-17 20:26:02 - deeponet - INFO - Test case channel_041 overall avg rel L2: 2.809e-02
+2026-08-17 20:26:02 - deeponet - INFO - Test case channel_041 max field err: [5.8378174e+02 1.0925466e-01 1.1049898e-01]
+2026-08-17 20:26:59 - deeponet - INFO - Total plotted points: 235798
+2026-08-17 20:26:59 - deeponet - INFO - x range: 0.0002519942 0.99976313
+2026-08-17 20:26:59 - deeponet - INFO - y range: -0.007818606 0.10782405
+2026-08-17 20:26:59 - deeponet - INFO - Test case channel_042 rel l2: [0.00407799 0.0022826  0.04203796]
+2026-08-17 20:26:59 - deeponet - INFO - Test case channel_042 overall avg rel L2: 1.613e-02
+2026-08-17 20:26:59 - deeponet - INFO - Test case channel_042 max field err: [6.7872363e+02 1.4998436e-01 1.2671247e-01]
+2026-08-17 20:27:57 - deeponet - INFO - Total plotted points: 225604
+2026-08-17 20:27:57 - deeponet - INFO - x range: 0.000267157 0.99974304
+2026-08-17 20:27:57 - deeponet - INFO - y range: -0.007890942 0.10789453
+2026-08-17 20:27:57 - deeponet - INFO - Test case channel_043 rel l2: [0.00814306 0.00466823 0.07209715]
+2026-08-17 20:27:57 - deeponet - INFO - Test case channel_043 overall avg rel L2: 2.830e-02
+2026-08-17 20:27:57 - deeponet - INFO - Test case channel_043 max field err: [7.4393481e+02 1.5742952e-01 1.0521968e-01]
+2026-08-17 20:28:54 - deeponet - INFO - Total plotted points: 236484
+2026-08-17 20:28:54 - deeponet - INFO - x range: 0.00025884758 0.99973077
+2026-08-17 20:28:54 - deeponet - INFO - y range: -0.008432771 0.10843158
+2026-08-17 20:28:54 - deeponet - INFO - Test case channel_044 rel l2: [0.00965691 0.00757591 0.07593727]
+2026-08-17 20:28:54 - deeponet - INFO - Test case channel_044 overall avg rel L2: 3.106e-02
+2026-08-17 20:28:54 - deeponet - INFO - Test case channel_044 max field err: [7.2047412e+02 1.9140215e-01 1.2120041e-01]
+2026-08-17 20:29:51 - deeponet - INFO - Total plotted points: 229708
+2026-08-17 20:29:51 - deeponet - INFO - x range: 0.00026273835 0.99972725
+2026-08-17 20:29:51 - deeponet - INFO - y range: -0.0050104177 0.10500782
+2026-08-17 20:29:51 - deeponet - INFO - Test case channel_045 rel l2: [0.00320417 0.00191435 0.04364318]
+2026-08-17 20:29:51 - deeponet - INFO - Test case channel_045 overall avg rel L2: 1.625e-02
+2026-08-17 20:29:51 - deeponet - INFO - Test case channel_045 max field err: [7.16515381e+02 1.20167494e-01 1.15525097e-01]
+2026-08-17 20:30:47 - deeponet - INFO - Total plotted points: 232016
+2026-08-17 20:30:47 - deeponet - INFO - x range: 0.00025423017 0.99973506
+2026-08-17 20:30:47 - deeponet - INFO - y range: -0.009617492 0.10962778
+2026-08-17 20:30:47 - deeponet - INFO - Test case channel_046 rel l2: [0.01326618 0.00775963 0.08202111]
+2026-08-17 20:30:47 - deeponet - INFO - Test case channel_046 overall avg rel L2: 3.435e-02
+2026-08-17 20:30:47 - deeponet - INFO - Test case channel_046 max field err: [8.0602759e+02 1.5428513e-01 1.2260629e-01]
+2026-08-17 20:31:47 - deeponet - INFO - Total plotted points: 239070
+2026-08-17 20:31:47 - deeponet - INFO - x range: 0.00026653323 0.9997583
+2026-08-17 20:31:47 - deeponet - INFO - y range: -0.009709659 0.10969996
+2026-08-17 20:31:47 - deeponet - INFO - Test case channel_047 rel l2: [0.00755437 0.00775496 0.11202216]
+2026-08-17 20:31:47 - deeponet - INFO - Test case channel_047 overall avg rel L2: 4.244e-02
+2026-08-17 20:31:47 - deeponet - INFO - Test case channel_047 max field err: [5.1814404e+02 2.0642787e-01 1.2157771e-01]
+2026-08-17 20:32:46 - deeponet - INFO - Total plotted points: 227926
+2026-08-17 20:32:46 - deeponet - INFO - x range: 0.00025448122 0.99974597
+2026-08-17 20:32:46 - deeponet - INFO - y range: -0.007482994 0.10751597
+2026-08-17 20:32:46 - deeponet - INFO - Test case channel_048 rel l2: [0.00678241 0.00633088 0.06634086]
+2026-08-17 20:32:46 - deeponet - INFO - Test case channel_048 overall avg rel L2: 2.648e-02
+2026-08-17 20:32:46 - deeponet - INFO - Test case channel_048 max field err: [7.6179395e+02 1.6299152e-01 1.3785125e-01]
+2026-08-17 20:33:46 - deeponet - INFO - Total plotted points: 231122
+2026-08-17 20:33:46 - deeponet - INFO - x range: 0.00024757988 0.99975413
+2026-08-17 20:33:46 - deeponet - INFO - y range: -0.006930858 0.10693238
+2026-08-17 20:33:46 - deeponet - INFO - Test case channel_049 rel l2: [0.0068171  0.0046125  0.05503319]
+2026-08-17 20:33:46 - deeponet - INFO - Test case channel_049 overall avg rel L2: 2.215e-02
+2026-08-17 20:33:46 - deeponet - INFO - Test case channel_049 max field err: [9.7855322e+02 1.7905462e-01 1.2189342e-01]
+2026-08-17 20:34:47 - deeponet - INFO - [0.14025438 0.05989297 0.68340224]
+2026-08-17 20:34:47 - deeponet - INFO - [0.34307992 0.40365607 4.299519  ]

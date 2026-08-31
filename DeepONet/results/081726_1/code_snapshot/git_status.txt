@@ -1,0 +1,911 @@
+On branch Alan
+Your branch is up to date with 'origin/Alan'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	new file:   DeepONet/results/080426_1/predictions/test/test_case07_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case07_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case07_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case117_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case117_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case117_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case119_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case119_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case119_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case120_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case120_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case120_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case144_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case144_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case144_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case153_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case153_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case153_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case160_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case160_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case160_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case161_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case161_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case161_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case16_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case16_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case16_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case177_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case177_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case177_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case185_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case185_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case185_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case193_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case193_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case193_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case20_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case20_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case20_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case21_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case21_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case21_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case27_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case27_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case27_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case69_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case69_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case69_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case76_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case76_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case76_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case82_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case82_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case82_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case84_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case84_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case84_v.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case99_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case99_u.png
+	new file:   DeepONet/results/080426_1/predictions/test/test_case99_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case00_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case00_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case00_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case01_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case01_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case01_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case02_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case02_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case02_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case03_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case03_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case03_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case04_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case04_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case04_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case05_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case05_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case05_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case06_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case06_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case06_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case07_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case07_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case07_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case08_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case08_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case08_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case09_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case09_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case09_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case10_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case10_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case10_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case11_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case11_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case11_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case12_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case12_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case12_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case13_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case13_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case13_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case14_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case14_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case14_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case15_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case15_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case15_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case16_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case16_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case16_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case17_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case17_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case17_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case18_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case18_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case18_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case19_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case19_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case19_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case20_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case20_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case20_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case21_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case21_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case21_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case22_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case22_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case22_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case23_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case23_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case23_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case24_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case24_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case24_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case25_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case25_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case25_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case26_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case26_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case26_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case27_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case27_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case27_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case28_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case28_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case28_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case29_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case29_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case29_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case30_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case30_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case30_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case31_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case31_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case31_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case32_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case32_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case32_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case33_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case33_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case33_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case34_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case34_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case34_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case35_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case35_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case35_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case36_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case36_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case36_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case37_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case37_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case37_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case38_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case38_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case38_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case39_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case39_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case39_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case40_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case40_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case40_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case41_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case41_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case41_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case42_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case42_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case42_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case43_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case43_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case43_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case44_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case44_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case44_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case45_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case45_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case45_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case46_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case46_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case46_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case47_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case47_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case47_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case48_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case48_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case48_v.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case49_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case49_u.png
+	new file:   DeepONet/results/080426_1/predictions/test_ablation/test_case49_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case101_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case101_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case101_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case103_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case103_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case103_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case114_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case114_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case114_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case12_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case12_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case12_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case132_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case132_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case132_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case135_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case135_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case135_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case137_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case137_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case137_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case141_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case141_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case141_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case143_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case143_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case143_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case146_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case146_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case146_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case157_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case157_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case157_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case178_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case178_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case178_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case182_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case182_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case182_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case195_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case195_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case195_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case25_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case25_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case25_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case66_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case66_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case66_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case73_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case73_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case73_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case81_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case81_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case81_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case85_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case85_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case85_v.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case90_pressure.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case90_u.png
+	new file:   DeepONet/results/080426_1/predictions/validation/valid_case90_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case101_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case101_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case101_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case103_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case103_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case103_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case114_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case114_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case114_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case12_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case12_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case12_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case132_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case132_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case132_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case135_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case135_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case135_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case137_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case137_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case137_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case141_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case141_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case141_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case143_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case143_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case143_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case146_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case146_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case146_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case157_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case157_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case157_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case178_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case178_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case178_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case182_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case182_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case182_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case195_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case195_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case195_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case25_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case25_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case25_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case66_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case66_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case66_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case73_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case73_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case73_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case81_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case81_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case81_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case85_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case85_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case85_v.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case90_pressure.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case90_u.png
+	new file:   DeepONet/results/081426_1/predictions/validation/valid_case90_v.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case01_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case01_u.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case01_v.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case23_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case23_u.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case23_v.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case31_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case31_u.png
+	new file:   DeepONet/results/081526_1/predictions/test/test_case31_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case00_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case00_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case00_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case01_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case01_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case01_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case02_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case02_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case02_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case03_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case03_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case03_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case04_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case04_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case04_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case05_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case05_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case05_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case06_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case06_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case06_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case07_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case07_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case07_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case08_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case08_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case08_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case09_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case09_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case09_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case10_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case10_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case10_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case11_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case11_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case11_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case12_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case12_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case12_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case13_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case13_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case13_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case14_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case14_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case14_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case15_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case15_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case15_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case16_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case16_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case16_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case17_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case17_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case17_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case18_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case18_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case18_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case19_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case19_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case19_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case40_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case40_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case40_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case41_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case41_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case41_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case42_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case42_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case42_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case43_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case43_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case43_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case44_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case44_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case44_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case45_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case45_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case45_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case46_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case46_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case46_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case47_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case47_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case47_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case48_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case48_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case48_v.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case49_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case49_u.png
+	new file:   DeepONet/results/081526_1/predictions/test_ablation/test_case49_v.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case05_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case05_u.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case05_v.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case27_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case27_u.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case27_v.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case38_pressure.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case38_u.png
+	new file:   DeepONet/results/081526_1/predictions/validation/valid_case38_v.png
+	new file:   DeepONet/train_deeponet_1.ipynb
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   2d_geometry_step/channel_water_ablation/step_build_summary.csv
+	modified:   DeepONet/iterative_inference.ipynb
+	modified:   DeepONet/results/080426_1/training.log
+	modified:   DeepONet/results/081426_1/training.log
+	modified:   DeepONet/results/081526_1/training.log
+	deleted:    DeepONet/results/sni_metis_080526_164308/checkpoint.pt
+	deleted:    DeepONet/results/sni_metis_080526_164308/loss_history.png
+	modified:   DeepONet/train_deeponet.ipynb
+	modified:   DeepONet/train_deeponet_1.ipynb
+	modified:   generate_2d_channel.py
+	modified:   mesh_and_solve_2d.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	2d_geometry_specs/channel_water_ablation/channel_050.json
+	2d_geometry_specs/channel_water_ablation/channel_051.json
+	2d_geometry_specs/channel_water_ablation/channel_052.json
+	2d_geometry_specs/channel_water_ablation/channel_053.json
+	2d_geometry_specs/channel_water_ablation/channel_054.json
+	2d_geometry_specs/channel_water_ablation/channel_055.json
+	2d_geometry_specs/channel_water_ablation/channel_056.json
+	2d_geometry_specs/channel_water_ablation/channel_057.json
+	2d_geometry_specs/channel_water_ablation/channel_058.json
+	2d_geometry_specs/channel_water_ablation/channel_059.json
+	2d_geometry_specs/channel_water_ablation/channel_060.json
+	2d_geometry_specs/channel_water_ablation/channel_061.json
+	2d_geometry_specs/channel_water_ablation/channel_062.json
+	2d_geometry_specs/channel_water_ablation/channel_063.json
+	2d_geometry_specs/channel_water_ablation/channel_064.json
+	2d_geometry_specs/channel_water_ablation/channel_065.json
+	2d_geometry_specs/channel_water_ablation/channel_066.json
+	2d_geometry_specs/channel_water_ablation/channel_067.json
+	2d_geometry_specs/channel_water_ablation/channel_068.json
+	2d_geometry_specs/channel_water_ablation/channel_069.json
+	2d_geometry_specs/channel_water_ablation/channel_070.json
+	2d_geometry_specs/channel_water_ablation/channel_071.json
+	2d_geometry_specs/channel_water_ablation/channel_072.json
+	2d_geometry_specs/channel_water_ablation/channel_073.json
+	2d_geometry_specs/channel_water_ablation/channel_074.json
+	2d_geometry_specs/channel_water_ablation/channel_075.json
+	2d_geometry_specs/channel_water_ablation/channel_076.json
+	2d_geometry_specs/channel_water_ablation/channel_077.json
+	2d_geometry_specs/channel_water_ablation/channel_078.json
+	2d_geometry_specs/channel_water_ablation/channel_079.json
+	2d_geometry_specs/channel_water_ablation/channel_080.json
+	2d_geometry_specs/channel_water_ablation/channel_081.json
+	2d_geometry_specs/channel_water_ablation/channel_082.json
+	2d_geometry_specs/channel_water_ablation/channel_083.json
+	2d_geometry_specs/channel_water_ablation/channel_084.json
+	2d_geometry_specs/channel_water_ablation/channel_085.json
+	2d_geometry_specs/channel_water_ablation/channel_086.json
+	2d_geometry_specs/channel_water_ablation/channel_087.json
+	2d_geometry_specs/channel_water_ablation/channel_088.json
+	2d_geometry_specs/channel_water_ablation/channel_089.json
+	2d_geometry_specs/channel_water_ablation/channel_090.json
+	2d_geometry_specs/channel_water_ablation/channel_091.json
+	2d_geometry_specs/channel_water_ablation/channel_092.json
+	2d_geometry_specs/channel_water_ablation/channel_093.json
+	2d_geometry_specs/channel_water_ablation/channel_094.json
+	2d_geometry_specs/channel_water_ablation/channel_095.json
+	2d_geometry_specs/channel_water_ablation/channel_096.json
+	2d_geometry_specs/channel_water_ablation/channel_097.json
+	2d_geometry_specs/channel_water_ablation/channel_098.json
+	2d_geometry_specs/channel_water_ablation/channel_099.json
+	2d_geometry_specs/channel_water_ablation/channel_100.json
+	2d_geometry_specs/channel_water_ablation/channel_101.json
+	2d_geometry_specs/channel_water_ablation/channel_102.json
+	2d_geometry_specs/channel_water_ablation/channel_103.json
+	2d_geometry_specs/channel_water_ablation/channel_104.json
+	2d_geometry_specs/channel_water_ablation/channel_105.json
+	2d_geometry_specs/channel_water_ablation/channel_106.json
+	2d_geometry_specs/channel_water_ablation/channel_107.json
+	2d_geometry_specs/channel_water_ablation/channel_108.json
+	2d_geometry_specs/channel_water_ablation/channel_109.json
+	2d_geometry_specs/channel_water_ablation/channel_110.json
+	2d_geometry_specs/channel_water_ablation/channel_111.json
+	2d_geometry_specs/channel_water_ablation/channel_112.json
+	2d_geometry_specs/channel_water_ablation/channel_113.json
+	2d_geometry_specs/channel_water_ablation/channel_114.json
+	2d_geometry_specs/channel_water_ablation/channel_115.json
+	2d_geometry_specs/channel_water_ablation/channel_116.json
+	2d_geometry_specs/channel_water_ablation/channel_117.json
+	2d_geometry_specs/channel_water_ablation/channel_118.json
+	2d_geometry_specs/channel_water_ablation/channel_119.json
+	2d_geometry_specs/channel_water_ablation/channel_120.json
+	2d_geometry_specs/channel_water_ablation/channel_121.json
+	2d_geometry_specs/channel_water_ablation/channel_122.json
+	2d_geometry_specs/channel_water_ablation/channel_123.json
+	2d_geometry_specs/channel_water_ablation/channel_124.json
+	2d_geometry_specs/channel_water_ablation/channel_125.json
+	2d_geometry_specs/channel_water_ablation/channel_126.json
+	2d_geometry_specs/channel_water_ablation/channel_127.json
+	2d_geometry_specs/channel_water_ablation/channel_128.json
+	2d_geometry_specs/channel_water_ablation/channel_129.json
+	2d_geometry_specs/channel_water_ablation/channel_130.json
+	2d_geometry_specs/channel_water_ablation/channel_131.json
+	2d_geometry_specs/channel_water_ablation/channel_132.json
+	2d_geometry_specs/channel_water_ablation/channel_133.json
+	2d_geometry_specs/channel_water_ablation/channel_134.json
+	2d_geometry_specs/channel_water_ablation/channel_135.json
+	2d_geometry_specs/channel_water_ablation/channel_136.json
+	2d_geometry_specs/channel_water_ablation/channel_137.json
+	2d_geometry_specs/channel_water_ablation/channel_138.json
+	2d_geometry_specs/channel_water_ablation/channel_139.json
+	2d_geometry_specs/channel_water_ablation/channel_140.json
+	2d_geometry_specs/channel_water_ablation/channel_141.json
+	2d_geometry_specs/channel_water_ablation/channel_142.json
+	2d_geometry_specs/channel_water_ablation/channel_143.json
+	2d_geometry_specs/channel_water_ablation/channel_144.json
+	2d_geometry_specs/channel_water_ablation/channel_145.json
+	2d_geometry_specs/channel_water_ablation/channel_146.json
+	2d_geometry_specs/channel_water_ablation/channel_147.json
+	2d_geometry_specs/channel_water_ablation/channel_148.json
+	2d_geometry_specs/channel_water_ablation/channel_149.json
+	2d_geometry_specs/channel_water_ablation/channel_150.json
+	2d_geometry_specs/channel_water_ablation/channel_151.json
+	2d_geometry_specs/channel_water_ablation/channel_152.json
+	2d_geometry_specs/channel_water_ablation/channel_153.json
+	2d_geometry_specs/channel_water_ablation/channel_154.json
+	2d_geometry_specs/channel_water_ablation/channel_155.json
+	2d_geometry_specs/channel_water_ablation/channel_156.json
+	2d_geometry_specs/channel_water_ablation/channel_157.json
+	2d_geometry_specs/channel_water_ablation/channel_158.json
+	2d_geometry_specs/channel_water_ablation/channel_159.json
+	2d_geometry_specs/channel_water_ablation/designs_batch_050_159.csv
+	2d_geometry_specs/channel_water_ablation/designs_batch_ar4.csv
+	2d_geometry_specs/channel_water_ablation/designs_batch_verified_groups.csv
+	2d_geometry_step/channel_water_ablation/channel_050.fmd
+	2d_geometry_step/channel_water_ablation/channel_050.step
+	2d_geometry_step/channel_water_ablation/channel_051.fmd
+	2d_geometry_step/channel_water_ablation/channel_051.step
+	2d_geometry_step/channel_water_ablation/channel_052.fmd
+	2d_geometry_step/channel_water_ablation/channel_052.step
+	2d_geometry_step/channel_water_ablation/channel_053.fmd
+	2d_geometry_step/channel_water_ablation/channel_053.step
+	2d_geometry_step/channel_water_ablation/channel_054.fmd
+	2d_geometry_step/channel_water_ablation/channel_054.step
+	2d_geometry_step/channel_water_ablation/channel_055.fmd
+	2d_geometry_step/channel_water_ablation/channel_055.step
+	2d_geometry_step/channel_water_ablation/channel_056.fmd
+	2d_geometry_step/channel_water_ablation/channel_056.step
+	2d_geometry_step/channel_water_ablation/channel_057.fmd
+	2d_geometry_step/channel_water_ablation/channel_057.step
+	2d_geometry_step/channel_water_ablation/channel_058.fmd
+	2d_geometry_step/channel_water_ablation/channel_058.step
+	2d_geometry_step/channel_water_ablation/channel_059.fmd
+	2d_geometry_step/channel_water_ablation/channel_059.step
+	2d_geometry_step/channel_water_ablation/channel_060.fmd
+	2d_geometry_step/channel_water_ablation/channel_060.step
+	2d_geometry_step/channel_water_ablation/channel_061.fmd
+	2d_geometry_step/channel_water_ablation/channel_061.step
+	2d_geometry_step/channel_water_ablation/channel_062.fmd
+	2d_geometry_step/channel_water_ablation/channel_062.step
+	2d_geometry_step/channel_water_ablation/channel_063.fmd
+	2d_geometry_step/channel_water_ablation/channel_063.step
+	2d_geometry_step/channel_water_ablation/channel_064.fmd
+	2d_geometry_step/channel_water_ablation/channel_064.step
+	2d_geometry_step/channel_water_ablation/channel_065.fmd
+	2d_geometry_step/channel_water_ablation/channel_065.step
+	2d_geometry_step/channel_water_ablation/channel_066.fmd
+	2d_geometry_step/channel_water_ablation/channel_066.step
+	2d_geometry_step/channel_water_ablation/channel_067.fmd
+	2d_geometry_step/channel_water_ablation/channel_067.step
+	2d_geometry_step/channel_water_ablation/channel_068.fmd
+	2d_geometry_step/channel_water_ablation/channel_068.step
+	2d_geometry_step/channel_water_ablation/channel_069.fmd
+	2d_geometry_step/channel_water_ablation/channel_069.step
+	2d_geometry_step/channel_water_ablation/channel_070.fmd
+	2d_geometry_step/channel_water_ablation/channel_070.step
+	2d_geometry_step/channel_water_ablation/channel_071.fmd
+	2d_geometry_step/channel_water_ablation/channel_071.step
+	2d_geometry_step/channel_water_ablation/channel_072.fmd
+	2d_geometry_step/channel_water_ablation/channel_072.step
+	2d_geometry_step/channel_water_ablation/channel_073.fmd
+	2d_geometry_step/channel_water_ablation/channel_073.step
+	2d_geometry_step/channel_water_ablation/channel_074.fmd
+	2d_geometry_step/channel_water_ablation/channel_074.step
+	2d_geometry_step/channel_water_ablation/channel_075.fmd
+	2d_geometry_step/channel_water_ablation/channel_075.step
+	2d_geometry_step/channel_water_ablation/channel_076.fmd
+	2d_geometry_step/channel_water_ablation/channel_076.step
+	2d_geometry_step/channel_water_ablation/channel_077.fmd
+	2d_geometry_step/channel_water_ablation/channel_077.step
+	2d_geometry_step/channel_water_ablation/channel_078.fmd
+	2d_geometry_step/channel_water_ablation/channel_078.step
+	2d_geometry_step/channel_water_ablation/channel_079.fmd
+	2d_geometry_step/channel_water_ablation/channel_079.step
+	2d_geometry_step/channel_water_ablation/channel_080.fmd
+	2d_geometry_step/channel_water_ablation/channel_080.step
+	2d_geometry_step/channel_water_ablation/channel_081.fmd
+	2d_geometry_step/channel_water_ablation/channel_081.step
+	2d_geometry_step/channel_water_ablation/channel_082.fmd
+	2d_geometry_step/channel_water_ablation/channel_082.step
+	2d_geometry_step/channel_water_ablation/channel_083.fmd
+	2d_geometry_step/channel_water_ablation/channel_083.step
+	2d_geometry_step/channel_water_ablation/channel_084.fmd
+	2d_geometry_step/channel_water_ablation/channel_084.step
+	2d_geometry_step/channel_water_ablation/channel_085.fmd
+	2d_geometry_step/channel_water_ablation/channel_085.step
+	2d_geometry_step/channel_water_ablation/channel_086.fmd
+	2d_geometry_step/channel_water_ablation/channel_086.step
+	2d_geometry_step/channel_water_ablation/channel_087.fmd
+	2d_geometry_step/channel_water_ablation/channel_087.step
+	2d_geometry_step/channel_water_ablation/channel_088.fmd
+	2d_geometry_step/channel_water_ablation/channel_088.step
+	2d_geometry_step/channel_water_ablation/channel_089.fmd
+	2d_geometry_step/channel_water_ablation/channel_089.step
+	2d_geometry_step/channel_water_ablation/channel_090.fmd
+	2d_geometry_step/channel_water_ablation/channel_090.step
+	2d_geometry_step/channel_water_ablation/channel_091.fmd
+	2d_geometry_step/channel_water_ablation/channel_091.step
+	2d_geometry_step/channel_water_ablation/channel_092.fmd
+	2d_geometry_step/channel_water_ablation/channel_092.step
+	2d_geometry_step/channel_water_ablation/channel_093.fmd
+	2d_geometry_step/channel_water_ablation/channel_093.step
+	2d_geometry_step/channel_water_ablation/channel_094.fmd
+	2d_geometry_step/channel_water_ablation/channel_094.step
+	2d_geometry_step/channel_water_ablation/channel_095.fmd
+	2d_geometry_step/channel_water_ablation/channel_095.step
+	2d_geometry_step/channel_water_ablation/channel_096.fmd
+	2d_geometry_step/channel_water_ablation/channel_096.step
+	2d_geometry_step/channel_water_ablation/channel_097.fmd
+	2d_geometry_step/channel_water_ablation/channel_097.step
+	2d_geometry_step/channel_water_ablation/channel_098.fmd
+	2d_geometry_step/channel_water_ablation/channel_098.step
+	2d_geometry_step/channel_water_ablation/channel_099.fmd
+	2d_geometry_step/channel_water_ablation/channel_099.step
+	2d_geometry_step/channel_water_ablation/channel_100.fmd
+	2d_geometry_step/channel_water_ablation/channel_100.step
+	2d_geometry_step/channel_water_ablation/channel_101.fmd
+	2d_geometry_step/channel_water_ablation/channel_101.step
+	2d_geometry_step/channel_water_ablation/channel_102.fmd
+	2d_geometry_step/channel_water_ablation/channel_102.step
+	2d_geometry_step/channel_water_ablation/channel_103.fmd
+	2d_geometry_step/channel_water_ablation/channel_103.step
+	2d_geometry_step/channel_water_ablation/channel_104.fmd
+	2d_geometry_step/channel_water_ablation/channel_104.step
+	2d_geometry_step/channel_water_ablation/channel_105.fmd
+	2d_geometry_step/channel_water_ablation/channel_105.step
+	2d_geometry_step/channel_water_ablation/channel_106.fmd
+	2d_geometry_step/channel_water_ablation/channel_106.step
+	2d_geometry_step/channel_water_ablation/channel_107.fmd
+	2d_geometry_step/channel_water_ablation/channel_107.step
+	2d_geometry_step/channel_water_ablation/channel_108.fmd
+	2d_geometry_step/channel_water_ablation/channel_108.step
+	2d_geometry_step/channel_water_ablation/channel_109.fmd
+	2d_geometry_step/channel_water_ablation/channel_109.step
+	2d_geometry_step/channel_water_ablation/channel_110.fmd
+	2d_geometry_step/channel_water_ablation/channel_110.step
+	2d_geometry_step/channel_water_ablation/channel_111.fmd
+	2d_geometry_step/channel_water_ablation/channel_111.step
+	2d_geometry_step/channel_water_ablation/channel_112.fmd
+	2d_geometry_step/channel_water_ablation/channel_112.step
+	2d_geometry_step/channel_water_ablation/channel_113.fmd
+	2d_geometry_step/channel_water_ablation/channel_113.step
+	2d_geometry_step/channel_water_ablation/channel_114.fmd
+	2d_geometry_step/channel_water_ablation/channel_114.step
+	2d_geometry_step/channel_water_ablation/channel_115.fmd
+	2d_geometry_step/channel_water_ablation/channel_115.step
+	2d_geometry_step/channel_water_ablation/channel_116.fmd
+	2d_geometry_step/channel_water_ablation/channel_116.step
+	2d_geometry_step/channel_water_ablation/channel_117.fmd
+	2d_geometry_step/channel_water_ablation/channel_117.step
+	2d_geometry_step/channel_water_ablation/channel_118.fmd
+	2d_geometry_step/channel_water_ablation/channel_118.step
+	2d_geometry_step/channel_water_ablation/channel_119.fmd
+	2d_geometry_step/channel_water_ablation/channel_119.step
+	2d_geometry_step/channel_water_ablation/channel_120.fmd
+	2d_geometry_step/channel_water_ablation/channel_120.step
+	2d_geometry_step/channel_water_ablation/channel_121.fmd
+	2d_geometry_step/channel_water_ablation/channel_121.step
+	2d_geometry_step/channel_water_ablation/channel_122.fmd
+	2d_geometry_step/channel_water_ablation/channel_122.step
+	2d_geometry_step/channel_water_ablation/channel_123.fmd
+	2d_geometry_step/channel_water_ablation/channel_123.step
+	2d_geometry_step/channel_water_ablation/channel_124.fmd
+	2d_geometry_step/channel_water_ablation/channel_124.step
+	2d_geometry_step/channel_water_ablation/channel_125.fmd
+	2d_geometry_step/channel_water_ablation/channel_125.step
+	2d_geometry_step/channel_water_ablation/channel_126.fmd
+	2d_geometry_step/channel_water_ablation/channel_126.step
+	2d_geometry_step/channel_water_ablation/channel_127.fmd
+	2d_geometry_step/channel_water_ablation/channel_127.step
+	2d_geometry_step/channel_water_ablation/channel_128.fmd
+	2d_geometry_step/channel_water_ablation/channel_128.step
+	2d_geometry_step/channel_water_ablation/channel_129.fmd
+	2d_geometry_step/channel_water_ablation/channel_129.step
+	2d_geometry_step/channel_water_ablation/channel_130.fmd
+	2d_geometry_step/channel_water_ablation/channel_130.step
+	2d_geometry_step/channel_water_ablation/channel_131.fmd
+	2d_geometry_step/channel_water_ablation/channel_131.step
+	2d_geometry_step/channel_water_ablation/channel_132.fmd
+	2d_geometry_step/channel_water_ablation/channel_132.step
+	2d_geometry_step/channel_water_ablation/channel_133.fmd
+	2d_geometry_step/channel_water_ablation/channel_133.step
+	2d_geometry_step/channel_water_ablation/channel_134.fmd
+	2d_geometry_step/channel_water_ablation/channel_134.step
+	2d_geometry_step/channel_water_ablation/channel_135.fmd
+	2d_geometry_step/channel_water_ablation/channel_135.step
+	2d_geometry_step/channel_water_ablation/channel_136.fmd
+	2d_geometry_step/channel_water_ablation/channel_136.step
+	2d_geometry_step/channel_water_ablation/channel_137.fmd
+	2d_geometry_step/channel_water_ablation/channel_137.step
+	2d_geometry_step/channel_water_ablation/channel_138.fmd
+	2d_geometry_step/channel_water_ablation/channel_138.step
+	2d_geometry_step/channel_water_ablation/channel_139.fmd
+	2d_geometry_step/channel_water_ablation/channel_139.step
+	2d_geometry_step/channel_water_ablation/channel_140.fmd
+	2d_geometry_step/channel_water_ablation/channel_140.step
+	2d_geometry_step/channel_water_ablation/channel_141.fmd
+	2d_geometry_step/channel_water_ablation/channel_141.step
+	2d_geometry_step/channel_water_ablation/channel_142.fmd
+	2d_geometry_step/channel_water_ablation/channel_142.step
+	2d_geometry_step/channel_water_ablation/channel_143.fmd
+	2d_geometry_step/channel_water_ablation/channel_143.step
+	2d_geometry_step/channel_water_ablation/channel_144.fmd
+	2d_geometry_step/channel_water_ablation/channel_144.step
+	2d_geometry_step/channel_water_ablation/channel_145.fmd
+	2d_geometry_step/channel_water_ablation/channel_145.step
+	2d_geometry_step/channel_water_ablation/channel_146.fmd
+	2d_geometry_step/channel_water_ablation/channel_146.step
+	2d_geometry_step/channel_water_ablation/channel_147.fmd
+	2d_geometry_step/channel_water_ablation/channel_147.step
+	2d_geometry_step/channel_water_ablation/channel_148.fmd
+	2d_geometry_step/channel_water_ablation/channel_148.step
+	2d_geometry_step/channel_water_ablation/channel_149.fmd
+	2d_geometry_step/channel_water_ablation/channel_149.step
+	2d_geometry_step/channel_water_ablation/channel_150.fmd
+	2d_geometry_step/channel_water_ablation/channel_150.step
+	2d_geometry_step/channel_water_ablation/channel_151.fmd
+	2d_geometry_step/channel_water_ablation/channel_151.step
+	2d_geometry_step/channel_water_ablation/channel_152.fmd
+	2d_geometry_step/channel_water_ablation/channel_152.step
+	2d_geometry_step/channel_water_ablation/channel_153.fmd
+	2d_geometry_step/channel_water_ablation/channel_153.step
+	2d_geometry_step/channel_water_ablation/channel_154.fmd
+	2d_geometry_step/channel_water_ablation/channel_154.step
+	2d_geometry_step/channel_water_ablation/channel_155.fmd
+	2d_geometry_step/channel_water_ablation/channel_155.step
+	2d_geometry_step/channel_water_ablation/channel_156.fmd
+	2d_geometry_step/channel_water_ablation/channel_156.step
+	2d_geometry_step/channel_water_ablation/channel_157.fmd
+	2d_geometry_step/channel_water_ablation/channel_157.step
+	2d_geometry_step/channel_water_ablation/channel_158.fmd
+	2d_geometry_step/channel_water_ablation/channel_158.step
+	2d_geometry_step/channel_water_ablation/channel_159.fmd
+	2d_geometry_step/channel_water_ablation/channel_159.step
+	DeepONet/results/081426_1/predictions/test/
+	DeepONet/results/081426_1/predictions/test_ablation/
+	DeepONet/results/081726_1/
+	FM_en4226642rl_4126572/
+	runs_2d/channel_water_ablation/channel_050/
+	runs_2d/channel_water_ablation/channel_051/
+	runs_2d/channel_water_ablation/channel_052/
+	runs_2d/channel_water_ablation/channel_053/
+	runs_2d/channel_water_ablation/channel_054/
+	runs_2d/channel_water_ablation/channel_055/
+	runs_2d/channel_water_ablation/channel_056/
+	runs_2d/channel_water_ablation/channel_057/
+	runs_2d/channel_water_ablation/channel_058/
+	runs_2d/channel_water_ablation/channel_059/
+	runs_2d/channel_water_ablation/channel_060/
+	runs_2d/channel_water_ablation/channel_061/
+	runs_2d/channel_water_ablation/channel_062/
+	runs_2d/channel_water_ablation/channel_063/
+	runs_2d/channel_water_ablation/channel_064/
+	runs_2d/channel_water_ablation/channel_065/
+	runs_2d/channel_water_ablation/channel_066/
+	runs_2d/channel_water_ablation/channel_067/
+	runs_2d/channel_water_ablation/channel_068/
+	runs_2d/channel_water_ablation/channel_069/
+	runs_2d/channel_water_ablation/channel_070/
+	runs_2d/channel_water_ablation/channel_071/
+	runs_2d/channel_water_ablation/channel_072/
+	runs_2d/channel_water_ablation/channel_073/
+	runs_2d/channel_water_ablation/channel_074/
+	runs_2d/channel_water_ablation/channel_075/
+	runs_2d/channel_water_ablation/channel_076/
+	runs_2d/channel_water_ablation/channel_077/
+	runs_2d/channel_water_ablation/channel_078/
+	runs_2d/channel_water_ablation/channel_079/
+	runs_2d/channel_water_ablation/channel_080/
+	runs_2d/channel_water_ablation/channel_081/
+	runs_2d/channel_water_ablation/channel_082/
+	runs_2d/channel_water_ablation/channel_083/
+	runs_2d/channel_water_ablation/channel_084/
+	runs_2d/channel_water_ablation/channel_085/
+	runs_2d/channel_water_ablation/channel_086/
+	runs_2d/channel_water_ablation/channel_087/
+	runs_2d/channel_water_ablation/channel_088/
+	runs_2d/channel_water_ablation/channel_089/
+	runs_2d/channel_water_ablation/channel_090/
+	runs_2d/channel_water_ablation/channel_091/
+	runs_2d/channel_water_ablation/channel_092/
+	runs_2d/channel_water_ablation/channel_093/
+	runs_2d/channel_water_ablation/channel_094/
+	runs_2d/channel_water_ablation/channel_095/
+	runs_2d/channel_water_ablation/channel_096/
+	runs_2d/channel_water_ablation/channel_097/
+	runs_2d/channel_water_ablation/channel_098/
+	runs_2d/channel_water_ablation/channel_099/
+	runs_2d/channel_water_ablation/channel_100/
+	runs_2d/channel_water_ablation/channel_101/
+	runs_2d/channel_water_ablation/channel_102/
+	runs_2d/channel_water_ablation/channel_103/
+	runs_2d/channel_water_ablation/channel_104/
+	runs_2d/channel_water_ablation/channel_105/
+	runs_2d/channel_water_ablation/channel_106/
+	runs_2d/channel_water_ablation/channel_107/
+	runs_2d/channel_water_ablation/channel_108/
+	runs_2d/channel_water_ablation/channel_109/
+	runs_2d/channel_water_ablation/channel_110/
+	runs_2d/channel_water_ablation/channel_111/
+	runs_2d/channel_water_ablation/channel_112/
+	runs_2d/channel_water_ablation/channel_113/
+	runs_2d/channel_water_ablation/channel_114/
+	runs_2d/channel_water_ablation/channel_115/
+	runs_2d/channel_water_ablation/channel_116/
+	runs_2d/channel_water_ablation/channel_117/
+	runs_2d/channel_water_ablation/channel_118/
+	runs_2d/channel_water_ablation/channel_119/
+	runs_2d/channel_water_ablation/channel_120/
+	runs_2d/channel_water_ablation/channel_121/
+	runs_2d/channel_water_ablation/channel_122/
+	runs_2d/channel_water_ablation/channel_123/
+	runs_2d/channel_water_ablation/channel_124/
+	runs_2d/channel_water_ablation/channel_125/
+	runs_2d/channel_water_ablation/channel_126/
+	runs_2d/channel_water_ablation/channel_127/
+	runs_2d/channel_water_ablation/channel_128/
+	runs_2d/channel_water_ablation/channel_129/
+	runs_2d/channel_water_ablation/channel_130/
+	runs_2d/channel_water_ablation/channel_131/
+	runs_2d/channel_water_ablation/channel_132/
+	runs_2d/channel_water_ablation/channel_133/
+	runs_2d/channel_water_ablation/channel_134/
+	runs_2d/channel_water_ablation/channel_135/
+	runs_2d/channel_water_ablation/channel_136/
+	runs_2d/channel_water_ablation/channel_137/
+	runs_2d/channel_water_ablation/channel_138/
+	runs_2d/channel_water_ablation/channel_139/
+	runs_2d/channel_water_ablation/channel_140/
+	runs_2d/channel_water_ablation/channel_141/
+	runs_2d/channel_water_ablation/channel_142/
+	runs_2d/channel_water_ablation/channel_143/
+	runs_2d/channel_water_ablation/channel_144/
+	runs_2d/channel_water_ablation/channel_145/
+	runs_2d/channel_water_ablation/channel_146/
+	runs_2d/channel_water_ablation/channel_147/
+	runs_2d/channel_water_ablation/channel_148/
+	runs_2d/channel_water_ablation/channel_149/
+	runs_2d/channel_water_ablation/channel_150/
+	runs_2d/channel_water_ablation/channel_151/
+	runs_2d/channel_water_ablation/channel_152/
+	runs_2d/channel_water_ablation/channel_153/
+	runs_2d/channel_water_ablation/channel_154/
+	runs_2d/channel_water_ablation/channel_155/
+	runs_2d/channel_water_ablation/channel_156/
+	runs_2d/channel_water_ablation/channel_157/
+	runs_2d/channel_water_ablation/channel_158/
+	runs_2d/channel_water_ablation/channel_159/
+	runs_2d/channel_water_ablation/summary.csv
+
