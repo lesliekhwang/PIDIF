@@ -5,3 +5,4 @@ __pycache__
 .DS_Store
 runs_2d/transient_cylinder/*
 DeepONet/data
+*.fmd
